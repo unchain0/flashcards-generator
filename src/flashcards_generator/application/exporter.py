@@ -1,3 +1,5 @@
+"""Export decks to various formats."""
+
 import csv
 from typing import TYPE_CHECKING
 
@@ -10,14 +12,18 @@ if TYPE_CHECKING:
 
 
 class DeckExporter:
+    """Export deck to various file formats."""
+
     @staticmethod
     def export_json(deck: Deck, path: Path) -> None:
+        """Export deck to JSON file."""
         path.write_text(
             deck.model_dump_json(indent=2, ensure_ascii=False), encoding="utf-8"
         )
 
     @staticmethod
     def export_csv(deck: Deck, path: Path) -> None:
+        """Export deck to CSV file."""
         with open(path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f, quoting=csv.QUOTE_ALL)
             writer.writerow(["Front", "Back", "Tags"])
@@ -28,6 +34,7 @@ class DeckExporter:
 
     @staticmethod
     def export_anki(deck: Deck, path: Path) -> None:
+        """Export deck to Anki TSV format."""
         lines = [
             f"# Deck: {deck.name}",
             f"# Gerado: {deck.created_at.isoformat()}",
@@ -47,6 +54,7 @@ class DeckExporter:
 
     @staticmethod
     def export_markdown(deck: Deck, path: Path) -> None:
+        """Export deck to Markdown file."""
         lines = [
             f"# {deck.name}",
             "",

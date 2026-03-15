@@ -1,9 +1,16 @@
+"""Logging configuration for the application."""
+
 import sys
+from typing import TYPE_CHECKING
 
 from loguru import logger
 
+if TYPE_CHECKING:
+    from loguru import Logger
+
 
 def configure_logging(level: str = "INFO") -> None:
+    """Configure application logging with loguru."""
     logger.remove()
 
     fmt = (
@@ -22,5 +29,6 @@ def configure_logging(level: str = "INFO") -> None:
     )
 
 
-def get_logger(name: str):
+def get_logger(name: str) -> Logger:
+    """Get a logger instance with the given name."""
     return logger.bind(name=name)

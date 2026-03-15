@@ -1,22 +1,27 @@
+"""Process and preserve LaTeX/math in flashcards."""
+
+from __future__ import annotations
+
 import re
+from typing import ClassVar
 
 
 class MathProcessor:
-    """Processa e preserva LaTeX/math em flashcards."""
+    """Process and preserve LaTeX/math in flashcards."""
 
-    MATH_INLINE_PATTERNS = [
+    MATH_INLINE_PATTERNS: ClassVar[list[tuple[str, str]]] = [
         (r"\\\((.+?)\\\)", "paren"),
         (r"\$([^$]+)\$", "dollar"),
     ]
 
-    MATH_DISPLAY_PATTERNS = [
+    MATH_DISPLAY_PATTERNS: ClassVar[list[tuple[str, str]]] = [
         (r"\$\$([^$]+)\$\$", "ddollar"),  # $$...$$
         (r"\\\[(.+?)\\\]", "bracket"),  # \[...\]
     ]
 
-    PLACEHOLDER_PREFIX = "MATHPLACEHOLDER"
+    PLACEHOLDER_PREFIX: ClassVar[str] = "MATHPLACEHOLDER"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.math_storage: dict[str, str] = {}
         self.counter = 0
 
@@ -38,7 +43,7 @@ class MathProcessor:
     def _replace_math(self, text: str, pattern: str, is_display: bool) -> str:
         """Substitui math por placeholder."""
 
-        def replace_match(match):
+        def replace_match(match: re.Match) -> str:
             self.counter += 1
             placeholder = f"{self.PLACEHOLDER_PREFIX}{self.counter:04d}"
             math_content = match.group(0)
@@ -63,8 +68,9 @@ class MathProcessor:
         return False
 
     def process_for_cloze(self, text: str, cloze_marker: str) -> str:
-        """Processa texto com math para criar cloze.
-        Garante que o math não quebre o formato cloze.
+        """Process text with math to create cloze.
+
+        Ensures math doesn't break the cloze format.
         """
         # Extrair math
         text_with_placeholders = self.extract_and_replace(text)
@@ -79,8 +85,9 @@ class MathProcessor:
 
 
 def extract_math_segments(text: str) -> list[tuple[str, bool]]:
-    """Extrai segmentos de texto e math.
-    Retorna lista de (segmento, é_math).
+    """Extract text and math segments.
+
+    Returns list of (segment, is_math).
     """
     segments = []
 
@@ -107,12 +114,14 @@ def extract_math_segments(text: str) -> list[tuple[str, bool]]:
 
 
 def convert_to_anki_math_format(text: str) -> str:
+    """Convert dollar math notation to Anki LaTeX format."""
     text = re.sub(r"\$\$([^$]+)\$\$", r"\\[\1\\]", text)
     text = re.sub(r"\$([^$]+)\$", r"\\(\1\\)", text)
     return text
 
 
 def create_cloze_with_math(text: str, answer: str, card_num: int) -> str:
+    """Create cloze deletion with math support."""
     processor = MathProcessor()
 
     if processor.has_math(answer):

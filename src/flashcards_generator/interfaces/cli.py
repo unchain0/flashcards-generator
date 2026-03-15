@@ -1,24 +1,37 @@
+"""CLI interface with proper dependency wiring."""
+
 import argparse
 import subprocess
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
+from flashcards_generator.adapters.notebooklm_adapter import NotebookLMAdapter
+from flashcards_generator.application.dto.generate_request import (
+    GenerateFlashcardsRequest,
+)
 from flashcards_generator.application.use_cases import GenerateFlashcardsUseCase
-from flashcards_generator.domain.value_objects import Config
 from flashcards_generator.infrastructure.logging_config import (
     configure_logging,
     get_logger,
 )
 from flashcards_generator.infrastructure.paths import find_notebooklm
 
+if TYPE_CHECKING:
+    from flashcards_generator.domain.entities import Deck
+
 logger = get_logger("cli")
 
 
 class CLI:
-    def __init__(self):
+    """Command-line interface for flashcards generator."""
+
+    def __init__(self) -> None:
+        """Initialize CLI with argument parser."""
         self.parser = self._create_parser()
 
     def _create_parser(self) -> argparse.ArgumentParser:
+        """Create argument parser."""
         parser = argparse.ArgumentParser(
             description="Gera flashcards com Cloze Deletion a partir de PDFs"
         )
@@ -37,7 +50,10 @@ class CLI:
             help="Diretório de saída",
         )
         parser.add_argument(
-            "--difficulty", "-d", choices=["easy", "medium", "hard"], default="medium"
+            "--difficulty",
+            "-d",
+            choices=["easy", "medium", "hard"],
+            default="medium",
         )
         parser.add_argument(
             "--quantity",
@@ -53,7 +69,9 @@ class CLI:
             help="Idioma dos flashcards (padrão: pt_BR)",
         )
         parser.add_argument(
-            "--no-wait", action="store_true", help="Não aguarda conclusão"
+            "--no-wait",
+            action="store_true",
+            help="Não aguarda conclusão",
         )
         parser.add_argument("--timeout", type=int, default=900)
         parser.add_argument("--skip-auth-check", action="store_true")
@@ -66,6 +84,7 @@ class CLI:
         return parser
 
     def check_auth(self) -> bool:
+        """Check if user is authenticated with NotebookLM."""
         notebooklm = find_notebooklm()
         try:
             result = subprocess.run(
@@ -75,16 +94,18 @@ class CLI:
                 timeout=10,
             )
             return result.returncode == 0 and "✓" in result.stdout
-        except Exception:
+        except subprocess.TimeoutExpired, FileNotFoundError:
             return False
 
     def _validate_input(self, input_dir: Path) -> bool:
+        """Validate input directory exists."""
         if not input_dir.exists():
             logger.error(f"Diretório não existe: {input_dir}")
             return False
         return True
 
     def _authenticate(self, skip_auth_check: bool) -> bool:
+        """Verify authentication."""
         if skip_auth_check:
             return True
         logger.info("Verificando autenticação...")
@@ -95,6 +116,7 @@ class CLI:
         return True
 
     def _set_language(self, language: str) -> None:
+        """Set language for NotebookLM."""
         notebooklm = find_notebooklm()
         try:
             subprocess.run(
@@ -103,11 +125,22 @@ class CLI:
                 timeout=10,
             )
             logger.info(f"Idioma configurado: {language}")
-        except Exception:
+        except subprocess.TimeoutExpired, FileNotFoundError:
             logger.warning("Não foi possível configurar o idioma")
 
-    def _create_config(self, args) -> Config:
-        return Config(
+    def _create_use_case(self, args: argparse.Namespace) -> GenerateFlashcardsUseCase:
+        """Create use case with dependencies wired."""
+        notebooklm_path = find_notebooklm()
+
+        # Create adapter (infrastructure concern)
+        generator = NotebookLMAdapter(notebooklm_path, timeout=args.timeout)
+
+        # Create use case with injected dependencies
+        return GenerateFlashcardsUseCase(generator=generator)
+
+    def _create_request(self, args: argparse.Namespace) -> GenerateFlashcardsRequest:
+        """Create request DTO from CLI args."""
+        return GenerateFlashcardsRequest(
             input_dir=args.input_dir,
             output_dir=args.output_dir,
             difficulty=args.difficulty,
@@ -117,14 +150,16 @@ class CLI:
             timeout=args.timeout,
         )
 
-    def _log_config(self, config: Config) -> None:
+    def _log_config(self, request: GenerateFlashcardsRequest) -> None:
+        """Log configuration."""
         logger.info("Iniciando...")
-        logger.info(f"Entrada: {config.input_dir}")
-        logger.info(f"Saída: {config.output_dir}")
-        logger.info(f"Dificuldade: {config.difficulty}")
-        logger.info(f"Quantidade: {config.quantity}")
+        logger.info(f"Entrada: {request.input_dir}")
+        logger.info(f"Saída: {request.output_dir}")
+        logger.info(f"Dificuldade: {request.difficulty}")
+        logger.info(f"Quantidade: {request.quantity}")
 
-    def _print_summary(self, decks: list) -> None:
+    def _print_summary(self, decks: list[Deck]) -> None:
+        """Print execution summary."""
         total_cards = sum(d.total_cards for d in decks)
         logger.info("=" * 60)
         logger.info("RESUMO")
@@ -137,6 +172,7 @@ class CLI:
             logger.info(f"  {status} {deck.name}: {deck.total_cards} cards")
 
     def run(self) -> int:
+        """Run CLI."""
         args = self.parser.parse_args()
         configure_logging(args.log_level)
 
@@ -147,16 +183,19 @@ class CLI:
             return 1
 
         self._set_language(args.language)
-        config = self._create_config(args)
-        self._log_config(config)
 
-        use_case = GenerateFlashcardsUseCase(config)
-        decks = use_case.execute()
+        # Create use case with wired dependencies
+        use_case = self._create_use_case(args)
+        request = self._create_request(args)
+        self._log_config(request)
+
+        decks = use_case.execute(request)
 
         self._print_summary(decks)
         return 0
 
 
-def main():
+def main() -> None:
+    """Entry point."""
     cli = CLI()
     sys.exit(cli.run())

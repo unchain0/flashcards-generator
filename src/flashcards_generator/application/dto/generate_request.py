@@ -1,20 +1,21 @@
-"""Data Transfer Objects for use cases."""
+"""DTO for generate flashcards use case."""
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from pathlib import Path
 
-if TYPE_CHECKING:
-    from pathlib import Path
+from pydantic import BaseModel, Field
+
+_ = Path  # Explicit runtime usage for pydantic model validation
 
 
-@dataclass(frozen=True)
-class GenerateFlashcardsRequest:
+class GenerateFlashcardsRequest(BaseModel):
     """Request to generate flashcards."""
+
+    model_config = {"arbitrary_types_allowed": True}
 
     input_dir: Path
     output_dir: Path
-    difficulty: str = "medium"
-    quantity: str = "standard"
-    instructions: str = ""
-    wait_for_completion: bool = True
-    timeout: int = 900
+    difficulty: str = Field(default="medium")
+    quantity: str = Field(default="standard")
+    instructions: str = Field(default="")
+    wait_for_completion: bool = Field(default=True)
+    timeout: int = Field(default=900)

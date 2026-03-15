@@ -14,7 +14,9 @@ class TestClozeConverter:
     def test_convert_complex_answer(self, cloze_converter):
         card = Flashcard(
             front="O que é fotossíntese?",
-            back="Processo pelo qual as plantas convertem luz solar em energia química.",
+            back=(
+                "Processo pelo qual as plantas convertem luz solar em energia química."
+            ),
         )
         result = cloze_converter.convert(card)
 
@@ -51,7 +53,10 @@ class TestClozeConverter:
     def test_create_complex_cloze_multiple_sentences(self, cloze_converter):
         card = Flashcard(
             front="Explique a fotossíntese",
-            back="A fotossíntese é um processo biológico. As plantas convertem luz em energia. Isso ocorre nas folhas.",
+            back=(
+                "A fotossíntese é um processo biológico. "
+                "As plantas convertem luz em energia. Isso ocorre nas folhas."
+            ),
         )
         result = cloze_converter.convert(card)
         assert result.front != card.back
@@ -62,7 +67,10 @@ class TestClozeConverter:
         assert "}}" in result
 
     def test_process_sentence_long_with_keywords(self, cloze_converter):
-        sentence = "O processo de fotossíntese é caracterizado pela conversão de energia luminosa em energia química"
+        sentence = (
+            "O processo de fotossíntese é caracterizado pela "
+            "conversão de energia luminosa em energia química"
+        )
         result = cloze_converter._process_sentence(sentence, 1)
         assert "{{c" in result
         assert "}}" in result

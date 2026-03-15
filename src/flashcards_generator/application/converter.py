@@ -1,11 +1,18 @@
+"""Converter for creating cloze deletion flashcards."""
+
+from __future__ import annotations
+
 import re
+from typing import ClassVar
 
 from flashcards_generator.application.math_processor import convert_to_anki_math_format
 from flashcards_generator.domain.entities import Flashcard
 
 
 class ClozeConverter:
-    KEYWORDS = [
+    """Convert flashcards to cloze deletion format."""
+
+    KEYWORDS: ClassVar[list[str]] = [
         "definido como",
         "caracterizado por",
         "representa",
@@ -66,7 +73,7 @@ class ClozeConverter:
         "feature",
     ]
 
-    TRIVIAL_WORDS = {
+    TRIVIAL_WORDS: ClassVar[set[str]] = {
         "é",
         "são",
         "foi",
@@ -188,6 +195,7 @@ class ClozeConverter:
     }
 
     def convert(self, flashcard: Flashcard) -> Flashcard | None:
+        """Convert a flashcard to cloze deletion format."""
         question = self._clean(flashcard.front)
         answer = self._clean(flashcard.back)
 
@@ -333,7 +341,6 @@ class ClozeConverter:
     def _find_important_index(self, words: list[str]) -> int:
         for i, word in enumerate(words):
             clean = word.lower().strip(",.;:!?")
-            if clean not in self.TRIVIAL_WORDS:
-                if word[0].isupper() or i > 0:
-                    return i
+            if clean not in self.TRIVIAL_WORDS and (word[0].isupper() or i > 0):
+                return i
         return len(words) // 2

@@ -1,58 +1,97 @@
+"""Generate flashcards use case with dependency injection."""
 
-import contextlib
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 from flashcards_generator.application.converter import ClozeConverter
+from flashcards_generator.application.dto.generate_request import (
+    GenerateFlashcardsRequest,
+)
 from flashcards_generator.application.exporter import DeckExporter
 from flashcards_generator.domain.entities import Deck
+from flashcards_generator.domain.exceptions import (
+    GenerationError,
+    NotebookCleanupError,
+    SourceProcessingError,
+)
+from flashcards_generator.domain.ports.flashcard_generator import (
+    FlashcardGeneratorPort,
+    GenerationConfig,
+)
 from flashcards_generator.infrastructure.logging_config import get_logger
-from flashcards_generator.infrastructure.notebooklm_client import NotebookLMClient
-from flashcards_generator.infrastructure.paths import find_notebooklm
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
-    from flashcards_generator.domain.value_objects import Config
+# Explicit runtime usage to prevent type-checking-only false positives
+_ = (Path, GenerateFlashcardsRequest)
 
 logger = get_logger("use_cases")
 
 
 class GenerateFlashcardsUseCase:
-    def __init__(self, config: Config):
-        self.config = config
-        self.client = NotebookLMClient(find_notebooklm(), config.timeout)
-        self.converter = ClozeConverter()
-        self.exporter = DeckExporter()
-        self.created_notebooks: list[str] = []
+    """Use case for generating flashcards from PDF files.
 
-    def _cleanup_notebooks(self):
-        if self.created_notebooks:
-            logger.info(f"Limpando {len(self.created_notebooks)} notebook(s)...")
-            for notebook_id in self.created_notebooks:
-                try:
-                    self.client.delete_notebook(notebook_id)
-                    logger.info(f"Deletado: {notebook_id[:8]}...")
-                except Exception:
-                    pass
-            self.created_notebooks.clear()
+    Dependencies:
+        - generator: FlashcardGeneratorPort implementation
+        - converter: ClozeConverter instance
+        - exporter: DeckExporter instance
+    """
 
-    def execute(self) -> list[Deck]:
-        input_path = self.config.input_dir
-        output_path = self.config.output_dir
+    DEFAULT_INSTRUCTIONS = (
+        "Gere flashcards de alta qualidade para estudo com spaced repetition. "
+        "FORMATO OBRIGATÓRIO (100% dos cards): Use APENAS Cloze Deletion. "
+        "Crie frases completas onde o conceito importante está envolto em "
+        "{{c1::conceito}}. "
+        "Exemplo: 'Um {{c1::conjunto}} é uma coleção de elementos.' "
+        "REGRAS: "
+        "1. Teste apenas CONCEITOS IMPORTANTES: definições, termos técnicos, "
+        "fórmulas, notações matemáticas. "
+        "2. NUNCA crie cloze para palavras triviais como: é, são, de, da, um, uma. "
+        "3. Frases curtas (máximo 20-30 palavras) e diretas. "
+        "4. Cada card deve testar UMA ÚNICA ideia central. "
+        "5. Use LaTeX $...$ para matemática. "
+        "6. Priorize: definições, teoremas, propriedades, exemplos. "
+        "7. Evite: perguntas triviais, traduções simples ou óbvias. "
+        "8. NÃO gere flashcards no formato pergunta-resposta, apenas cloze. "
+        "9. O VERSO deve conter detalhes extras/explicação, "
+        "NÃO apenas a resposta. "
+        "FORMATO: Frente (cloze com resposta oculta); "
+        "Verso (detalhes/explicação adicional)"
+    )
+
+    def __init__(
+        self,
+        generator: FlashcardGeneratorPort,
+        converter: ClozeConverter | None = None,
+        exporter: DeckExporter | None = None,
+    ):
+        self.generator = generator
+        self.converter = converter or ClozeConverter()
+        self.exporter = exporter or DeckExporter()
+        self._created_notebooks: list[str] = []
+
+    def execute(self, request: GenerateFlashcardsRequest) -> list[Deck]:
+        """Execute flashcard generation for all PDFs in input directory.
+
+        Args:
+            request: Configuration and paths for generation
+
+        Returns:
+            List of generated decks
+        """
+        input_path = request.input_dir
+        output_path = request.output_dir
         output_path.mkdir(parents=True, exist_ok=True)
 
-        decks = []
+        decks: list[Deck] = []
         try:
             all_pdfs = self._find_all_pdfs(input_path)
 
             if not all_pdfs:
-                logger.warning(f"Nenhum PDF encontrado em {input_path}")
+                logger.warning(f"No PDFs found in {input_path}")
                 return decks
 
-            logger.info(f"{len(all_pdfs)} PDF(s) encontrado(s)")
+            logger.info(f"{len(all_pdfs)} PDF(s) found")
 
             for pdf_path in sorted(all_pdfs):
-                deck = self._process_pdf(pdf_path, input_path, output_path)
+                deck = self._process_pdf(pdf_path, input_path, output_path, request)
                 if deck:
                     decks.append(deck)
                     self._save_deck(deck, output_path)
@@ -62,9 +101,11 @@ class GenerateFlashcardsUseCase:
             self._cleanup_notebooks()
 
     def _find_all_pdfs(self, input_path: Path) -> list[Path]:
+        """Find all PDF files recursively."""
         return list(input_path.rglob("*.pdf"))
 
     def _get_deck_name(self, pdf_path: Path, input_path: Path) -> str:
+        """Generate deck name from PDF path."""
         relative_path = pdf_path.relative_to(input_path)
         name_parts = [*list(relative_path.parent.parts), relative_path.stem]
         return "_".join(name_parts)
@@ -72,6 +113,7 @@ class GenerateFlashcardsUseCase:
     def _get_output_subdir(
         self, pdf_path: Path, input_path: Path, output_path: Path
     ) -> Path:
+        """Get or create output subdirectory for PDF."""
         relative_path = pdf_path.relative_to(input_path)
         if relative_path.parent:
             subdir = output_path / relative_path.parent
@@ -79,89 +121,45 @@ class GenerateFlashcardsUseCase:
             return subdir
         return output_path
 
-    def _get_default_instructions(self) -> str:
-        return (
-            "Gere flashcards de alta qualidade para estudo com spaced repetition. "
-            "FORMATO PRIMÁRIO (90% dos cards): Use Cloze Deletion. "
-            "Crie frases completas onde o conceito importante está envolto em {{c1::conceito}}. "
-            "Exemplo de formato correto: 'Um {{c1::conjunto}} é uma coleção de elementos.' "
-            "REGRAS DE QUALIDADE: "
-            "1. Teste apenas CONCEITOS IMPORTANTES: definições, termos técnicos, formulas, notações matemáticas. "
-            "2. NUNCA crie cloze para palavras triviais como: é, são, de, da, um, uma, o, a, em. "
-            "3. Frases devem ser curtas (máximo 20-30 palavras) e diretas. "
-            "4. Cada card deve testar UMA ÚNICA ideia central. "
-            r"5. Use LaTeX $...$ para matemática: $x \in S$, $\emptyset$, $|S|$. "
-            "6. Priorize: definições formais, teoremas, propriedades, exemplos concretos. "
-            "7. Evite: perguntas que possam ser respondidas por uma única palavra trivial, "
-            "   traduções simples, ou perguntas óbvias. "
-            "FORMATO DOS DADOS: Frente (com cloze);Verso (resposta completa)"
-        )
+    def _cleanup_notebooks(self) -> None:
+        """Clean up created notebooks."""
+        if not self._created_notebooks:
+            return
+
+        logger.info(f"Cleaning up {len(self._created_notebooks)} notebook(s)...")
+        for notebook_id in self._created_notebooks:
+            try:
+                self.generator.delete_notebook(notebook_id)
+                logger.info(f"Deleted: {notebook_id[:8]}...")
+            except NotebookCleanupError:
+                pass
+        self._created_notebooks.clear()
 
     def _create_notebook(self, deck_name: str) -> str:
-        notebook_id = self.client.create_notebook(f"Flashcards: {deck_name}")
-        self.created_notebooks.append(notebook_id)
+        """Create notebook and track for cleanup."""
+        notebook_id = self.generator.create_notebook(f"Flashcards: {deck_name}")
+        self._created_notebooks.append(notebook_id)
         return notebook_id
 
     def _add_pdf_source(self, notebook_id: str, pdf_path: Path) -> str | None:
+        """Add PDF source to notebook."""
         try:
-            source_id = self.client.add_source(notebook_id, pdf_path)
-            logger.info(f"Fonte adicionada: {source_id[:8]}...")
+            source_id = self.generator.add_source(notebook_id, pdf_path)
+            logger.info(f"Source added: {source_id[:8]}...")
             return source_id
-        except Exception as e:
-            logger.error(f"Erro ao adicionar PDF: {e}")
-            logger.info(f"Notebook preservado: {notebook_id}")
+        except SourceProcessingError as e:
+            logger.error(f"Failed to add PDF: {e}")
+            logger.info(f"Notebook preserved: {notebook_id}")
             return None
-
-    def _generate_flashcards(
-        self, notebook_id: str, deck_name: str, pdf_output_path: Path
-    ) -> Deck | None:
-        instructions = self.config.instructions or self._get_default_instructions()
-
-        logger.info("Gerando flashcards...")
-        artifact_id = self.client.generate_flashcards(
-            notebook_id=notebook_id,
-            difficulty=self.config.difficulty,
-            quantity=self.config.quantity,
-            instructions=instructions,
-        )
-
-        if not artifact_id:
-            logger.error("Falha ao gerar flashcards")
-            return None
-
-        return self._handle_artifact_completion(
-            notebook_id, artifact_id, pdf_output_path, deck_name
-        )
-
-    def _handle_artifact_completion(
-        self, notebook_id: str, artifact_id: str, output_path: Path, deck_name: str
-    ) -> Deck:
-        logger.info("Aguardando geração...")
-
-        if not self.config.wait_for_completion:
-            logger.info(f"Geração em background. ID: {artifact_id}")
-            return Deck(
-                name=deck_name,
-                description=f"Deck {deck_name} (gerando)",
-                notebook_id=notebook_id,
-            )
-
-        if self.client.wait_for_artifact(
-            notebook_id, artifact_id, timeout=self.config.timeout
-        ):
-            return self._download_and_convert(
-                notebook_id, artifact_id, output_path, deck_name
-            )
-
-        logger.warning(f"Timeout. ID: {artifact_id}")
-        logger.info(f"Notebook preservado para retry: {notebook_id}")
-        return Deck(
-            name=deck_name, description=f"Deck {deck_name}", notebook_id=notebook_id
-        )
 
     def _process_pdf(
-        self, pdf_path: Path, input_path: Path, output_path: Path
+        self,
+        pdf_path: Path,
+        input_path: Path,
+        output_path: Path,
+        request: GenerateFlashcardsRequest,
     ) -> Deck | None:
+        """Process single PDF file."""
         deck_name = self._get_deck_name(pdf_path, input_path)
         pdf_output_path = self._get_output_subdir(pdf_path, input_path, output_path)
 
@@ -177,25 +175,102 @@ class GenerateFlashcardsUseCase:
             if not source_id:
                 return None
 
-            logger.info("Processando fonte...")
-            self.client.wait_for_source(notebook_id, source_id, timeout=600)
+            logger.info("Processing source...")
+            self.generator.wait_for_source(notebook_id, source_id, timeout=600)
 
-            return self._generate_flashcards(notebook_id, deck_name, pdf_output_path)
+            return self._generate_flashcards(
+                notebook_id, deck_name, pdf_output_path, request
+            )
 
+        except GenerationError as e:
+            logger.error(f"Generation error: {e}")
+            return None
         except Exception as e:
-            logger.error(f"Erro: {e}")
+            logger.error(f"Unexpected error: {e}")
             return None
 
-    def _download_and_convert(
-        self, notebook_id: str, artifact_id: str, output_path: Path, deck_name: str
+    def _generate_flashcards(
+        self,
+        notebook_id: str,
+        deck_name: str,
+        pdf_output_path: Path,
+        request: GenerateFlashcardsRequest,
+    ) -> Deck | None:
+        """Generate flashcards for notebook."""
+        instructions = request.instructions or self.DEFAULT_INSTRUCTIONS
+        gen_config = GenerationConfig(
+            difficulty=request.difficulty,
+            quantity=request.quantity,
+            instructions=instructions,
+            timeout_seconds=request.timeout,
+            wait_for_completion=request.wait_for_completion,
+        )
+
+        logger.info("Generating flashcards...")
+        artifact_id = self.generator.generate_flashcards(notebook_id, gen_config)
+
+        if not artifact_id:
+            logger.error("Failed to generate flashcards")
+            return None
+
+        return self._handle_artifact_completion(
+            notebook_id, artifact_id, pdf_output_path, deck_name, request
+        )
+
+    def _handle_artifact_completion(
+        self,
+        notebook_id: str,
+        artifact_id: str,
+        output_path: Path,
+        deck_name: str,
+        request: GenerateFlashcardsRequest,
     ) -> Deck:
+        """Handle artifact completion or wait."""
+        logger.info("Waiting for generation...")
+
+        if not request.wait_for_completion:
+            logger.info(f"Background generation. ID: {artifact_id}")
+            return Deck(
+                name=deck_name,
+                description=f"Deck {deck_name} (generating)",
+                notebook_id=notebook_id,
+            )
+
+        completed = self.generator.wait_for_artifact(
+            notebook_id, artifact_id, timeout=request.timeout
+        )
+
+        if completed:
+            return self._download_and_convert(
+                notebook_id, artifact_id, output_path, deck_name
+            )
+
+        logger.warning(f"Timeout. ID: {artifact_id}")
+        logger.info(f"Notebook preserved for retry: {notebook_id}")
+        return Deck(
+            name=deck_name,
+            description=f"Deck {deck_name}",
+            notebook_id=notebook_id,
+        )
+
+    def _download_and_convert(
+        self,
+        notebook_id: str,
+        artifact_id: str,
+        output_path: Path,
+        deck_name: str,
+    ) -> Deck:
+        """Download and convert flashcards."""
         json_path = output_path / f"{deck_name}_raw.json"
-        self.client.download_flashcards(notebook_id, artifact_id, json_path)
 
-        flashcards = self.client.parse_flashcards(json_path)
-
-        with contextlib.suppress(Exception):
-            json_path.unlink()
+        try:
+            self.generator.download_flashcards(notebook_id, artifact_id, json_path)
+            flashcards = self.generator.parse_flashcards(json_path)
+        finally:
+            try:
+                json_path.unlink(missing_ok=True)
+            except OSError as e:
+                logger.warning(f"Failed to cleanup temp file: {e}")
 
         cloze_cards = []
         for card in flashcards:
@@ -212,23 +287,22 @@ class GenerateFlashcardsUseCase:
         )
 
         try:
-            self.client.delete_notebook(notebook_id)
-            if notebook_id in self.created_notebooks:
-                self.created_notebooks.remove(notebook_id)
-            logger.info("Notebook deletado")
-        except Exception:
+            self.generator.delete_notebook(notebook_id)
+            if notebook_id in self._created_notebooks:
+                self._created_notebooks.remove(notebook_id)
+            logger.info("Notebook deleted")
+        except NotebookCleanupError:
             pass
 
         return deck
 
     def _save_deck(self, deck: Deck, output_path: Path) -> None:
+        """Save deck to output directory."""
         base_path = output_path
         for part in deck.name.split("_")[:-1]:
             base_path = base_path / part
             base_path.mkdir(exist_ok=True)
 
         filename = deck.name.split("_")[-1]
-
         self.exporter.export_csv(deck, base_path / f"{filename}.csv")
-
-        logger.info(f"Salvo em: {base_path}")
+        logger.info(f"Saved to: {base_path}")

@@ -1,8 +1,9 @@
 """Port for flashcard generation services."""
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
+
+from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -10,24 +11,22 @@ if TYPE_CHECKING:
     from flashcards_generator.domain.entities import Deck, Flashcard
 
 
-@dataclass(frozen=True)
-class GenerationConfig:
+class GenerationConfig(BaseModel):
     """Configuration for flashcard generation."""
 
-    difficulty: str = "medium"
-    quantity: str = "standard"
-    instructions: str = ""
-    timeout_seconds: int = 900
-    wait_for_completion: bool = True
+    difficulty: str = Field(default="medium")
+    quantity: str = Field(default="standard")
+    instructions: str = Field(default="")
+    timeout_seconds: int = Field(default=900)
+    wait_for_completion: bool = Field(default=True)
 
 
-@dataclass
-class GenerationResult:
+class GenerationResult(BaseModel):
     """Result of flashcard generation."""
 
     deck: Deck
-    artifact_id: str | None = None
-    completed: bool = False
+    artifact_id: str | None = Field(default=None)
+    completed: bool = Field(default=False)
 
 
 class FlashcardGeneratorPort(ABC):

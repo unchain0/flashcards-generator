@@ -1,0 +1,12 @@
+standards_version: "2025.1"
+project_type: "python"
+last_configured: "2025-03-15T00:00:00Z"
+components:
+  pre-commit: "2025.1"
+  ruff: "0.15.6"
+configured_hooks:
+  - pre-commit-hooks@v6.0.0
+  - ruff-pre-commit@v0.15.6
+  - conventional-pre-commit@v4.0.0
+  - gitleaks@v8.30.0
+  - pygrep-hooks@v1.10.0

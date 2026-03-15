@@ -1,0 +1,73 @@
+import csv
+from typing import TYPE_CHECKING
+
+from flashcards_generator.application.math_processor import convert_to_anki_math_format
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from flashcards_generator.domain.entities import Deck
+
+
+class DeckExporter:
+    @staticmethod
+    def export_json(deck: Deck, path: Path) -> None:
+        path.write_text(
+            deck.model_dump_json(indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+
+    @staticmethod
+    def export_csv(deck: Deck, path: Path) -> None:
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f, quoting=csv.QUOTE_ALL)
+            writer.writerow(["Front", "Back", "Tags"])
+            for card in deck.flashcards:
+                front = convert_to_anki_math_format(card.front)
+                back = convert_to_anki_math_format(card.back)
+                writer.writerow([front, back, " ".join(card.tags)])
+
+    @staticmethod
+    def export_anki(deck: Deck, path: Path) -> None:
+        lines = [
+            f"# Deck: {deck.name}",
+            f"# Gerado: {deck.created_at.isoformat()}",
+            "# Tags: notebooklm",
+            "",
+            "#separator:tab",
+            "#html:true",
+            "#tags column:3",
+            "",
+        ]
+        for card in deck.flashcards:
+            front = convert_to_anki_math_format(card.front)
+            back = convert_to_anki_math_format(card.back)
+            tags = " ".join(card.tags)
+            lines.append(f"{front}\t{back}\t{tags}")
+        path.write_text("\n".join(lines), encoding="utf-8")
+
+    @staticmethod
+    def export_markdown(deck: Deck, path: Path) -> None:
+        lines = [
+            f"# {deck.name}",
+            "",
+            f"**Total:** {deck.total_cards} cards",
+            "",
+            "---",
+            "",
+        ]
+        for i, card in enumerate(deck.flashcards, 1):
+            lines.extend(
+                [
+                    f"## Card {i}",
+                    "",
+                    f"**Frente:** {card.front}",
+                    "",
+                    f"**Verso:** {card.back}",
+                    "",
+                    f"**Tags:** {', '.join(card.tags)}",
+                    "",
+                    "---",
+                    "",
+                ]
+            )
+        path.write_text("\n".join(lines), encoding="utf-8")

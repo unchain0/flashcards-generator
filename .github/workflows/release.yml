@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build and Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: '0.6.x'
+          enable-cache: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: '.python-version'
+
+      - name: Verify version matches tag
+        run: |
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          PYPROJECT_VERSION=$(grep -oP 'version = "\K[^"]+' pyproject.toml | head -1)
+          if [ "$TAG_VERSION" != "$PYPROJECT_VERSION" ]; then
+            echo "Version mismatch: tag=$TAG_VERSION, pyproject=$PYPROJECT_VERSION"
+            exit 1
+          fi
+          echo "Version verified: $TAG_VERSION"
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Run tests
+        run: uv run pytest -xvs
+
+      - name: Build package
+        run: uv build
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          git log --pretty=format:"- %s (%h)" $(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo HEAD)..HEAD >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+          body: |
+            ## Changes in this Release
+            ${{ steps.changelog.outputs.changelog }}
+
+            ## Installation
+            Download the wheel or source distribution from the assets below.
+
+            ```bash
+            pip install flashcards_generator-${{ github.ref_name }}-py3-none-any.whl
+            ```
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

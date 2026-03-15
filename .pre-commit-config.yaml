@@ -1,0 +1,91 @@
+# Pre-commit configuration for Python project
+# Standards version: 2025.1
+
+default_install_hook_types:
+  - pre-commit
+  - commit-msg
+
+repos:
+  # Base hooks for all projects
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        description: Remove trailing whitespace
+      - id: end-of-file-fixer
+        description: Ensure files end with a newline
+      - id: check-yaml
+        description: Validate YAML syntax
+      - id: check-json
+        description: Validate JSON syntax
+      - id: check-toml
+        description: Validate TOML syntax
+      - id: check-merge-conflict
+        description: Check for merge conflict markers
+      - id: check-added-large-files
+        description: Prevent large files from being committed
+        args: ['--maxkb=1000']
+      - id: check-case-conflict
+        description: Check for case conflicts in filenames
+      - id: check-docstring-first
+        description: Check docstring is first in Python files
+      - id: debug-statements
+        description: Check for debugger imports and breakpoints
+      - id: mixed-line-ending
+        description: Replace mixed line endings
+
+  # RUFF - Python linter and formatter (replaces flake8, black, isort, etc.)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.6
+    hooks:
+      - id: ruff
+        name: RUFF linter
+        description: Run RUFF linter on Python files
+        args: [--fix]
+        types_or: [python, pyi]
+      - id: ruff-format
+        name: RUFF formatter
+        description: Run RUFF formatter on Python files
+        types_or: [python, pyi]
+
+  # Conventional commits - enforce commit message format
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.0.0
+    hooks:
+      - id: conventional-pre-commit
+        name: Conventional commit check
+        stages: [commit-msg]
+        args: []
+
+  # Gitleaks - detect secrets in code
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+        name: Gitleaks secrets scan
+        description: Scan for secrets and sensitive data
+
+  # Additional Python-specific checks
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.10.0
+    hooks:
+      - id: python-check-blanket-noqa
+        description: Check for blanket noqa comments
+      - id: python-check-mock-methods
+        description: Check for mock method usage
+      - id: python-no-eval
+        description: Check for eval() usage
+      - id: python-no-log-warn
+        description: Check for deprecated logging.warn()
+      - id: python-use-type-annotations
+        description: Check for type annotations
+
+  # Local hooks for project-specific checks
+  - repo: local
+    hooks:
+      - id: check-python-version
+        name: Check Python version compatibility
+        entry: python --version
+        language: system
+        pass_filenames: false
+        always_run: true

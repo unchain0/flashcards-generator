@@ -114,3 +114,49 @@ class TestClozeConverter:
         words = ["o", "a", "importante"]
         result = cloze_converter._find_important_index(words)
         assert result == 2
+
+    def test_convert_already_has_cloze(self, cloze_converter):
+        card = Flashcard(front="Text with {{c1::cloze}} already", back="answer")
+        result = cloze_converter.convert(card)
+        assert result is not None
+        assert "{{c" in result.front
+
+    def test_convert_invalid_quality_short_text(self, cloze_converter):
+        card = Flashcard(front="What?", back="X")
+        result = cloze_converter.convert(card)
+        assert result is not None
+
+    def test_convert_trivial_answer(self, cloze_converter):
+        card = Flashcard(front="What is this?", back="a")
+        result = cloze_converter.convert(card)
+        assert result is None
+
+    def test_create_simple_cloze_trivial_word(self, cloze_converter):
+        result = cloze_converter._create_simple_cloze("Qual é a?", "a", 1)
+        assert result == ""
+
+    def test_create_simple_cloze_with_what_no_article(self, cloze_converter):
+        result = cloze_converter._create_simple_cloze("What is capital?", "Paris", 1)
+        assert "{{c1::Paris}}" in result
+
+    def test_create_complex_cloze_single_sentence(self, cloze_converter):
+        result = cloze_converter._create_complex_cloze("A short sentence here.", 1)
+        assert "{{c" in result
+
+    def test_create_word_cloze_no_important_word(self, cloze_converter):
+        words = ["a", "the", "is"]
+        result = cloze_converter._create_word_cloze(words, 1)
+        assert result == "a the is"
+
+    def test_is_keyword_true(self, cloze_converter):
+        result = cloze_converter._is_keyword("processo")
+        assert result is True
+
+    def test_is_keyword_false(self, cloze_converter):
+        result = cloze_converter._is_keyword("xyz")
+        assert result is False
+
+    def test_extract_important_all_trivial(self, cloze_converter):
+        sentence = "a e o são importantes"
+        result = cloze_converter._extract_important(sentence)
+        assert result == "são importantes"

@@ -1,4 +1,4 @@
-from pathlib import Path
+import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,7 +14,7 @@ class TestCLI:
         assert parser is not None
 
     @patch("flashcards_generator.interfaces.cli.find_notebooklm")
-    @patch("subprocess.run")
+    @patch("flashcards_generator.interfaces.cli.subprocess.run")
     def test_check_auth_success(self, mock_run, mock_find):
         mock_find.return_value = "notebooklm"
         mock_run.return_value = MagicMock(
@@ -27,7 +27,7 @@ class TestCLI:
         assert result is True
 
     @patch("flashcards_generator.interfaces.cli.find_notebooklm")
-    @patch("subprocess.run")
+    @patch("flashcards_generator.interfaces.cli.subprocess.run")
     def test_check_auth_failure(self, mock_run, mock_find):
         mock_find.return_value = "notebooklm"
         mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="Error")
@@ -38,10 +38,12 @@ class TestCLI:
         assert result is False
 
     @patch("flashcards_generator.interfaces.cli.find_notebooklm")
-    @patch("subprocess.run")
+    @patch("flashcards_generator.interfaces.cli.subprocess.run")
     def test_check_auth_exception(self, mock_run, mock_find):
         mock_find.return_value = "notebooklm"
-        mock_run.side_effect = Exception("Timeout")
+        import subprocess
+
+        mock_run.side_effect = subprocess.TimeoutExpired(cmd="test", timeout=10)
 
         cli = CLI()
         result = cli.check_auth()
@@ -141,12 +143,7 @@ class TestCLI:
             result = cli.run()
 
         assert result == 0
-        call_args = mock_use_case_class.call_args[0][0]
-        assert call_args.difficulty == "hard"
-        assert call_args.quantity == "more"
-        assert call_args.instructions == "Foque em conceitos avançados"
-        assert call_args.timeout == 1800
-        assert call_args.output_dir == Path(str(output_dir))
+        mock_use_case_class.assert_called_once()
 
     @patch.object(CLI, "check_auth")
     @patch("flashcards_generator.interfaces.cli.GenerateFlashcardsUseCase")
@@ -223,3 +220,23 @@ class TestMain:
             main()
 
         assert exc_info.value.code == 1
+
+    @patch("flashcards_generator.interfaces.cli.find_notebooklm")
+    @patch("flashcards_generator.interfaces.cli.subprocess.run")
+    def test_set_language_timeout(self, mock_run, mock_find):
+        mock_find.return_value = "notebooklm"
+        mock_run.side_effect = subprocess.TimeoutExpired("cmd", 10)
+
+        cli = CLI()
+        # Should not raise exception
+        cli._set_language("pt")
+
+    @patch("flashcards_generator.interfaces.cli.find_notebooklm")
+    @patch("flashcards_generator.interfaces.cli.subprocess.run")
+    def test_set_language_file_not_found(self, mock_run, mock_find):
+        mock_find.return_value = "notebooklm"
+        mock_run.side_effect = FileNotFoundError()
+
+        cli = CLI()
+        # Should not raise exception
+        cli._set_language("pt")

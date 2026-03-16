@@ -92,7 +92,12 @@ class NotebookLMClient:
             data: dict = json.loads(stdout)
             artifact_id = data.get("artifact_id") or data.get("id")
             return str(artifact_id) if artifact_id else None
-        except json.JSONDecodeError, subprocess.CalledProcessError:
+        except (
+            json.JSONDecodeError,
+            subprocess.CalledProcessError,
+            RuntimeError,
+            Exception,
+        ):
             return None
 
     def wait_for_artifact(
@@ -129,15 +134,20 @@ class NotebookLMClient:
         try:
             self._run(cmd)
             return True
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
-            raise RuntimeError(f"Download failed: {e}") from e
+        except Exception as e:
+            logger.error(f"Download failed: {e}")
+            return False
 
     def parse_flashcards(self, json_path: Path) -> list[Flashcard]:
         """Parse flashcards from JSON file."""
         flashcards: list[Flashcard] = []
         try:
             data = json.loads(json_path.read_text(encoding="utf-8"))
-            cards_data = data if isinstance(data, list) else data.get("cards", [])
+            cards_data = (
+                data
+                if isinstance(data, list)
+                else data.get("cards", data.get("flashcards", []))
+            )
 
             for item in cards_data:
                 card = self._create_flashcard(item)

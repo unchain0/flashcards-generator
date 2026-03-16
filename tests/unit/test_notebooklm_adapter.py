@@ -19,7 +19,7 @@ class TestNotebookLMAdapter:
         assert adapter.notebooklm_path == "/path/to/notebooklm"
         assert adapter.timeout == 120
 
-    @patch("subprocess.run")
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
     def test_create_notebook(self, mock_run):
         """Test notebook creation."""
         mock_run.return_value = MagicMock(
@@ -35,7 +35,7 @@ class TestNotebookLMAdapter:
         assert args[0] == "notebooklm"
         assert "create" in args
 
-    @patch("subprocess.run")
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
     def test_create_notebook_failure(self, mock_run):
         """Test notebook creation failure."""
         mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="Error")
@@ -46,7 +46,7 @@ class TestNotebookLMAdapter:
         with pytest.raises(GenerationError):
             adapter.create_notebook("Test")
 
-    @patch("subprocess.run")
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
     def test_add_source(self, mock_run):
         """Test adding source."""
         mock_run.return_value = MagicMock(
@@ -58,7 +58,7 @@ class TestNotebookLMAdapter:
 
         assert result == "src456"
 
-    @patch("subprocess.run")
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
     def test_wait_for_source_success(self, mock_run):
         """Test waiting for source."""
         mock_run.return_value = MagicMock(returncode=0)
@@ -68,7 +68,7 @@ class TestNotebookLMAdapter:
 
         assert result is True
 
-    @patch("subprocess.run")
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
     def test_generate_flashcards_success(self, mock_run):
         """Test flashcard generation."""
         mock_run.return_value = MagicMock(
@@ -81,8 +81,9 @@ class TestNotebookLMAdapter:
 
         assert result == "art789"
 
-    @patch("subprocess.run")
-    def test_generate_flashcards_with_rate_limit(self, mock_run):
+    @patch("flashcards_generator.adapters.notebooklm_adapter.time.sleep")
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
+    def test_generate_flashcards_with_rate_limit(self, mock_run, mock_sleep):
         """Test rate limit retry."""
         mock_run.side_effect = [
             MagicMock(
@@ -99,6 +100,7 @@ class TestNotebookLMAdapter:
 
         assert result == "art789"
         assert mock_run.call_count == 2
+        mock_sleep.assert_called_once()
 
     @patch("subprocess.run")
     def test_parse_flashcards(self, mock_run, tmp_path):
@@ -117,3 +119,139 @@ class TestNotebookLMAdapter:
         assert len(result) == 2
         assert result[0].front == "Question 1?"
         assert result[0].back == "Answer 1"
+
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
+    def test_create_notebook_no_id_in_response(self, mock_run):
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout='{"other": "data"}', stderr=""
+        )
+        from flashcards_generator.domain.exceptions import GenerationError
+
+        adapter = NotebookLMAdapter("notebooklm")
+        with pytest.raises(GenerationError):
+            adapter.create_notebook("Test")
+
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
+    def test_add_source_no_id_in_response(self, mock_run):
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout='{"other": "data"}', stderr=""
+        )
+        from flashcards_generator.domain.exceptions import SourceProcessingError
+
+        adapter = NotebookLMAdapter("notebooklm")
+        with pytest.raises(SourceProcessingError):
+            adapter.add_source("nb123", Path("/path/to/file.pdf"))
+
+    def test_build_generate_command_with_instructions(self):
+        adapter = NotebookLMAdapter("notebooklm")
+        config = GenerationConfig(instructions="Custom instructions")
+        cmd = adapter._build_generate_command("nb123", config)
+        assert "Custom instructions" in cmd
+
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
+    def test_generate_flashcards_json_decode_error(self, mock_run):
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="invalid json", stderr=""
+        )
+
+        adapter = NotebookLMAdapter("notebooklm")
+        config = GenerationConfig()
+        result = adapter.generate_flashcards("nb123", config)
+
+        assert result is None
+
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
+    def test_generate_flashcards_timeout(self, mock_run):
+        import subprocess
+
+        mock_run.side_effect = subprocess.TimeoutExpired("cmd", 10)
+
+        adapter = NotebookLMAdapter("notebooklm")
+        config = GenerationConfig()
+        result = adapter.generate_flashcards("nb123", config)
+
+        assert result is None
+
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
+    def test_wait_for_artifact_success(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0)
+
+        adapter = NotebookLMAdapter("notebooklm")
+        result = adapter.wait_for_artifact("nb123", "art789")
+
+        assert result is True
+
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
+    def test_wait_for_artifact_failure(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=1)
+
+        adapter = NotebookLMAdapter("notebooklm")
+        result = adapter.wait_for_artifact("nb123", "art789")
+
+        assert result is False
+
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
+    def test_download_flashcards_success(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0)
+
+        adapter = NotebookLMAdapter("notebooklm")
+        result = adapter.download_flashcards("nb123", "art789", Path("/tmp/out.json"))
+
+        assert result is True
+
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
+    def test_download_flashcards_error(self, mock_run):
+        import subprocess
+
+        mock_run.side_effect = subprocess.CalledProcessError(1, "cmd")
+        from flashcards_generator.domain.exceptions import ArtifactDownloadError
+
+        adapter = NotebookLMAdapter("notebooklm")
+        with pytest.raises(ArtifactDownloadError):
+            adapter.download_flashcards("nb123", "art789", Path("/tmp/out.json"))
+
+    def test_extract_cards_data_with_flashcards_key(self):
+        adapter = NotebookLMAdapter("notebooklm")
+        data = {"flashcards": [{"front": "Q1", "back": "A1"}]}
+        result = adapter._extract_cards_data(data)
+        assert result == [{"front": "Q1", "back": "A1"}]
+
+    def test_create_flashcard_empty(self):
+        adapter = NotebookLMAdapter("notebooklm")
+        result = adapter._create_flashcard({"front": "", "back": ""})
+        assert result is None
+
+    def test_parse_flashcards_json_error(self, tmp_path):
+        json_file = tmp_path / "bad.json"
+        json_file.write_text("invalid json")
+
+        adapter = NotebookLMAdapter("notebooklm")
+        result = adapter.parse_flashcards(json_file)
+
+        assert result == []
+
+    def test_parse_flashcards_os_error(self, tmp_path):
+        adapter = NotebookLMAdapter("notebooklm")
+        result = adapter.parse_flashcards(Path("/nonexistent/path/file.json"))
+
+        assert result == []
+
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
+    def test_delete_notebook_success(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0)
+
+        adapter = NotebookLMAdapter("notebooklm")
+        result = adapter.delete_notebook("nb123")
+
+        assert result is True
+
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
+    def test_delete_notebook_error(self, mock_run):
+        import subprocess
+
+        mock_run.side_effect = subprocess.CalledProcessError(1, "cmd")
+
+        adapter = NotebookLMAdapter("notebooklm")
+        result = adapter.delete_notebook("nb123")
+
+        assert result is False

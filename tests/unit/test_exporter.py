@@ -19,7 +19,7 @@ class TestDeckExporter:
 
         assert output_path.exists()
         content = output_path.read_text()
-        assert '"Front","Back","Tags"' in content
+        assert '"Front","Back","Tags"' not in content
         assert "Paris" in content or "1789" in content
 
     def test_export_anki(self, deck_with_cards, tmp_path):

@@ -56,7 +56,10 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
 
     def create_notebook(self, title: str) -> str:
         """Create a new notebook."""
-        _, stdout, _ = self._run_command(["create", title, "--json"])
+        try:
+            _, stdout, _ = self._run_command(["create", title, "--json"])
+        except RuntimeError as e:
+            raise GenerationError("", f"Failed to create notebook: {e}") from e
         data: dict = json.loads(stdout)
         notebook_id = data.get("id") or data.get("notebook", {}).get("id")
         if not notebook_id:

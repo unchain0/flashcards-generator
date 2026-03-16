@@ -277,7 +277,7 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
         try:
             logger.debug(f"Deleting notebook: {notebook_id[:8]}...")
             returncode, _, _ = self._run_command(
-                ["delete", notebook_id, "--force"], check=False
+                ["delete", "-n", notebook_id, "-y"], check=False
             )
             if returncode == 0:
                 logger.info(f"Successfully deleted notebook: {notebook_id[:8]}...")

@@ -87,7 +87,7 @@ class GenerateFlashcardsUseCase:
 
         decks: list[Deck] = []
         try:
-            all_pdfs = self._find_all_pdfs(input_path)
+            all_pdfs = self._find_all_pdfs(input_path, request)
 
             if not all_pdfs:
                 logger.warning(f"No PDFs found in {input_path}")
@@ -105,13 +105,49 @@ class GenerateFlashcardsUseCase:
         finally:
             self._cleanup_notebooks()
 
-    def _find_all_pdfs(self, input_path: Path) -> list[Path]:
-        """Find all PDF files recursively."""
-        return [
+    def _find_all_pdfs(
+        self, input_path: Path, request: GenerateFlashcardsRequest
+    ) -> list[Path]:
+        """Find all PDF files recursively with filtering."""
+        import fnmatch
+
+        # Handle explicit file list first
+        if request.explicit_files:
+            pdf_paths: list[Path] = []
+            for file_name in request.explicit_files:
+                file_path = input_path / file_name
+                if file_path.exists() and file_path.is_file():
+                    pdf_paths.append(file_path)
+                else:
+                    logger.warning(f"Explicit file not found: {file_name}")
+            return pdf_paths
+
+        # Find all PDFs recursively
+        all_pdfs = [
             pdf_path
             for pdf_path in input_path.rglob("*.pdf")
             if self._is_safe_pdf_path(pdf_path, input_path)
         ]
+
+        # Apply include pattern filter
+        if request.include_pattern:
+            all_pdfs = [
+                pdf_path
+                for pdf_path in all_pdfs
+                if fnmatch.fnmatch(pdf_path.name, request.include_pattern)
+            ]
+            logger.info(f"Include filter '{request.include_pattern}' applied")
+
+        # Apply exclude pattern filter
+        if request.exclude_pattern:
+            all_pdfs = [
+                pdf_path
+                for pdf_path in all_pdfs
+                if not fnmatch.fnmatch(pdf_path.name, request.exclude_pattern)
+            ]
+            logger.info(f"Exclude filter '{request.exclude_pattern}' applied")
+
+        return all_pdfs
 
     def _is_safe_pdf_path(self, pdf_path: Path, input_path: Path) -> bool:
         try:
@@ -142,7 +178,7 @@ class GenerateFlashcardsUseCase:
     ) -> Path:
         """Get or create output subdirectory for PDF."""
         relative_path = pdf_path.relative_to(input_path)
-        if relative_path.parent:
+        if relative_path.parent != Path("."):
             subdir = output_path / relative_path.parent
             subdir.mkdir(parents=True, exist_ok=True)
             return subdir
@@ -190,31 +226,162 @@ class GenerateFlashcardsUseCase:
     def _process_large_pdf(
         self,
         pdf_path: Path,
-        notebook_id: str,
-        temp_dir: Path,
-    ) -> bool:
+        deck_name: str,
+        pdf_output_path: Path,
+        request: GenerateFlashcardsRequest,
+    ) -> Deck | None:
+        """Process large PDF by splitting into chunks.
+
+        Each chunk is processed independently in its own notebook, then all
+        flashcards are combined into a single deck.
+        """
+        temp_dir = pdf_output_path / ".temp_chunks"
         chunks: list[Path] = []
-        source_ids: list[str] = []
+        all_flashcards = []
+
         try:
             chunks = list(self.pdf_chunker.chunk_pdf(pdf_path, temp_dir))
-            logger.info(f"Adding {len(chunks)} chunks as sources...")
+            logger.info(f"Processing {len(chunks)} chunks independently...")
 
             for i, chunk_path in enumerate(chunks, 1):
-                source_id = self._add_pdf_source(notebook_id, chunk_path)
-                if not source_id:
-                    logger.error(f"Failed to add chunk {i}/{len(chunks)}")
-                    return False
-                source_ids.append(source_id)
-                logger.info(f"Chunk {i}/{len(chunks)} added")
+                logger.info(f"Processing chunk {i}/{len(chunks)}...")
+                chunk_deck = self._process_chunk(
+                    chunk_path, deck_name, pdf_output_path, request, i, len(chunks)
+                )
+                if chunk_deck and chunk_deck.flashcards:
+                    all_flashcards.extend(chunk_deck.flashcards)
+                    logger.info(
+                        f"Chunk {i}/{len(chunks)}: "
+                        f"{len(chunk_deck.flashcards)} flashcards"
+                    )
+                else:
+                    logger.warning(f"Chunk {i}/{len(chunks)}: no flashcards generated")
 
-            logger.info("Waiting for all sources to be processed...")
-            for i, source_id in enumerate(source_ids, 1):
-                self.generator.wait_for_source(notebook_id, source_id, timeout=600)
-                logger.info(f"Chunk {i}/{len(source_ids)} processed")
+            if not all_flashcards:
+                logger.error("No flashcards generated from any chunk")
+                return None
 
-            return True
+            logger.info(f"Total flashcards from all chunks: {len(all_flashcards)}")
+
+            # Create combined deck with all flashcards
+            return Deck(
+                name=deck_name,
+                description=f"Deck de {deck_name} ({len(chunks)} chunks)",
+                flashcards=all_flashcards,
+                notebook_id="",  # No single notebook - chunks had separate notebooks
+            )
+
         finally:
             self.pdf_chunker.cleanup_chunks(chunks)
+
+    def _process_chunk(
+        self,
+        chunk_path: Path,
+        deck_name: str,
+        pdf_output_path: Path,
+        request: GenerateFlashcardsRequest,
+        chunk_index: int,
+        total_chunks: int,
+    ) -> Deck | None:
+        """Process a single chunk independently.
+
+        Creates a separate notebook for each chunk, generates flashcards,
+        then cleans up the notebook.
+        """
+        chunk_notebook_id = None
+        try:
+            # Create separate notebook for this chunk
+            chunk_deck_name = f"{deck_name}_chunk{chunk_index}"
+            chunk_notebook_id = self._create_notebook(chunk_deck_name)
+
+            # Add chunk as source
+            source_id = self._add_pdf_source(chunk_notebook_id, chunk_path)
+            if not source_id:
+                logger.error(f"Failed to add chunk {chunk_index} as source")
+                return None
+
+            logger.info(f"Chunk {chunk_index}/{total_chunks}: source added, waiting...")
+            self.generator.wait_for_source(chunk_notebook_id, source_id, timeout=600)
+
+            # Generate flashcards for this chunk
+            logger.info(f"Chunk {chunk_index}/{total_chunks}: generating flashcards...")
+            instructions = request.instructions or self.DEFAULT_INSTRUCTIONS
+            # Add context that this is a partial document
+            chunk_instructions = (
+                f"{instructions}\n\n"
+                f"IMPORTANT: This is part {chunk_index} of {total_chunks} "
+                f"of the document. Generate flashcards ONLY from the content "
+                f"in this section. Do not reference content from other parts."
+            )
+
+            gen_config = GenerationConfig(
+                difficulty=request.difficulty,
+                quantity=request.quantity,
+                instructions=chunk_instructions,
+                timeout_seconds=request.timeout,
+                wait_for_completion=request.wait_for_completion,
+            )
+
+            artifact_id = self.generator.generate_flashcards(
+                chunk_notebook_id, gen_config
+            )
+            if not artifact_id:
+                logger.error(f"Chunk {chunk_index}/{total_chunks}: failed to generate")
+                return None
+
+            # Wait and download
+            completed = self.generator.wait_for_artifact(
+                chunk_notebook_id, artifact_id, timeout=request.timeout
+            )
+
+            if not completed:
+                logger.warning(f"Chunk {chunk_index}/{total_chunks}: timeout")
+                return None
+
+            # Download and parse
+            json_path = pdf_output_path / f"{chunk_deck_name}_raw.json"
+            try:
+                self.generator.download_flashcards(
+                    chunk_notebook_id, artifact_id, json_path
+                )
+                flashcards = self.generator.parse_flashcards(json_path)
+            finally:
+                try:
+                    json_path.unlink(missing_ok=True)
+                except OSError as e:
+                    logger.warning(f"Failed to cleanup temp file: {e}")
+
+            # Convert to cloze format
+            cloze_cards = []
+            for card in flashcards:
+                cloze_card = self.converter.convert(card)
+                if cloze_card:
+                    cloze_card.tags.append(deck_name.lower().replace(" ", "_"))
+                    cloze_cards.append(cloze_card)
+
+            logger.info(f"Chunk {chunk_index}/{total_chunks}: {len(cloze_cards)} cards")
+
+            return Deck(
+                name=chunk_deck_name,
+                description=f"Chunk {chunk_index} of {total_chunks}",
+                flashcards=cloze_cards,
+                notebook_id=chunk_notebook_id,
+            )
+
+        except Exception as e:
+            logger.error(f"Chunk {chunk_index}/{total_chunks}: error - {e}")
+            return None
+        finally:
+            # Cleanup chunk notebook immediately
+            if chunk_notebook_id and chunk_notebook_id in self._created_notebooks:
+                try:
+                    self.generator.delete_notebook(chunk_notebook_id)
+                    self._created_notebooks.remove(chunk_notebook_id)
+                    logger.debug(
+                        f"Chunk {chunk_index}/{total_chunks}: notebook cleaned up"
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to cleanup chunk notebook: {e}")
 
     def _process_pdf(
         self,
@@ -239,20 +406,18 @@ class GenerateFlashcardsUseCase:
         logger.info("=" * 60)
 
         try:
-            notebook_id = self._create_notebook(deck_name)
-
             if self.pdf_chunker.needs_chunking(pdf_path, threshold=100):
                 logger.info("Large PDF detected (>100 pages), using chunking...")
-                temp_dir = output_path / ".temp_chunks"
-                success = self._process_large_pdf(pdf_path, notebook_id, temp_dir)
-                if not success:
-                    return None
-            else:
-                source_id = self._add_pdf_source(notebook_id, pdf_path)
-                if not source_id:
-                    return None
-                logger.info("Processing source...")
-                self.generator.wait_for_source(notebook_id, source_id, timeout=600)
+                return self._process_large_pdf(
+                    pdf_path, deck_name, pdf_output_path, request
+                )
+
+            notebook_id = self._create_notebook(deck_name)
+            source_id = self._add_pdf_source(notebook_id, pdf_path)
+            if not source_id:
+                return None
+            logger.info("Processing source...")
+            self.generator.wait_for_source(notebook_id, source_id, timeout=600)
 
             return self._generate_flashcards(
                 notebook_id, deck_name, pdf_output_path, request

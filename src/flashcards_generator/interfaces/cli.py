@@ -81,6 +81,21 @@ class CLI:
             default="INFO",
             help="Nível de log (padrão: INFO)",
         )
+        parser.add_argument(
+            "--include",
+            type=str,
+            help="Padrão glob para incluir PDFs (ex: 'capitulo*.pdf')",
+        )
+        parser.add_argument(
+            "--exclude",
+            type=str,
+            help="Padrão glob para excluir PDFs (ex: '*_old.pdf')",
+        )
+        parser.add_argument(
+            "--files",
+            type=str,
+            help="Lista explícita de PDFs separados por vírgula",
+        )
         return parser
 
     def check_auth(self) -> bool:
@@ -140,6 +155,9 @@ class CLI:
 
     def _create_request(self, args: argparse.Namespace) -> GenerateFlashcardsRequest:
         """Create request DTO from CLI args."""
+        explicit_files = []
+        if args.files:
+            explicit_files = [f.strip() for f in args.files.split(",")]
         return GenerateFlashcardsRequest(
             input_dir=args.input_dir,
             output_dir=args.output_dir,
@@ -148,6 +166,9 @@ class CLI:
             instructions=args.instructions or "",
             wait_for_completion=not args.no_wait,
             timeout=args.timeout,
+            include_pattern=args.include,
+            exclude_pattern=args.exclude,
+            explicit_files=explicit_files,
         )
 
     def _log_config(self, request: GenerateFlashcardsRequest) -> None:

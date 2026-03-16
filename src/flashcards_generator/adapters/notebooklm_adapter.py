@@ -221,7 +221,11 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
         try:
             self._run_command(cmd)
             return True
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+        except (
+            subprocess.CalledProcessError,
+            subprocess.TimeoutExpired,
+            RuntimeError,
+        ) as e:
             raise ArtifactDownloadError(artifact_id, str(e)) from e
 
     def _extract_cards_data(self, data: dict | list) -> list:
@@ -258,11 +262,15 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
         """Delete notebook (best effort)."""
         try:
             logger.debug(f"Deleting notebook: {notebook_id[:8]}...")
-            self._run_command(
+            returncode, _, _ = self._run_command(
                 ["notebook", "delete", notebook_id, "--force"], check=False
             )
-            logger.info(f"Successfully deleted notebook: {notebook_id[:8]}...")
-            return True
+            if returncode == 0:
+                logger.info(f"Successfully deleted notebook: {notebook_id[:8]}...")
+                return True
+            else:
+                logger.warning(f"Failed to delete notebook {notebook_id[:8]}...")
+                return False
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
             logger.error(f"Failed to delete notebook {notebook_id}: {e}")
             return False

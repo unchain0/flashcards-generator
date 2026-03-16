@@ -20,14 +20,14 @@ class DeckRepositoryPort(ABC):
     @abstractmethod
     def save(self, deck: Deck, output_path: Path) -> Path:
         """Save deck to storage. Returns the saved file path."""
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     def load(self, path: Path) -> Deck:
         """Load deck from storage."""
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     def exists(self, deck_name: str, output_path: Path) -> bool:
         """Check if deck already exists."""
-        pass
+        pass  # pragma: no cover

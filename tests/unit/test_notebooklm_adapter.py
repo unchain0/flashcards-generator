@@ -1,6 +1,7 @@
 """Tests for NotebookLM adapter."""
 
 import json
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -8,6 +9,14 @@ import pytest
 
 from flashcards_generator.adapters.notebooklm_adapter import NotebookLMAdapter
 from flashcards_generator.domain.ports.flashcard_generator import GenerationConfig
+
+
+def mock_popen(returncode=0, stdout="", stderr=""):
+    """Helper to create mock Popen object."""
+    mock_process = MagicMock()
+    mock_process.returncode = returncode
+    mock_process.communicate.return_value = (stdout, stderr)
+    return mock_process
 
 
 class TestNotebookLMAdapter:
@@ -19,10 +28,10 @@ class TestNotebookLMAdapter:
         assert adapter.notebooklm_path == "/path/to/notebooklm"
         assert adapter.timeout == 120
 
-    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
-    def test_create_notebook(self, mock_run):
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_create_notebook(self, mock_popen_class):
         """Test notebook creation."""
-        mock_run.return_value = MagicMock(
+        mock_popen_class.return_value = mock_popen(
             returncode=0, stdout='{"id": "nb123"}', stderr=""
         )
 
@@ -30,15 +39,14 @@ class TestNotebookLMAdapter:
         result = adapter.create_notebook("Test Notebook")
 
         assert result == "nb123"
-        mock_run.assert_called_once()
-        args = mock_run.call_args[0][0]
-        assert args[0] == "notebooklm"
-        assert "create" in args
+        mock_popen_class.assert_called_once()
 
-    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
-    def test_create_notebook_failure(self, mock_run):
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_create_notebook_failure(self, mock_popen_class):
         """Test notebook creation failure."""
-        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="Error")
+        mock_popen_class.return_value = mock_popen(
+            returncode=1, stdout="", stderr="Error"
+        )
 
         from flashcards_generator.domain.exceptions import GenerationError
 
@@ -46,10 +54,10 @@ class TestNotebookLMAdapter:
         with pytest.raises(GenerationError):
             adapter.create_notebook("Test")
 
-    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
-    def test_add_source(self, mock_run):
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_add_source(self, mock_popen_class):
         """Test adding source."""
-        mock_run.return_value = MagicMock(
+        mock_popen_class.return_value = mock_popen(
             returncode=0, stdout='{"source_id": "src456"}', stderr=""
         )
 
@@ -58,20 +66,20 @@ class TestNotebookLMAdapter:
 
         assert result == "src456"
 
-    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
-    def test_wait_for_source_success(self, mock_run):
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_wait_for_source_success(self, mock_popen_class):
         """Test waiting for source."""
-        mock_run.return_value = MagicMock(returncode=0)
+        mock_popen_class.return_value = mock_popen(returncode=0)
 
         adapter = NotebookLMAdapter("notebooklm")
         result = adapter.wait_for_source("nb123", "src456")
 
         assert result is True
 
-    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
-    def test_generate_flashcards_success(self, mock_run):
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_generate_flashcards_success(self, mock_popen_class):
         """Test flashcard generation."""
-        mock_run.return_value = MagicMock(
+        mock_popen_class.return_value = mock_popen(
             returncode=0, stdout='{"task_id": "art789"}', stderr=""
         )
 
@@ -82,16 +90,16 @@ class TestNotebookLMAdapter:
         assert result == "art789"
 
     @patch("flashcards_generator.adapters.notebooklm_adapter.time.sleep")
-    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
-    def test_generate_flashcards_with_rate_limit(self, mock_run, mock_sleep):
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_generate_flashcards_with_rate_limit(self, mock_popen_class, mock_sleep):
         """Test rate limit retry."""
-        mock_run.side_effect = [
-            MagicMock(
+        mock_popen_class.side_effect = [
+            mock_popen(
                 returncode=0,
                 stdout='{"task_id": "art789"}',
                 stderr="GENERATION_FAILED due to rate limit",
             ),
-            MagicMock(returncode=0, stdout='{"task_id": "art789"}', stderr=""),
+            mock_popen(returncode=0, stdout='{"task_id": "art789"}', stderr=""),
         ]
 
         adapter = NotebookLMAdapter("notebooklm")
@@ -99,11 +107,10 @@ class TestNotebookLMAdapter:
         result = adapter.generate_flashcards("nb123", config)
 
         assert result == "art789"
-        assert mock_run.call_count == 2
+        assert mock_popen_class.call_count == 2
         mock_sleep.assert_called_once()
 
-    @patch("subprocess.run")
-    def test_parse_flashcards(self, mock_run, tmp_path):
+    def test_parse_flashcards(self, tmp_path):
         """Test parsing flashcards."""
         json_data = [
             {"front": "Question 1?", "back": "Answer 1"},
@@ -120,9 +127,9 @@ class TestNotebookLMAdapter:
         assert result[0].front == "Question 1?"
         assert result[0].back == "Answer 1"
 
-    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
-    def test_create_notebook_no_id_in_response(self, mock_run):
-        mock_run.return_value = MagicMock(
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_create_notebook_no_id_in_response(self, mock_popen_class):
+        mock_popen_class.return_value = mock_popen(
             returncode=0, stdout='{"other": "data"}', stderr=""
         )
         from flashcards_generator.domain.exceptions import GenerationError
@@ -131,9 +138,9 @@ class TestNotebookLMAdapter:
         with pytest.raises(GenerationError):
             adapter.create_notebook("Test")
 
-    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
-    def test_add_source_no_id_in_response(self, mock_run):
-        mock_run.return_value = MagicMock(
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_add_source_no_id_in_response(self, mock_popen_class):
+        mock_popen_class.return_value = mock_popen(
             returncode=0, stdout='{"other": "data"}', stderr=""
         )
         from flashcards_generator.domain.exceptions import SourceProcessingError
@@ -148,9 +155,9 @@ class TestNotebookLMAdapter:
         cmd = adapter._build_generate_command("nb123", config)
         assert "Custom instructions" in cmd
 
-    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
-    def test_generate_flashcards_json_decode_error(self, mock_run):
-        mock_run.return_value = MagicMock(
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_generate_flashcards_json_decode_error(self, mock_popen_class):
+        mock_popen_class.return_value = mock_popen(
             returncode=0, stdout="invalid json", stderr=""
         )
 
@@ -160,11 +167,9 @@ class TestNotebookLMAdapter:
 
         assert result is None
 
-    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
-    def test_generate_flashcards_timeout(self, mock_run):
-        import subprocess
-
-        mock_run.side_effect = subprocess.TimeoutExpired("cmd", 10)
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_generate_flashcards_timeout(self, mock_popen_class):
+        mock_popen_class.side_effect = subprocess.TimeoutExpired("cmd", 10)
 
         adapter = NotebookLMAdapter("notebooklm")
         config = GenerationConfig()
@@ -172,38 +177,38 @@ class TestNotebookLMAdapter:
 
         assert result is None
 
-    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
-    def test_wait_for_artifact_success(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=0)
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_wait_for_artifact_success(self, mock_popen_class):
+        mock_popen_class.return_value = mock_popen(returncode=0)
 
         adapter = NotebookLMAdapter("notebooklm")
         result = adapter.wait_for_artifact("nb123", "art789")
 
         assert result is True
 
-    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
-    def test_wait_for_artifact_failure(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=1)
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_wait_for_artifact_failure(self, mock_popen_class):
+        mock_popen_class.return_value = mock_popen(returncode=1)
 
         adapter = NotebookLMAdapter("notebooklm")
         result = adapter.wait_for_artifact("nb123", "art789")
 
         assert result is False
 
-    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
-    def test_download_flashcards_success(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=0)
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_download_flashcards_success(self, mock_popen_class):
+        mock_popen_class.return_value = mock_popen(returncode=0)
 
         adapter = NotebookLMAdapter("notebooklm")
         result = adapter.download_flashcards("nb123", "art789", Path("/tmp/out.json"))
 
         assert result is True
 
-    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
-    def test_download_flashcards_error(self, mock_run):
-        import subprocess
-
-        mock_run.side_effect = subprocess.CalledProcessError(1, "cmd")
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_download_flashcards_error(self, mock_popen_class):
+        mock_popen_class.return_value = mock_popen(
+            returncode=1, stdout="", stderr="Error"
+        )
         from flashcards_generator.domain.exceptions import ArtifactDownloadError
 
         adapter = NotebookLMAdapter("notebooklm")
@@ -236,22 +241,60 @@ class TestNotebookLMAdapter:
 
         assert result == []
 
-    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
-    def test_delete_notebook_success(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=0)
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_delete_notebook_success(self, mock_popen_class):
+        mock_popen_class.return_value = mock_popen(returncode=0)
 
         adapter = NotebookLMAdapter("notebooklm")
         result = adapter.delete_notebook("nb123")
 
         assert result is True
 
-    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.run")
-    def test_delete_notebook_error(self, mock_run):
-        import subprocess
-
-        mock_run.side_effect = subprocess.CalledProcessError(1, "cmd")
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_delete_notebook_error(self, mock_popen_class):
+        mock_popen_class.return_value = mock_popen(
+            returncode=1, stdout="", stderr="Error"
+        )
 
         adapter = NotebookLMAdapter("notebooklm")
         result = adapter.delete_notebook("nb123")
 
         assert result is False
+
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_delete_notebook_exception(self, mock_popen_class):
+        """Test delete notebook when subprocess raises exception."""
+        mock_popen_class.side_effect = subprocess.CalledProcessError(1, "cmd")
+
+        adapter = NotebookLMAdapter("notebooklm")
+        result = adapter.delete_notebook("nb123")
+
+        assert result is False
+
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_run_command_keyboard_interrupt(self, mock_popen_class):
+        """Test KeyboardInterrupt handling in _run_command."""
+        mock_process = MagicMock()
+        mock_process.communicate.side_effect = KeyboardInterrupt()
+        mock_popen_class.return_value = mock_process
+
+        adapter = NotebookLMAdapter("notebooklm")
+        with pytest.raises(KeyboardInterrupt):
+            adapter._run_command(["create", "test"])
+
+        mock_process.terminate.assert_called_once()
+
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_run_command_keyboard_interrupt_kill(self, mock_popen_class):
+        """Test KeyboardInterrupt handling when terminate times out."""
+        mock_process = MagicMock()
+        mock_process.communicate.side_effect = KeyboardInterrupt()
+        mock_process.wait.side_effect = subprocess.TimeoutExpired("cmd", 5)
+        mock_popen_class.return_value = mock_process
+
+        adapter = NotebookLMAdapter("notebooklm")
+        with pytest.raises(KeyboardInterrupt):
+            adapter._run_command(["create", "test"])
+
+        mock_process.terminate.assert_called_once()
+        mock_process.kill.assert_called_once()

@@ -40,19 +40,19 @@ class FlashcardGeneratorPort(ABC):
     @abstractmethod
     def create_notebook(self, title: str) -> str:
         """Create a new notebook and return its ID."""
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     def add_source(self, notebook_id: str, pdf_path: Path) -> str:
         """Add a PDF source to a notebook. Returns source ID."""
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     def wait_for_source(
         self, notebook_id: str, source_id: str, timeout: int = 600
     ) -> bool:
         """Wait for source processing to complete."""
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     def generate_flashcards(
@@ -61,28 +61,28 @@ class FlashcardGeneratorPort(ABC):
         config: GenerationConfig,
     ) -> str | None:
         """Generate flashcards. Returns artifact ID or None."""
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     def wait_for_artifact(
         self, notebook_id: str, artifact_id: str, timeout: int = 900
     ) -> bool:
         """Wait for artifact generation to complete."""
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     def download_flashcards(
         self, notebook_id: str, artifact_id: str, output_path: Path
     ) -> bool:
         """Download generated flashcards to file."""
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     def parse_flashcards(self, json_path: Path) -> list[Flashcard]:
         """Parse flashcards from downloaded JSON."""
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     def delete_notebook(self, notebook_id: str) -> bool:
         """Delete a notebook. Returns success status."""
-        pass
+        pass  # pragma: no cover

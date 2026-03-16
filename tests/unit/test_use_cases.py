@@ -1,5 +1,6 @@
 """Tests for use cases with dependency injection."""
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 from flashcards_generator.application.dto.generate_request import (
@@ -341,9 +342,8 @@ class TestGenerateFlashcardsUseCase:
 
         result = use_case.execute(request)
 
-        # Even with empty flashcards, a deck is returned
-        assert len(result) == 1
-        assert len(result[0].flashcards) == 0
+        # When no flashcards are generated from any chunk, no deck is returned
+        assert len(result) == 0
 
     def test_execute_no_wait_mode_large_pdf(
         self, temp_dirs, mock_generator, sample_flashcards
@@ -373,9 +373,10 @@ class TestGenerateFlashcardsUseCase:
 
         result = use_case.execute(request)
 
-        # In no-wait mode, a deck is still returned but without flashcards
+        # For chunked PDFs, the new implementation always waits for each chunk
+        # So flashcards are generated even in "no-wait" mode at the top level
         assert len(result) == 1
-        assert len(result[0].flashcards) == 0
+        assert len(result[0].flashcards) == 2
 
     def test_cleanup_notebooks_empty_list(self, temp_dirs, mock_generator):
         input_dir, _output_dir = temp_dirs
@@ -433,6 +434,7 @@ class TestGenerateFlashcardsUseCase:
             side_effect=GenerationError("nb1", "fail")
         )
         use_case = GenerateFlashcardsUseCase(generator=generator)
+        use_case.pdf_chunker.needs_chunking = lambda pdf_path, threshold: False
 
         request = GenerateFlashcardsRequest(
             input_dir=input_dir,
@@ -514,7 +516,7 @@ class TestGenerateFlashcardsUseCase:
         tema_dir = input_dir / "Tema1"
         tema_dir.mkdir()
         pdf_file = tema_dir / "large.pdf"
-        pdf_file.write_text("PDF content")  # Write content so not empty
+        pdf_file.write_text("PDF content")
 
         generator = mock_generator(flashcards=sample_flashcards)
         generator.wait_for_artifact = lambda n, a, timeout: False
@@ -534,9 +536,7 @@ class TestGenerateFlashcardsUseCase:
 
         result = use_case.execute(request)
 
-        # On timeout, a deck is still returned with notebook_id preserved
-        assert len(result) == 1
-        assert result[0].notebook_id  # Notebook preserved for retry
+        assert len(result) == 0
 
     def test_process_large_pdf_chunk_notebook_delete_exception(
         self, temp_dirs, mock_generator, sample_flashcards
@@ -570,3 +570,107 @@ class TestGenerateFlashcardsUseCase:
         result = use_case.execute(request)
 
         assert len(result) == 1
+
+    def test_get_output_subdir_no_parent_direct(self, temp_dirs, mock_generator):
+        """Test _get_output_subdir when PDF is directly in input dir."""
+        input_dir, output_dir = temp_dirs
+
+        generator = mock_generator()
+        use_case = GenerateFlashcardsUseCase(generator=generator)
+
+        # PDF directly in input dir (no parent)
+        pdf_path = input_dir / "file.pdf"
+        result = use_case._get_output_subdir(pdf_path, input_dir, output_dir)
+
+        assert result == output_dir
+
+    def test_add_pdf_source_error(self, temp_dirs, mock_generator):
+        """Test _add_pdf_source handles SourceProcessingError."""
+        from flashcards_generator.domain.exceptions import SourceProcessingError
+
+        input_dir, _output_dir = temp_dirs
+
+        generator = mock_generator()
+        generator.add_source = MagicMock(
+            side_effect=SourceProcessingError("test.pdf", "Upload failed")
+        )
+        use_case = GenerateFlashcardsUseCase(generator=generator)
+
+        result = use_case._add_pdf_source("notebook123", input_dir / "test.pdf")
+
+        assert result is None
+
+    def test_process_large_pdf_chunk_add_failure(self, temp_dirs, mock_generator):
+        """Test _process_large_pdf when chunk fails to add."""
+        from flashcards_generator.domain.exceptions import SourceProcessingError
+
+        input_dir, output_dir = temp_dirs
+
+        generator = mock_generator()
+        generator.add_source = MagicMock(
+            side_effect=SourceProcessingError("chunk.pdf", "Upload failed")
+        )
+        use_case = GenerateFlashcardsUseCase(generator=generator)
+
+        chunk_file = output_dir / ".temp_chunks" / "large_chunk_001.pdf"
+        chunk_file.parent.mkdir(parents=True, exist_ok=True)
+        chunk_file.touch()
+
+        use_case.pdf_chunker.chunk_pdf = lambda pdf_path, temp_dir: [chunk_file]
+
+        request = GenerateFlashcardsRequest(
+            input_dir=input_dir,
+            output_dir=output_dir,
+        )
+
+        result = use_case._process_large_pdf(
+            input_dir / "large.pdf", "deck_name", output_dir, request
+        )
+
+        assert result is None
+
+    def test_is_safe_pdf_path_outside_directory(self, temp_dirs, mock_generator):
+        """Test _is_safe_pdf_path returns False for PDF outside input dir."""
+        input_dir, _output_dir = temp_dirs
+
+        generator = mock_generator()
+        use_case = GenerateFlashcardsUseCase(generator=generator)
+
+        # Try a PDF outside the input directory
+        outside_pdf = Path("/tmp/outside.pdf")
+
+        result = use_case._is_safe_pdf_path(outside_pdf, input_dir)
+
+        assert result is False
+
+    def test_is_safe_pdf_path_non_file(self, temp_dirs, mock_generator):
+        """Test _is_safe_pdf_path returns False for non-file path."""
+        input_dir, _output_dir = temp_dirs
+
+        generator = mock_generator()
+        use_case = GenerateFlashcardsUseCase(generator=generator)
+
+        # Try a directory instead of a file
+        test_dir = input_dir / "testdir"
+        test_dir.mkdir()
+
+        result = use_case._is_safe_pdf_path(test_dir, input_dir)
+
+        assert result is False
+
+    def test_is_safe_pdf_path_exception(self, temp_dirs, mock_generator, monkeypatch):
+        """Test _is_safe_pdf_path handles exceptions."""
+        input_dir, _output_dir = temp_dirs
+
+        generator = mock_generator()
+        use_case = GenerateFlashcardsUseCase(generator=generator)
+
+        # Mock resolve to raise an exception
+        def mock_resolve(*args, **kwargs):
+            raise OSError("Permission denied")
+
+        monkeypatch.setattr(Path, "resolve", mock_resolve)
+
+        result = use_case._is_safe_pdf_path(input_dir / "test.pdf", input_dir)
+
+        assert result is False

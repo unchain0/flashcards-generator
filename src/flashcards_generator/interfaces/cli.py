@@ -189,7 +189,11 @@ class CLI:
         request = self._create_request(args)
         self._log_config(request)
 
-        decks = use_case.execute(request)
+        try:
+            decks = use_case.execute(request)
+        except KeyboardInterrupt:
+            logger.info("\n⚠️  Operation cancelled by user")
+            return 130  # Standard exit code for SIGINT
 
         self._print_summary(decks)
         return 0
@@ -198,4 +202,8 @@ class CLI:
 def main() -> None:
     """Entry point."""
     cli = CLI()
-    sys.exit(cli.run())
+    try:
+        sys.exit(cli.run())
+    except KeyboardInterrupt:
+        logger.info("\n⚠️  Operation cancelled by user")
+        sys.exit(130)

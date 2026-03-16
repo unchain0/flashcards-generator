@@ -9,5 +9,10 @@ wheels/
 # Virtual environments
 .venv
 
+# Output and temporary files
 *.csv
 *.pdf
+*_raw.json
+outputs/
+output/
+.temp_chunks/

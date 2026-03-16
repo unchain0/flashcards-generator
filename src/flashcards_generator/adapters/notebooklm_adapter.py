@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import shlex
 import subprocess
 import time
 from typing import TYPE_CHECKING, ClassVar
@@ -47,14 +46,27 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
 
     def _run_command(self, args: list[str], check: bool = True) -> tuple[int, str, str]:
         """Execute notebooklm CLI command."""
-        safe_args = [shlex.quote(arg) for arg in args]
-        cmd = [self.notebooklm_path, *safe_args]
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, encoding="utf-8", timeout=self.timeout
+        cmd = [self.notebooklm_path, *args]
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
         )
-        if check and result.returncode != 0:
-            raise RuntimeError(f"Command failed: {result.stderr}")
-        return result.returncode, result.stdout, result.stderr
+        try:
+            stdout, stderr = process.communicate(timeout=self.timeout)
+        except KeyboardInterrupt:
+            logger.info("Interrupted by user, terminating subprocess...")
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+            raise
+        if check and process.returncode != 0:
+            raise RuntimeError(f"Command failed: {stderr}")
+        return process.returncode, stdout, stderr
 
     def create_notebook(self, title: str) -> str:
         """Create a new notebook."""

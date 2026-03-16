@@ -83,6 +83,8 @@ class GenerateFlashcardsUseCase:
         output_path = request.output_dir
         output_path.mkdir(parents=True, exist_ok=True)
 
+        self._cleanup_orphaned_raw_files(output_path)
+
         decks: list[Deck] = []
         try:
             all_pdfs = self._find_all_pdfs(input_path)
@@ -159,6 +161,14 @@ class GenerateFlashcardsUseCase:
             except NotebookCleanupError:
                 pass
         self._created_notebooks.clear()
+
+    def _cleanup_orphaned_raw_files(self, output_path: Path) -> None:
+        for raw_file in output_path.rglob("*_raw.json"):
+            try:
+                raw_file.unlink()
+                logger.debug(f"Cleaned up orphaned temp file: {raw_file}")
+            except OSError:
+                pass
 
     def _create_notebook(self, deck_name: str) -> str:
         """Create notebook and track for cleanup."""

@@ -158,11 +158,14 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
 
     def _execute_with_retry(self, cmd: list[str]) -> tuple[str, str]:
         """Execute command with retry on rate limit."""
-        _, stdout, stderr = self._run_command(cmd, check=False)
+        returncode, stdout, stderr = self._run_command(cmd, check=False)
         self._log_command_output(stdout, stderr)
 
         if self._needs_retry(stderr):
             return self._perform_retry(cmd)
+
+        if returncode != 0:
+            logger.error(f"Command failed with exit code {returncode}: {stderr}")
 
         return stdout, stderr
 
@@ -173,7 +176,10 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
         cmd = self._build_generate_command(notebook_id, config)
 
         try:
-            stdout, _ = self._execute_with_retry(cmd)
+            stdout, stderr = self._execute_with_retry(cmd)
+            if not stdout or stdout.strip() == "":
+                logger.error(f"Generation returned empty output: {stderr}")
+                return None
             data = json.loads(stdout)
             artifact_id = self._extract_artifact_id(data)
             logger.debug(f"Extracted artifact_id: {artifact_id}")

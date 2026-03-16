@@ -122,7 +122,8 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
             "--json",
         ]
         if config.instructions:
-            cmd.append(config.instructions)
+            sanitized_instructions = config.instructions.replace("\n", " ").strip()
+            cmd.append(sanitized_instructions)
         return cmd
 
     def _needs_retry(self, stderr: str) -> bool:

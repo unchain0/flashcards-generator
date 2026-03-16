@@ -174,11 +174,17 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
     ) -> str | None:
         """Generate flashcards with retry logic."""
         cmd = self._build_generate_command(notebook_id, config)
+        cmd_str = " ".join(cmd)
+        logger.debug(f"Generate command: {cmd_str[:200]}...")
+        instructions_len = len(config.instructions) if config.instructions else 0
+        logger.debug(f"Instructions length: {instructions_len}")
 
         try:
             stdout, stderr = self._execute_with_retry(cmd)
+            logger.debug(f"Command stdout: {stdout[:500] if stdout else 'empty'}")
+            logger.debug(f"Command stderr: {stderr[:500] if stderr else 'empty'}")
             if not stdout or stdout.strip() == "":
-                logger.error(f"Generation returned empty output: {stderr}")
+                logger.error(f"Generation returned empty output. stderr: {stderr}")
                 return None
             data = json.loads(stdout)
             artifact_id = self._extract_artifact_id(data)

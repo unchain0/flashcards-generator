@@ -277,7 +277,7 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
         try:
             logger.debug(f"Deleting notebook: {notebook_id[:8]}...")
             returncode, _, _ = self._run_command(
-                ["notebook", "delete", notebook_id, "--force"], check=False
+                ["delete", notebook_id, "--force"], check=False
             )
             if returncode == 0:
                 logger.info(f"Successfully deleted notebook: {notebook_id[:8]}...")
@@ -293,7 +293,7 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
         """List all notebooks, optionally filtered by creation date."""
         try:
             returncode, stdout, stderr = self._run_command(
-                ["notebook", "list", "--json"], check=False
+                ["list", "--json"], check=False
             )
             if returncode != 0:
                 logger.error(f"Failed to list notebooks: {stderr}")

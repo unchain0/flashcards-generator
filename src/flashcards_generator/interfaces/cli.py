@@ -31,71 +31,100 @@ class CLI:
         self.parser = self._create_parser()
 
     def _create_parser(self) -> argparse.ArgumentParser:
-        """Create argument parser."""
+        """Create argument parser with subcommands."""
         parser = argparse.ArgumentParser(
             description="Gera flashcards com Cloze Deletion a partir de PDFs"
         )
-        parser.add_argument(
-            "--input-dir",
-            "-i",
-            required=True,
-            type=Path,
-            help="Diretório com pastas de temas contendo PDFs",
-        )
-        parser.add_argument(
-            "--output-dir",
-            "-o",
-            type=Path,
-            default=Path("./output"),
-            help="Diretório de saída",
-        )
-        parser.add_argument(
-            "--difficulty",
-            "-d",
-            choices=["easy", "medium", "hard"],
-            default="medium",
-        )
-        parser.add_argument(
-            "--quantity",
-            "-q",
-            choices=["fewer", "standard", "more"],
-            default="standard",
-        )
-        parser.add_argument("--instructions", help="Instruções customizadas")
-        parser.add_argument(
-            "--language",
-            "-l",
-            default="pt_BR",
-            help="Idioma dos flashcards (padrão: pt_BR)",
-        )
-        parser.add_argument(
-            "--no-wait",
-            action="store_true",
-            help="Não aguarda conclusão",
-        )
-        parser.add_argument("--timeout", type=int, default=900)
-        parser.add_argument("--skip-auth-check", action="store_true")
         parser.add_argument(
             "--log-level",
             choices=["DEBUG", "INFO", "WARNING", "ERROR"],
             default="INFO",
             help="Nível de log (padrão: INFO)",
         )
-        parser.add_argument(
+
+        subparsers = parser.add_subparsers(dest="command", help="Comandos disponíveis")
+
+        # Generate command (default)
+        generate_parser = subparsers.add_parser(
+            "generate", help="Gerar flashcards de PDFs"
+        )
+        generate_parser.add_argument(
+            "--input-dir",
+            "-i",
+            required=True,
+            type=Path,
+            help="Diretório com pastas de temas contendo PDFs",
+        )
+        generate_parser.add_argument(
+            "--output-dir",
+            "-o",
+            type=Path,
+            default=Path("./output"),
+            help="Diretório de saída",
+        )
+        generate_parser.add_argument(
+            "--difficulty",
+            "-d",
+            choices=["easy", "medium", "hard"],
+            default="medium",
+        )
+        generate_parser.add_argument(
+            "--quantity",
+            "-q",
+            choices=["fewer", "standard", "more"],
+            default="standard",
+        )
+        generate_parser.add_argument("--instructions", help="Instruções customizadas")
+        generate_parser.add_argument(
+            "--language",
+            "-l",
+            default="pt_BR",
+            help="Idioma dos flashcards (padrão: pt_BR)",
+        )
+        generate_parser.add_argument(
+            "--no-wait",
+            action="store_true",
+            help="Não aguarda conclusão",
+        )
+        generate_parser.add_argument("--timeout", type=int, default=900)
+        generate_parser.add_argument("--skip-auth-check", action="store_true")
+        generate_parser.add_argument(
             "--include",
             type=str,
             help="Padrão glob para incluir PDFs (ex: 'capitulo*.pdf')",
         )
-        parser.add_argument(
+        generate_parser.add_argument(
             "--exclude",
             type=str,
             help="Padrão glob para excluir PDFs (ex: '*_old.pdf')",
         )
-        parser.add_argument(
+        generate_parser.add_argument(
             "--files",
             type=str,
             help="Lista explícita de PDFs separados por vírgula",
         )
+
+        # Cleanup command
+        cleanup_parser = subparsers.add_parser(
+            "cleanup", help="Limpar notebooks do NotebookLM"
+        )
+        cleanup_parser.add_argument(
+            "--days",
+            "-d",
+            type=int,
+            help=(
+                "Deletar apenas notebooks criados nos últimos N dias "
+                "(ex: 1=hoje, 2=ontem+hoje)"
+            ),
+        )
+        cleanup_parser.add_argument(
+            "--all",
+            "-a",
+            action="store_true",
+            help="Deletar todos os notebooks",
+        )
+        cleanup_parser.add_argument("--skip-auth-check", action="store_true")
+
         return parser
 
     def check_auth(self) -> bool:
@@ -143,14 +172,14 @@ class CLI:
         except subprocess.TimeoutExpired, FileNotFoundError:
             logger.warning("Não foi possível configurar o idioma")
 
+    def _create_adapter(self, timeout: int = 900) -> NotebookLMAdapter:
+        """Create NotebookLM adapter."""
+        notebooklm_path = find_notebooklm()
+        return NotebookLMAdapter(notebooklm_path, timeout=timeout)
+
     def _create_use_case(self, args: argparse.Namespace) -> GenerateFlashcardsUseCase:
         """Create use case with dependencies wired."""
-        notebooklm_path = find_notebooklm()
-
-        # Create adapter (infrastructure concern)
-        generator = NotebookLMAdapter(notebooklm_path, timeout=args.timeout)
-
-        # Create use case with injected dependencies
+        generator = self._create_adapter(args.timeout)
         return GenerateFlashcardsUseCase(generator=generator)
 
     def _create_request(self, args: argparse.Namespace) -> GenerateFlashcardsRequest:
@@ -192,11 +221,8 @@ class CLI:
             status = "✅" if deck.flashcards else "⏳"
             logger.info(f"  {status} {deck.name}: {deck.total_cards} cards")
 
-    def run(self) -> int:
-        """Run CLI."""
-        args = self.parser.parse_args()
-        configure_logging(args.log_level)
-
+    def _run_generate(self, args: argparse.Namespace) -> int:
+        """Run generate command."""
         if not self._validate_input(args.input_dir):
             return 1
 
@@ -205,7 +231,6 @@ class CLI:
 
         self._set_language(args.language)
 
-        # Create use case with wired dependencies
         use_case = self._create_use_case(args)
         request = self._create_request(args)
         self._log_config(request)
@@ -214,10 +239,51 @@ class CLI:
             decks = use_case.execute(request)
         except KeyboardInterrupt:
             logger.info("\n⚠️  Operation cancelled by user")
-            return 130  # Standard exit code for SIGINT
+            return 130
 
         self._print_summary(decks)
         return 0
+
+    def _run_cleanup(self, args: argparse.Namespace) -> int:
+        """Run cleanup command."""
+        if not self._authenticate(args.skip_auth_check):
+            return 1
+
+        adapter = self._create_adapter()
+
+        if args.days:
+            logger.info(f"Deletando notebooks dos últimos {args.days} dia(s)...")
+            deleted, failed = adapter.delete_all_notebooks(days=args.days)
+        elif args.all:
+            logger.info("Deletando todos os notebooks...")
+            deleted, failed = adapter.delete_all_notebooks()
+        else:
+            logger.error("Especifique --days ou --all")
+            return 1
+
+        if failed > 0:
+            logger.warning(f"{failed} notebook(s) não puderam ser deletados")
+            return 0 if deleted > 0 else 1
+
+        logger.info(f"✅ {deleted} notebook(s) deletado(s) com sucesso")
+        return 0
+
+    def run(self) -> int:
+        """Run CLI."""
+        args = self.parser.parse_args()
+        configure_logging(args.log_level)
+
+        if args.command == "cleanup":
+            return self._run_cleanup(args)
+        elif args.command == "generate":
+            return self._run_generate(args)
+        else:
+            # Default to generate if no command specified
+            # But we need input-dir for generate, so show help if missing
+            if not hasattr(args, "input_dir") or args.input_dir is None:
+                self.parser.print_help()
+                return 1
+            return self._run_generate(args)
 
 
 def main() -> None:

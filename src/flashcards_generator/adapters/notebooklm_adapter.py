@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 import time
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, ClassVar
 
 from flashcards_generator.domain.entities import Flashcard
@@ -287,3 +288,76 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
             logger.error(f"Failed to delete notebook {notebook_id}: {e}")
             return False
+
+    def list_notebooks(self, days: int | None = None) -> list[dict]:
+        """List all notebooks, optionally filtered by creation date."""
+        try:
+            returncode, stdout, stderr = self._run_command(
+                ["notebook", "list", "--json"], check=False
+            )
+            if returncode != 0:
+                logger.error(f"Failed to list notebooks: {stderr}")
+                return []
+            data = json.loads(stdout)
+            notebooks = data.get("notebooks", []) if isinstance(data, dict) else data
+            if not isinstance(notebooks, list):
+                return []
+
+            if days is None:
+                return notebooks
+
+            cutoff = datetime.now(UTC) - timedelta(days=days)
+            filtered = []
+            for nb in notebooks:
+                if not isinstance(nb, dict):
+                    continue
+                created_str = nb.get("created_at") or nb.get("created")
+                if created_str:
+                    created = self._parse_datetime(created_str)
+                    if created and created >= cutoff:
+                        filtered.append(nb)
+                else:
+                    filtered.append(nb)
+            return filtered
+        except (json.JSONDecodeError, subprocess.CalledProcessError) as e:
+            logger.error(f"Failed to list notebooks: {e}")
+            return []
+
+    def _parse_datetime(self, dt_str: str) -> datetime | None:
+        formats = [
+            "%Y-%m-%dT%H:%M:%S.%fZ",
+            "%Y-%m-%dT%H:%M:%SZ",
+            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%d",
+        ]
+        for fmt in formats:
+            try:
+                return datetime.strptime(dt_str, fmt).replace(tzinfo=UTC)
+            except ValueError:
+                continue
+        return None
+
+    def delete_all_notebooks(self, days: int | None = None) -> tuple[int, int]:
+        """Delete all notebooks. Returns (deleted_count, failed_count)."""
+        notebooks = self.list_notebooks(days=days)
+        if not notebooks:
+            logger.info("No notebooks found to delete")
+            return 0, 0
+
+        deleted = 0
+        failed = 0
+        total = len(notebooks)
+        logger.info(f"Found {total} notebook(s) to delete...")
+
+        for i, notebook in enumerate(notebooks, 1):
+            notebook_id = notebook.get("id") if isinstance(notebook, dict) else notebook
+            if not notebook_id:
+                continue
+            logger.info(f"[{i}/{total}] Deleting {str(notebook_id)[:8]}...")
+            if self.delete_notebook(str(notebook_id)):
+                deleted += 1
+            else:
+                failed += 1
+
+        logger.info(f"Cleanup complete: {deleted} deleted, {failed} failed")
+        return deleted, failed

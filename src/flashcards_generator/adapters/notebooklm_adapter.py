@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 import subprocess
 import time
 from typing import TYPE_CHECKING, ClassVar
@@ -46,7 +47,8 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
 
     def _run_command(self, args: list[str], check: bool = True) -> tuple[int, str, str]:
         """Execute notebooklm CLI command."""
-        cmd = [self.notebooklm_path, *args]
+        safe_args = [shlex.quote(arg) for arg in args]
+        cmd = [self.notebooklm_path, *safe_args]
         result = subprocess.run(
             cmd, capture_output=True, text=True, encoding="utf-8", timeout=self.timeout
         )
@@ -244,7 +246,9 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
         """Delete notebook (best effort)."""
         try:
             logger.debug(f"Deleting notebook: {notebook_id[:8]}...")
-            self._run_command(["delete", "-n", notebook_id, "-y"], check=False)
+            self._run_command(
+                ["notebook", "delete", notebook_id, "--force"], check=False
+            )
             logger.info(f"Successfully deleted notebook: {notebook_id[:8]}...")
             return True
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:

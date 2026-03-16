@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from typing import TYPE_CHECKING
 
 from flashcards_generator.infrastructure.logging_config import get_logger
@@ -17,7 +18,7 @@ class PDFChunker:
     """Handles PDF page counting and chunking for large files."""
 
     DEFAULT_CHUNK_SIZE = 100
-    DEFAULT_THRESHOLD = 200
+    DEFAULT_THRESHOLD = 100
 
     def __init__(self, chunk_size: int = DEFAULT_CHUNK_SIZE):
         self.chunk_size = chunk_size
@@ -37,14 +38,19 @@ class PDFChunker:
         if not self._has_pypdf:
             return 0
 
+        reader = None
         try:
             from pypdf import PdfReader
 
             reader = PdfReader(str(pdf_path))
             return len(reader.pages)
-        except Exception as e:
+        except (OSError, ImportError, RuntimeError) as e:
             logger.error(f"Failed to count pages in {pdf_path}: {e}")
             return 0
+        finally:
+            if reader is not None:
+                with contextlib.suppress(OSError):
+                    reader.stream.close()
 
     def needs_chunking(
         self, pdf_path: Path, threshold: int = DEFAULT_THRESHOLD
@@ -67,6 +73,7 @@ class PDFChunker:
             yield pdf_path
             return
 
+        reader = None
         try:
             from pypdf import PdfReader, PdfWriter
 
@@ -74,11 +81,10 @@ class PDFChunker:
             total_pages = len(reader.pages)
             num_chunks = (total_pages + self.chunk_size - 1) // self.chunk_size
 
-            msg = (
+            logger.info(
                 f"Splitting {pdf_path.name} ({total_pages} pages) "
                 f"into {num_chunks} chunks"
             )
-            logger.info(msg)
 
             output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -103,16 +109,20 @@ class PDFChunker:
                 logger.info(msg)
                 yield chunk_path
 
-        except Exception as e:
+        except (OSError, ImportError, RuntimeError) as e:
             logger.error(f"Failed to chunk PDF {pdf_path}: {e}")
             yield pdf_path
+        finally:
+            if reader is not None:
+                with contextlib.suppress(OSError):
+                    reader.stream.close()
 
     def cleanup_chunks(self, chunks: list[Path]) -> None:
         """Delete temporary chunk files."""
         for chunk_path in chunks:
             try:
-                if chunk_path.exists() and "_chunk_" in chunk_path.name:
-                    chunk_path.unlink()
+                if "_chunk_" in chunk_path.name:
+                    chunk_path.unlink(missing_ok=True)
                     logger.debug(f"Deleted chunk: {chunk_path.name}")
-            except Exception as e:
+            except OSError as e:
                 logger.warning(f"Failed to delete chunk {chunk_path}: {e}")

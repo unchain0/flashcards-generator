@@ -102,6 +102,13 @@ class TestExtractMathSegments:
         assert segments[2] == ("$b$", True)
         assert segments[3] == (" são variáveis", False)
 
+    def test_empty_text_adds_single_segment(self):
+        text = ""
+        segments = extract_math_segments(text)
+
+        assert len(segments) == 1
+        assert segments[0] == ("", False)
+
 
 class TestCreateClozeWithMath:
     def test_cloze_without_math(self):

@@ -160,3 +160,34 @@ class TestClozeConverter:
         sentence = "a e o são importantes"
         result = cloze_converter._extract_important(sentence)
         assert result == "são importantes"
+
+    def test_convert_existing_cloze_invalid_quality(self, cloze_converter):
+        card = Flashcard(front="{{c1::é}}", back="answer")
+        result = cloze_converter.convert(card)
+        assert result is None
+
+    def test_is_quality_valid_trivial_word_in_cloze(self, cloze_converter):
+        result = cloze_converter._is_quality_valid("Text {{c1::é}} more text")
+        assert result is False
+
+    def test_is_quality_valid_all_words_trivial(self, cloze_converter):
+        result = cloze_converter._is_quality_valid("Text {{c1::a o e}} more text")
+        assert result is False
+
+    def test_create_complex_cloze_trivial_important(self, cloze_converter):
+        result = cloze_converter._create_complex_cloze(
+            "É um fato simples. Outra frase aqui.", 1
+        )
+        assert result is not None
+        assert len(result) > 0
+
+    def test_create_complex_cloze_all_trivial_important(self, cloze_converter):
+        sentence = "methodology defined"
+        result = cloze_converter._create_complex_cloze(sentence, 1)
+        assert sentence in result or "{{c" in result
+
+    def test_extract_important_fallback_to_first_30_chars(self, cloze_converter):
+        sentence = ",.,.,.,. a"
+        result = cloze_converter._extract_important(sentence)
+        assert len(result) <= 30
+        assert result == sentence[:30].strip()

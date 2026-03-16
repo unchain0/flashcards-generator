@@ -104,6 +104,29 @@ class TestCLI:
 
     @patch.object(CLI, "check_auth")
     @patch("flashcards_generator.interfaces.cli.GenerateFlashcardsUseCase")
+    def test_run_authenticated_success(
+        self, mock_use_case_class, mock_check_auth, tmp_path
+    ):
+        mock_check_auth.return_value = True
+
+        mock_use_case = MagicMock()
+        mock_use_case.execute.return_value = []
+        mock_use_case_class.return_value = mock_use_case
+
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        (input_dir / "tema1").mkdir()
+
+        cli = CLI()
+
+        with patch("sys.argv", ["cli", "--input-dir", str(input_dir)]):
+            result = cli.run()
+
+        assert result == 0
+        mock_check_auth.assert_called_once()
+
+    @patch.object(CLI, "check_auth")
+    @patch("flashcards_generator.interfaces.cli.GenerateFlashcardsUseCase")
     def test_run_with_custom_options(
         self, mock_use_case_class, mock_check_auth, tmp_path
     ):

@@ -105,7 +105,29 @@ class GenerateFlashcardsUseCase:
 
     def _find_all_pdfs(self, input_path: Path) -> list[Path]:
         """Find all PDF files recursively."""
-        return list(input_path.rglob("*.pdf"))
+        return [
+            pdf_path
+            for pdf_path in input_path.rglob("*.pdf")
+            if self._is_safe_pdf_path(pdf_path, input_path)
+        ]
+
+    def _is_safe_pdf_path(self, pdf_path: Path, input_path: Path) -> bool:
+        try:
+            resolved_pdf = pdf_path.resolve()
+            resolved_input = input_path.resolve()
+            if not str(resolved_pdf).startswith(str(resolved_input)):
+                logger.warning(f"Skipping PDF outside input directory: {pdf_path}")
+                return False
+            if not pdf_path.is_file():
+                logger.warning(f"Skipping non-file path: {pdf_path}")
+                return False
+            if pdf_path.stat().st_size == 0:
+                logger.warning(f"Skipping empty PDF: {pdf_path}")
+                return False
+            return True
+        except (OSError, ValueError) as e:
+            logger.warning(f"Skipping invalid PDF path {pdf_path}: {e}")
+            return False
 
     def _get_deck_name(self, pdf_path: Path, input_path: Path) -> str:
         """Generate deck name from PDF path."""
@@ -209,8 +231,8 @@ class GenerateFlashcardsUseCase:
         try:
             notebook_id = self._create_notebook(deck_name)
 
-            if self.pdf_chunker.needs_chunking(pdf_path, threshold=200):
-                logger.info("Large PDF detected (>200 pages), using chunking...")
+            if self.pdf_chunker.needs_chunking(pdf_path, threshold=100):
+                logger.info("Large PDF detected (>100 pages), using chunking...")
                 temp_dir = output_path / ".temp_chunks"
                 success = self._process_large_pdf(pdf_path, notebook_id, temp_dir)
                 if not success:

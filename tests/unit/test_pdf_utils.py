@@ -12,7 +12,7 @@ class TestPDFChunker:
     def test_init_default(self):
         chunker = PDFChunker()
         assert chunker.chunk_size == 100
-        assert chunker.DEFAULT_THRESHOLD == 200
+        assert chunker.DEFAULT_THRESHOLD == 100
 
     def test_init_custom_size(self):
         chunker = PDFChunker(chunk_size=50)
@@ -105,7 +105,7 @@ class TestPDFChunker:
     def test_chunk_pdf_error(self, mock_reader_class, tmp_path):
         chunker = PDFChunker()
         chunker._has_pypdf = True
-        mock_reader_class.side_effect = Exception("PDF error")
+        mock_reader_class.side_effect = OSError("PDF error")
 
         pdf_path = tmp_path / "test.pdf"
         pdf_path.touch()
@@ -148,7 +148,7 @@ class TestPDFChunker:
         chunker._has_pypdf = True
 
         with patch("pypdf.PdfReader") as mock_reader:
-            mock_reader.side_effect = Exception("Read error")
+            mock_reader.side_effect = OSError("Read error")
             pdf_path = tmp_path / "test.pdf"
             pdf_path.touch()
 
@@ -164,3 +164,10 @@ class TestPDFChunker:
 
         # Should not raise error
         chunker.cleanup_chunks([mock_path])
+
+    def test_check_pypdf_import_error(self):
+        with patch(
+            "builtins.__import__", side_effect=ImportError("No module named pypdf")
+        ):
+            chunker = PDFChunker()
+            assert chunker._has_pypdf is False

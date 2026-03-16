@@ -76,6 +76,7 @@ class MockFlashcardGenerator(FlashcardGeneratorPort):
         import json
 
         cards = self._artifacts.get(artifact_id, {}).get("flashcards", [])
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(json.dumps(cards))
         return True
 

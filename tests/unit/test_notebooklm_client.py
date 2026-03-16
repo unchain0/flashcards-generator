@@ -210,3 +210,40 @@ class TestNotebookLMClient:
         result = client.parse_flashcards(Path("/nonexistent/file.json"))
 
         assert result == []
+
+    def test_create_flashcard_empty_front(self):
+        client = NotebookLMClient("notebooklm")
+        result = client._create_flashcard({"front": "", "back": "answer"})
+        assert result is None
+
+    def test_create_flashcard_empty_back(self):
+        client = NotebookLMClient("notebooklm")
+        result = client._create_flashcard({"front": "question", "back": ""})
+        assert result is None
+
+    def test_create_flashcard_both_empty(self):
+        client = NotebookLMClient("notebooklm")
+        result = client._create_flashcard({"front": "", "back": ""})
+        assert result is None
+
+    @patch("flashcards_generator.infrastructure.notebooklm_client.subprocess.run")
+    def test_delete_notebook_called_process_error(self, mock_run):
+        from subprocess import CalledProcessError
+
+        mock_run.side_effect = CalledProcessError(1, "cmd")
+
+        client = NotebookLMClient("notebooklm")
+        result = client.delete_notebook("nb123")
+
+        assert result is False
+
+    @patch("flashcards_generator.infrastructure.notebooklm_client.subprocess.run")
+    def test_delete_notebook_timeout_expired(self, mock_run):
+        from subprocess import TimeoutExpired
+
+        mock_run.side_effect = TimeoutExpired("cmd", 10)
+
+        client = NotebookLMClient("notebooklm")
+        result = client.delete_notebook("nb123")
+
+        assert result is False

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 import subprocess
 from typing import TYPE_CHECKING
 
@@ -25,7 +26,8 @@ class NotebookLMClient:
 
     def _run(self, args: list[str], check: bool = True) -> tuple[int, str, str]:
         """Execute notebooklm CLI command."""
-        cmd = [self.notebooklm_path, *args]
+        safe_args = [shlex.quote(arg) for arg in args]
+        cmd = [self.notebooklm_path, *safe_args]
         result = subprocess.run(
             cmd, capture_output=True, text=True, encoding="utf-8", timeout=self.timeout
         )

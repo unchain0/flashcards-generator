@@ -48,3 +48,25 @@ class TestExceptions:
         assert error.reason == "Permission denied"
         assert "Cleanup failed" in str(error)
         assert "nb789" in str(error)
+
+
+class TestAbstractPorts:
+    def test_deck_repository_port_save_not_implemented(self):
+        from flashcards_generator.domain.ports.deck_repository import DeckRepositoryPort
+
+        class ConcreteRepo(DeckRepositoryPort):
+            pass
+
+        with pytest.raises(TypeError):
+            ConcreteRepo()
+
+    def test_flashcard_generator_port_not_implemented(self):
+        from flashcards_generator.domain.ports.flashcard_generator import (
+            FlashcardGeneratorPort,
+        )
+
+        class ConcreteGenerator(FlashcardGeneratorPort):
+            pass
+
+        with pytest.raises(TypeError):
+            ConcreteGenerator()

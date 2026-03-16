@@ -23,10 +23,9 @@ class DeckExporter:
 
     @staticmethod
     def export_csv(deck: Deck, path: Path) -> None:
-        """Export deck to CSV file."""
+        """Export deck to CSV file without header."""
         with open(path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f, quoting=csv.QUOTE_ALL)
-            writer.writerow(["Front", "Back", "Tags"])
             for card in deck.flashcards:
                 front = convert_to_anki_math_format(card.front)
                 back = convert_to_anki_math_format(card.back)

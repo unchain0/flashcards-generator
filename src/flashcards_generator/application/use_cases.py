@@ -18,6 +18,7 @@ from flashcards_generator.domain.ports.flashcard_generator import (
     GenerationConfig,
 )
 from flashcards_generator.infrastructure.logging_config import get_logger
+from flashcards_generator.infrastructure.pdf_utils import PDFChunker
 
 # Explicit runtime usage to prevent type-checking-only false positives
 _ = (Path, GenerateFlashcardsRequest)
@@ -61,10 +62,12 @@ class GenerateFlashcardsUseCase:
         generator: FlashcardGeneratorPort,
         converter: ClozeConverter | None = None,
         exporter: DeckExporter | None = None,
+        pdf_chunker: PDFChunker | None = None,
     ):
         self.generator = generator
         self.converter = converter or ClozeConverter()
         self.exporter = exporter or DeckExporter()
+        self.pdf_chunker = pdf_chunker or PDFChunker()
         self._created_notebooks: list[str] = []
 
     def execute(self, request: GenerateFlashcardsRequest) -> list[Deck]:
@@ -152,6 +155,35 @@ class GenerateFlashcardsUseCase:
             logger.info(f"Notebook preserved: {notebook_id}")
             return None
 
+    def _process_large_pdf(
+        self,
+        pdf_path: Path,
+        notebook_id: str,
+        temp_dir: Path,
+    ) -> bool:
+        chunks: list[Path] = []
+        source_ids: list[str] = []
+        try:
+            chunks = list(self.pdf_chunker.chunk_pdf(pdf_path, temp_dir))
+            logger.info(f"Adding {len(chunks)} chunks as sources...")
+
+            for i, chunk_path in enumerate(chunks, 1):
+                source_id = self._add_pdf_source(notebook_id, chunk_path)
+                if not source_id:
+                    logger.error(f"Failed to add chunk {i}/{len(chunks)}")
+                    return False
+                source_ids.append(source_id)
+                logger.info(f"Chunk {i}/{len(chunks)} added")
+
+            logger.info("Waiting for all sources to be processed...")
+            for i, source_id in enumerate(source_ids, 1):
+                self.generator.wait_for_source(notebook_id, source_id, timeout=600)
+                logger.info(f"Chunk {i}/{len(source_ids)} processed")
+
+            return True
+        finally:
+            self.pdf_chunker.cleanup_chunks(chunks)
+
     def _process_pdf(
         self,
         pdf_path: Path,
@@ -163,6 +195,12 @@ class GenerateFlashcardsUseCase:
         deck_name = self._get_deck_name(pdf_path, input_path)
         pdf_output_path = self._get_output_subdir(pdf_path, input_path, output_path)
 
+        filename = pdf_path.stem
+        expected_csv = pdf_output_path / f"{filename}.csv"
+        if expected_csv.exists():
+            logger.info(f"Skipping {pdf_path.name} - CSV already exists")
+            return None
+
         logger.info("=" * 60)
         logger.info(f"PDF: {pdf_path.relative_to(input_path)}")
         logger.info(f"Deck: {deck_name}")
@@ -170,13 +208,19 @@ class GenerateFlashcardsUseCase:
 
         try:
             notebook_id = self._create_notebook(deck_name)
-            source_id = self._add_pdf_source(notebook_id, pdf_path)
 
-            if not source_id:
-                return None
-
-            logger.info("Processing source...")
-            self.generator.wait_for_source(notebook_id, source_id, timeout=600)
+            if self.pdf_chunker.needs_chunking(pdf_path, threshold=200):
+                logger.info("Large PDF detected (>200 pages), using chunking...")
+                temp_dir = output_path / ".temp_chunks"
+                success = self._process_large_pdf(pdf_path, notebook_id, temp_dir)
+                if not success:
+                    return None
+            else:
+                source_id = self._add_pdf_source(notebook_id, pdf_path)
+                if not source_id:
+                    return None
+                logger.info("Processing source...")
+                self.generator.wait_for_source(notebook_id, source_id, timeout=600)
 
             return self._generate_flashcards(
                 notebook_id, deck_name, pdf_output_path, request

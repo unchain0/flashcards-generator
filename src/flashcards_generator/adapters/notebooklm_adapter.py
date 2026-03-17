@@ -40,7 +40,11 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
     """Adapter for Google NotebookLM CLI."""
 
     # Error patterns for retry logic
-    RATE_LIMIT_PATTERNS: ClassVar[list[str]] = ["GENERATION_FAILED", "rate limit"]
+    RATE_LIMIT_PATTERNS: ClassVar[list[str]] = [
+        "GENERATION_FAILED",
+        "rate limit",
+        "RPC CREATE_ARTIFACT failed",
+    ]
 
     def __init__(self, notebooklm_path: str, timeout: int = DEFAULT_COMMAND_TIMEOUT):
         self.notebooklm_path = notebooklm_path

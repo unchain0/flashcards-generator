@@ -243,10 +243,8 @@ class GenerateFlashcardsUseCase:
             parts = parent.parts
             if len(parts) >= 2:
                 subdir = output_path / parts[0] / parts[1]
-            elif parts:
-                subdir = output_path / parts[0]
             else:
-                return output_path
+                subdir = output_path / parts[0]
             subdir.mkdir(parents=True, exist_ok=True)
             return subdir
         return output_path

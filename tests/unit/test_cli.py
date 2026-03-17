@@ -70,7 +70,8 @@ class TestCLI:
         cli = CLI()
 
         with patch(
-            "sys.argv", ["cli", "--input-dir", str(input_dir), "--skip-auth-check"]
+            "sys.argv",
+            ["cli", "generate", "--input-dir", str(input_dir), "--skip-auth-check"],
         ):
             result = cli.run()
 
@@ -83,7 +84,10 @@ class TestCLI:
 
         cli = CLI()
 
-        with patch("sys.argv", ["cli", "--input-dir", str(tmp_path / "nonexistent")]):
+        with patch(
+            "sys.argv",
+            ["cli", "generate", "--input-dir", str(tmp_path / "nonexistent")],
+        ):
             result = cli.run()
 
         assert result == 1
@@ -97,7 +101,7 @@ class TestCLI:
 
         cli = CLI()
 
-        with patch("sys.argv", ["cli", "--input-dir", str(input_dir)]):
+        with patch("sys.argv", ["cli", "generate", "--input-dir", str(input_dir)]):
             result = cli.run()
 
         assert result == 1
@@ -119,7 +123,7 @@ class TestCLI:
 
         cli = CLI()
 
-        with patch("sys.argv", ["cli", "--input-dir", str(input_dir)]):
+        with patch("sys.argv", ["cli", "generate", "--input-dir", str(input_dir)]):
             result = cli.run()
 
         assert result == 0
@@ -148,6 +152,7 @@ class TestCLI:
             "sys.argv",
             [
                 "cli",
+                "generate",
                 "--input-dir",
                 str(input_dir),
                 "--output-dir",
@@ -184,7 +189,8 @@ class TestCLI:
         cli = CLI()
 
         with patch(
-            "sys.argv", ["cli", "--input-dir", str(input_dir), "--skip-auth-check"]
+            "sys.argv",
+            ["cli", "generate", "--input-dir", str(input_dir), "--skip-auth-check"],
         ):
             result = cli.run()
 
@@ -213,7 +219,8 @@ class TestCLI:
         cli = CLI()
 
         with patch(
-            "sys.argv", ["cli", "--input-dir", str(input_dir), "--skip-auth-check"]
+            "sys.argv",
+            ["cli", "generate", "--input-dir", str(input_dir), "--skip-auth-check"],
         ):
             result = cli.run()
 

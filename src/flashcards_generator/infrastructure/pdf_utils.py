@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import subprocess
 from typing import TYPE_CHECKING
 
 from flashcards_generator.infrastructure.logging_config import get_logger
@@ -12,6 +13,73 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 logger = get_logger("pdf_utils")
+
+
+class PPTXConverter:
+    """Converts PowerPoint (.pptx) files to PDF format."""
+
+    def __init__(self) -> None:
+        self._has_libreoffice = self._check_libreoffice()
+
+    def _check_libreoffice(self) -> bool:
+        """Check if LibreOffice is available."""
+        try:
+            result = subprocess.run(
+                ["soffice", "--version"],
+                capture_output=True,
+                timeout=5,
+            )
+            return result.returncode == 0
+        except subprocess.TimeoutExpired, FileNotFoundError:
+            logger.warning("LibreOffice not found. PPTX conversion disabled.")
+            return False
+
+    def convert(self, pptx_path: Path, output_dir: Path) -> Path | None:
+        """Convert PPTX to PDF using LibreOffice."""
+        if not self._has_libreoffice:
+            logger.error(f"Cannot convert {pptx_path.name}: LibreOffice not available")
+            return None
+
+        try:
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            # Run LibreOffice conversion
+            result = subprocess.run(
+                [
+                    "soffice",
+                    "--headless",
+                    "--convert-to",
+                    "pdf",
+                    "--outdir",
+                    str(output_dir),
+                    str(pptx_path),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+
+            if result.returncode != 0:
+                logger.error(f"PPTX conversion failed: {result.stderr}")
+                return None
+
+            # LibreOffice creates PDF with same name but .pdf extension
+            pdf_name = pptx_path.stem + ".pdf"
+            pdf_path = output_dir / pdf_name
+
+            if pdf_path.exists():
+                logger.info(f"Converted {pptx_path.name} → {pdf_name}")
+                return pdf_path
+            else:
+                logger.error(f"PDF not found after conversion: {pdf_path}")
+                return None
+
+        except subprocess.TimeoutExpired:
+            logger.error(f"PPTX conversion timeout: {pptx_path.name}")
+            return None
+        except OSError as e:
+            logger.error(f"PPTX conversion error: {e}")
+            return None
 
 
 class PDFChunker:

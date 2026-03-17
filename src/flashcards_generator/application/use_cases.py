@@ -122,32 +122,33 @@ class GenerateFlashcardsUseCase:
                     logger.warning(f"Explicit file not found: {file_name}")
             return pdf_paths
 
-        # Find all PDFs recursively
         all_pdfs = [
             pdf_path
             for pdf_path in input_path.rglob("*.pdf")
             if self._is_safe_pdf_path(pdf_path, input_path)
         ]
+        all_pptx = [
+            pptx_path
+            for pptx_path in input_path.rglob("*.pptx")
+            if self._is_safe_pdf_path(pptx_path, input_path)
+        ]
+        all_files = all_pdfs + all_pptx
 
-        # Apply include pattern filter
         if request.include_pattern:
-            all_pdfs = [
-                pdf_path
-                for pdf_path in all_pdfs
-                if fnmatch.fnmatch(pdf_path.name, request.include_pattern)
+            all_files = [
+                f for f in all_files if fnmatch.fnmatch(f.name, request.include_pattern)
             ]
             logger.info(f"Include filter '{request.include_pattern}' applied")
 
-        # Apply exclude pattern filter
         if request.exclude_pattern:
-            all_pdfs = [
-                pdf_path
-                for pdf_path in all_pdfs
-                if not fnmatch.fnmatch(pdf_path.name, request.exclude_pattern)
+            all_files = [
+                f
+                for f in all_files
+                if not fnmatch.fnmatch(f.name, request.exclude_pattern)
             ]
             logger.info(f"Exclude filter '{request.exclude_pattern}' applied")
 
-        return all_pdfs
+        return all_files
 
     def _is_safe_pdf_path(self, pdf_path: Path, input_path: Path) -> bool:
         try:
@@ -406,7 +407,9 @@ class GenerateFlashcardsUseCase:
         logger.info("=" * 60)
 
         try:
-            if self.pdf_chunker.needs_chunking(pdf_path, threshold=100):
+            if pdf_path.suffix.lower() == ".pdf" and self.pdf_chunker.needs_chunking(
+                pdf_path, threshold=100
+            ):
                 logger.info("Large PDF detected (>100 pages), using chunking...")
                 return self._process_large_pdf(
                     pdf_path, deck_name, pdf_output_path, request

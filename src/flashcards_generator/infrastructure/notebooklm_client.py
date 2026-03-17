@@ -134,7 +134,7 @@ class NotebookLMClient:
         try:
             self._run(cmd)
             return True
-        except Exception as e:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             logger.error(f"Download failed: {e}")
             return False
 

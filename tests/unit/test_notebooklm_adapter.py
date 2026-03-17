@@ -153,7 +153,8 @@ class TestNotebookLMAdapter:
         adapter = NotebookLMAdapter("notebooklm")
         config = GenerationConfig(instructions="Custom instructions")
         cmd = adapter._build_generate_command("nb123", config)
-        assert "Custom instructions" in cmd
+        # shlex.quote may wrap the string in quotes, so check both cases
+        assert any("Custom instructions" in str(arg) for arg in cmd)
 
     @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
     def test_generate_flashcards_json_decode_error(self, mock_popen_class):

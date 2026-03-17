@@ -116,7 +116,7 @@ class TestNotebookLMClient:
 
     @patch("flashcards_generator.infrastructure.notebooklm_client.subprocess.run")
     def test_download_flashcards_failure(self, mock_run):
-        mock_run.side_effect = Exception("Download error")
+        mock_run.side_effect = RuntimeError("Download error")
 
         client = NotebookLMClient("notebooklm")
         output_path = Path("/tmp/output.json")

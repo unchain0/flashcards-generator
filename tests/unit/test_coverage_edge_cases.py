@@ -425,9 +425,9 @@ class TestUseCasesExceptionCoverage:
         chunk_file.parent.mkdir(parents=True, exist_ok=True)
         chunk_file.touch()
 
-        # Mock _create_notebook to raise generic exception
+        # Mock _create_notebook to raise RuntimeError (caught by specific handler)
         use_case._create_notebook = lambda name: (_ for _ in ()).throw(
-            Exception("Test error")
+            RuntimeError("Test error")
         )
 
         request = GenerateFlashcardsRequest(

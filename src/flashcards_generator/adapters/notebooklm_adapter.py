@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 import subprocess
 import time
 from datetime import UTC, datetime, timedelta
@@ -124,7 +125,7 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
         ]
         if config.instructions:
             sanitized_instructions = config.instructions.replace("\n", " ").strip()
-            cmd.append(sanitized_instructions)
+            cmd.append(shlex.quote(sanitized_instructions))
         return cmd
 
     def _needs_retry(self, stderr: str) -> bool:

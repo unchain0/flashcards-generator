@@ -26,8 +26,12 @@ _ = (Path, GenerateFlashcardsRequest)
 
 logger = get_logger("use_cases")
 
-# Maximum filename length (leave room for path + suffix)
+# Constants for file handling and timeouts
 MAX_FILENAME_LEN = 200
+SOURCE_WAIT_TIMEOUT = 600  # seconds
+PDF_CHUNKING_THRESHOLD = 100  # pages
+MIN_CARDS_QUALITY_LENGTH = 10  # minimum characters for valid card
+BORDER_LENGTH = 60  # characters for border lines
 
 
 def _safe_filename(base_name: str, suffix: str = "") -> str:
@@ -186,17 +190,37 @@ class GenerateFlashcardsUseCase:
 
     def _is_safe_pdf_path(self, pdf_path: Path, input_path: Path) -> bool:
         try:
-            resolved_pdf = pdf_path.resolve()
-            resolved_input = input_path.resolve()
-            if not str(resolved_pdf).startswith(str(resolved_input)):
+            # Reject symlinks to prevent path traversal attacks
+            if pdf_path.is_symlink():
+                logger.warning(f"Skipping symlink: {pdf_path}")
+                return False
+
+            # Use strict=True to ensure path exists before resolving
+            resolved_pdf = pdf_path.resolve(strict=True)
+            resolved_input = input_path.resolve(strict=True)
+
+            # Ensure resolved path is within allowed directory
+            try:
+                resolved_pdf.relative_to(resolved_input)
+            except ValueError:
                 logger.warning(f"Skipping PDF outside input directory: {pdf_path}")
                 return False
-            if not pdf_path.is_file():
+
+            # Verify it's a regular file
+            if not resolved_pdf.is_file():
                 logger.warning(f"Skipping non-file path: {pdf_path}")
                 return False
-            if pdf_path.stat().st_size == 0:
+
+            # Verify it's a PDF file
+            if resolved_pdf.suffix.lower() != ".pdf":
+                logger.warning(f"Skipping non-PDF file: {pdf_path}")
+                return False
+
+            # Check for empty files
+            if resolved_pdf.stat().st_size == 0:
                 logger.warning(f"Skipping empty PDF: {pdf_path}")
                 return False
+
             return True
         except (OSError, ValueError) as e:
             logger.warning(f"Skipping invalid PDF path {pdf_path}: {e}")
@@ -336,7 +360,9 @@ class GenerateFlashcardsUseCase:
                 return None
 
             logger.info(f"Chunk {chunk_index}/{total_chunks}: source added, waiting...")
-            self.generator.wait_for_source(chunk_notebook_id, source_id, timeout=600)
+            self.generator.wait_for_source(
+                chunk_notebook_id, source_id, timeout=SOURCE_WAIT_TIMEOUT
+            )
 
             # Generate flashcards for this chunk
             logger.info(f"Chunk {chunk_index}/{total_chunks}: generating flashcards...")
@@ -404,7 +430,7 @@ class GenerateFlashcardsUseCase:
                 notebook_id=chunk_notebook_id,
             )
 
-        except Exception as e:
+        except (GenerationError, SourceProcessingError, OSError, RuntimeError) as e:
             logger.error(f"Chunk {chunk_index}/{total_chunks}: error - {e}")
             return None
         finally:
@@ -416,7 +442,7 @@ class GenerateFlashcardsUseCase:
                     logger.debug(
                         f"Chunk {chunk_index}/{total_chunks}: notebook cleaned up"
                     )
-                except Exception as e:
+                except NotebookCleanupError as e:
                     logger.warning(f"Failed to cleanup chunk notebook: {e}")
 
     def _process_pdf(
@@ -436,14 +462,14 @@ class GenerateFlashcardsUseCase:
             logger.info(f"Skipping {pdf_path.name} - CSV already exists")
             return None
 
-        logger.info("=" * 60)
+        logger.info("=" * BORDER_LENGTH)
         logger.info(f"PDF: {pdf_path.relative_to(input_path)}")
         logger.info(f"Deck: {deck_name}")
-        logger.info("=" * 60)
+        logger.info("=" * BORDER_LENGTH)
 
         try:
             if pdf_path.suffix.lower() == ".pdf" and self.pdf_chunker.needs_chunking(
-                pdf_path, threshold=100
+                pdf_path, threshold=PDF_CHUNKING_THRESHOLD
             ):
                 logger.info("Large PDF detected (>100 pages), using chunking...")
                 return self._process_large_pdf(
@@ -455,7 +481,9 @@ class GenerateFlashcardsUseCase:
             if not source_id:
                 return None
             logger.info("Processing source...")
-            self.generator.wait_for_source(notebook_id, source_id, timeout=600)
+            self.generator.wait_for_source(
+                notebook_id, source_id, timeout=SOURCE_WAIT_TIMEOUT
+            )
 
             return self._generate_flashcards(
                 notebook_id, deck_name, pdf_output_path, request, pdf_path.stem
@@ -464,8 +492,12 @@ class GenerateFlashcardsUseCase:
         except GenerationError as e:
             logger.error(f"Generation error: {e}")
             return None
+        except (OSError, ValueError, RuntimeError) as e:
+            logger.error(f"Processing error: {e}")
+            return None
         except Exception as e:
-            logger.error(f"Unexpected error: {e}")
+            # Catch-all for unexpected errors during PDF processing
+            logger.error(f"Unexpected error processing PDF: {e}")
             return None
 
     def _generate_flashcards(

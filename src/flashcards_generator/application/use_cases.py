@@ -235,10 +235,18 @@ class GenerateFlashcardsUseCase:
     def _get_output_subdir(
         self, pdf_path: Path, input_path: Path, output_path: Path
     ) -> Path:
-        """Get or create output subdirectory for PDF."""
+        """Get output directory for PDF - uses two-level structure."""
         relative_path = pdf_path.relative_to(input_path)
-        if relative_path.parent != Path("."):
-            subdir = output_path / relative_path.parent
+
+        parent = relative_path.parent
+        if parent != Path("."):
+            parts = parent.parts
+            if len(parts) >= 2:
+                subdir = output_path / parts[0] / parts[1]
+            elif parts:
+                subdir = output_path / parts[0]
+            else:
+                return output_path
             subdir.mkdir(parents=True, exist_ok=True)
             return subdir
         return output_path

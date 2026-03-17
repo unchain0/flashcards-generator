@@ -63,6 +63,22 @@ class TestSafePdfPathEdgeCases:
         assert result is False
 
 
+class TestGetOutputSubdirEdgeCases:
+    def test_get_output_subdir_empty_parts(self, tmp_path, mock_generator):
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        pdf_file = input_dir / "test.pdf"
+        pdf_file.write_text("PDF content")
+
+        use_case = GenerateFlashcardsUseCase(generator=mock_generator())
+        result = use_case._get_output_subdir(pdf_file, input_dir, output_dir)
+
+        assert result == output_dir
+
+
 class TestProcessPdfRuntimeError:
     def test_process_pdf_runtime_error(self, tmp_path, mock_generator):
         input_dir = tmp_path / "input"

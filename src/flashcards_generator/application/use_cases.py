@@ -27,7 +27,7 @@ _ = (Path, GenerateFlashcardsRequest)
 logger = get_logger("use_cases")
 
 # Constants for file handling and timeouts
-MAX_FILENAME_LEN = 200
+MAX_FILENAME_LEN = 50  # Conservative limit for temp files in nested directories
 SOURCE_WAIT_TIMEOUT = 600  # seconds
 PDF_CHUNKING_THRESHOLD = 100  # pages
 MIN_CARDS_QUALITY_LENGTH = 10  # minimum characters for valid card

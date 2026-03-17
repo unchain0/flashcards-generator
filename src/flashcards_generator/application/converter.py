@@ -12,6 +12,30 @@ from flashcards_generator.domain.entities import Flashcard
 class ClozeConverter:
     """Convert flashcards to cloze deletion format."""
 
+    # Pre-compiled regex patterns for performance
+    CLOZE_PATTERN: ClassVar[re.Pattern] = re.compile(r"\{\{c\d+::(.+?)\}\}")
+    WHITESPACE_PATTERN: ClassVar[re.Pattern] = re.compile(r"\s+")
+    ELLIPSIS_PATTERN: ClassVar[re.Pattern] = re.compile(r"\.{3,}")
+    RESPOSTA_PATTERN: ClassVar[re.Pattern] = re.compile(
+        r"\bResposta\s+[ée]/são\s*", flags=re.IGNORECASE
+    )
+    ANSWER_PATTERN: ClassVar[re.Pattern] = re.compile(
+        r"\bAnswer\s+is/are\s*", flags=re.IGNORECASE
+    )
+    QUESTION_CLEANUP_PATTERN: ClassVar[re.Pattern] = re.compile(
+        r"^(Qual é|Qual|What is|What|Which is|Which)\s*(o|a|the)?\s*",
+        flags=re.IGNORECASE,
+    )
+    SENTENCE_SPLIT_PATTERN: ClassVar[re.Pattern] = re.compile(r"(?<=[.!?])\s+")
+    WORD_CLEAN_PATTERN: ClassVar[re.Pattern] = re.compile(r"[,;:!?]$")
+
+    # Patterns for extracting important content
+    IMPORTANT_PATTERNS: ClassVar[list[re.Pattern]] = [
+        re.compile(r"([A-Z][a-z]+(?:\s+[a-z]+){0,4}\s+(?:é|são|is|are)\s+[^(,|.)]+)"),
+        re.compile(r"((?:é|são|is|are)\s+[^(,|.)]+)"),
+        re.compile(r"([^(,|.)]{10,50})"),
+    ]
+
     KEYWORDS: ClassVar[list[str]] = [
         "definido como",
         "caracterizado por",
@@ -216,8 +240,7 @@ class ClozeConverter:
         if not cloze_text or len(cloze_text) < 10:
             return False
 
-        cloze_pattern = r"\{\{c\d+::(.+?)\}\}"
-        matches = re.findall(cloze_pattern, cloze_text)
+        matches = self.CLOZE_PATTERN.findall(cloze_text)
 
         for match in matches:
             clean_content = match.strip().lower()
@@ -230,11 +253,11 @@ class ClozeConverter:
         return True
 
     def _clean(self, text: str) -> str:
-        text = re.sub(r"\s+", " ", text)
+        text = self.WHITESPACE_PATTERN.sub(" ", text)
         text = text.strip()
-        text = re.sub(r"\.{3,}", "...", text)
-        text = re.sub(r"\bResposta\s+[ée]/são\s*", "", text, flags=re.IGNORECASE)
-        text = re.sub(r"\bAnswer\s+is/are\s*", "", text, flags=re.IGNORECASE)
+        text = self.ELLIPSIS_PATTERN.sub("...", text)
+        text = self.RESPOSTA_PATTERN.sub("", text)
+        text = self.ANSWER_PATTERN.sub("", text)
         return text
 
     def _create_cloze(self, question: str, answer: str, card_num: int) -> str:
@@ -250,12 +273,7 @@ class ClozeConverter:
             return ""
 
         if any(w in question.lower() for w in ["qual", "what", "which"]):
-            cleaned_q = re.sub(
-                r"^(Qual é|Qual|What is|What|Which is|Which)\s*(o|a|the)?\s*",
-                "",
-                question,
-                flags=re.IGNORECASE,
-            )
+            cleaned_q = self.QUESTION_CLEANUP_PATTERN.sub("", question)
             cleaned_q = cleaned_q.rstrip("?").strip()
             if cleaned_q:
                 return f"{cleaned_q} {{{{c{card_num}::{answer}}}}}"
@@ -263,7 +281,7 @@ class ClozeConverter:
         return f"{question} {{{{c{card_num}::{answer}}}}}"
 
     def _create_complex_cloze(self, answer: str, card_num: int) -> str:
-        sentences = re.split(r"(?<=[.!?])\s+", answer)
+        sentences = self.SENTENCE_SPLIT_PATTERN.split(answer)
 
         if len(sentences) == 1:
             return self._process_sentence(answer, card_num)
@@ -297,7 +315,7 @@ class ClozeConverter:
         return " ".join(words)
 
     def _is_keyword(self, word: str) -> bool:
-        clean = word.lower().strip(",.;:!?")
+        clean = self.WORD_CLEAN_PATTERN.sub("", word.lower())
         return clean in self.KEYWORDS and clean not in self.TRIVIAL_WORDS
 
     def _create_multi_cloze(self, words: list[str], card_num: int) -> str:
@@ -322,14 +340,8 @@ class ClozeConverter:
         return self._create_multi_cloze(words, card_num)
 
     def _extract_important(self, sentence: str) -> str:
-        patterns = [
-            r"([A-Z][a-z]+(?:\s+[a-z]+){0,4}\s+(?:é|são|is|are)\s+[^(,|.)]+)",
-            r"((?:é|são|is|are)\s+[^(,|.)]+)",
-            r"([^(,|.)]{10,50})",
-        ]
-
-        for pattern in patterns:
-            match = re.search(pattern, sentence)
+        for pattern in self.IMPORTANT_PATTERNS:
+            match = pattern.search(sentence)
             if match:
                 candidate = match.group(1).strip()
                 words = candidate.split()
@@ -340,7 +352,7 @@ class ClozeConverter:
 
     def _find_important_index(self, words: list[str]) -> int:
         for i, word in enumerate(words):
-            clean = word.lower().strip(",.;:!?")
+            clean = self.WORD_CLEAN_PATTERN.sub("", word.lower())
             if clean not in self.TRIVIAL_WORDS and (word[0].isupper() or i > 0):
                 return i
         return len(words) // 2

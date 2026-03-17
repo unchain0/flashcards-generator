@@ -373,8 +373,9 @@ class GenerateFlashcardsUseCase:
                 logger.warning(f"Chunk {chunk_index}/{total_chunks}: timeout")
                 return None
 
-            # Download and parse
-            json_path = pdf_output_path / _safe_filename(chunk_deck_name, "_raw.json")
+            # Download and parse - use short temp name for chunks
+            temp_chunk_name = f"chunk{chunk_index}"
+            json_path = pdf_output_path / _safe_filename(temp_chunk_name, "_raw.json")
             try:
                 self.generator.download_flashcards(
                     chunk_notebook_id, artifact_id, json_path
@@ -457,7 +458,7 @@ class GenerateFlashcardsUseCase:
             self.generator.wait_for_source(notebook_id, source_id, timeout=600)
 
             return self._generate_flashcards(
-                notebook_id, deck_name, pdf_output_path, request
+                notebook_id, deck_name, pdf_output_path, request, pdf_path.stem
             )
 
         except GenerationError as e:
@@ -473,6 +474,7 @@ class GenerateFlashcardsUseCase:
         deck_name: str,
         pdf_output_path: Path,
         request: GenerateFlashcardsRequest,
+        pdf_stem: str = "",
     ) -> Deck | None:
         """Generate flashcards for notebook."""
         instructions = request.instructions or self.DEFAULT_INSTRUCTIONS
@@ -492,7 +494,7 @@ class GenerateFlashcardsUseCase:
             return None
 
         return self._handle_artifact_completion(
-            notebook_id, artifact_id, pdf_output_path, deck_name, request
+            notebook_id, artifact_id, pdf_output_path, deck_name, request, pdf_stem
         )
 
     def _handle_artifact_completion(
@@ -502,6 +504,7 @@ class GenerateFlashcardsUseCase:
         output_path: Path,
         deck_name: str,
         request: GenerateFlashcardsRequest,
+        pdf_stem: str = "",
     ) -> Deck:
         """Handle artifact completion or wait."""
         logger.info("Waiting for generation...")
@@ -520,7 +523,7 @@ class GenerateFlashcardsUseCase:
 
         if completed:
             return self._download_and_convert(
-                notebook_id, artifact_id, output_path, deck_name
+                notebook_id, artifact_id, output_path, deck_name, pdf_stem
             )
 
         logger.warning(f"Timeout. ID: {artifact_id}")
@@ -537,9 +540,12 @@ class GenerateFlashcardsUseCase:
         artifact_id: str,
         output_path: Path,
         deck_name: str,
+        pdf_stem: str = "",
     ) -> Deck:
         """Download and convert flashcards."""
-        json_path = output_path / _safe_filename(deck_name, "_raw.json")
+        # Use pdf_stem for temp file to avoid path duplication with deck_name
+        temp_name = pdf_stem if pdf_stem else deck_name
+        json_path = output_path / _safe_filename(temp_name, "_raw.json")
 
         try:
             self.generator.download_flashcards(notebook_id, artifact_id, json_path)

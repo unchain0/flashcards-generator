@@ -23,32 +23,29 @@ class DeckExporter:
 
     @staticmethod
     def export_csv(deck: Deck, path: Path) -> None:
-        """Export deck to CSV file without header."""
+        """Export deck to CSV file without header (2 columns: front, back)."""
         with open(path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f, quoting=csv.QUOTE_ALL)
             for card in deck.flashcards:
                 front = convert_to_anki_math_format(card.front)
                 back = convert_to_anki_math_format(card.back)
-                writer.writerow([front, back, " ".join(card.tags)])
+                writer.writerow([front, back])
 
     @staticmethod
     def export_anki(deck: Deck, path: Path) -> None:
-        """Export deck to Anki TSV format."""
+        """Export deck to Anki TSV format (2 columns: front, back)."""
         lines = [
             f"# Deck: {deck.name}",
             f"# Gerado: {deck.created_at.isoformat()}",
-            "# Tags: notebooklm",
             "",
             "#separator:tab",
             "#html:true",
-            "#tags column:3",
             "",
         ]
         for card in deck.flashcards:
             front = convert_to_anki_math_format(card.front)
             back = convert_to_anki_math_format(card.back)
-            tags = " ".join(card.tags)
-            lines.append(f"{front}\t{back}\t{tags}")
+            lines.append(f"{front}\t{back}")
         path.write_text("\n".join(lines), encoding="utf-8")
 
     @staticmethod

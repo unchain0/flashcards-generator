@@ -1,5 +1,6 @@
 """Generate flashcards use case with dependency injection."""
 
+import hashlib
 from pathlib import Path
 
 from flashcards_generator.application.converter import ClozeConverter
@@ -24,6 +25,36 @@ from flashcards_generator.infrastructure.pdf_utils import PDFChunker
 _ = (Path, GenerateFlashcardsRequest)
 
 logger = get_logger("use_cases")
+
+# Maximum filename length (leave room for path + suffix)
+MAX_FILENAME_LEN = 200
+
+
+def _safe_filename(base_name: str, suffix: str = "") -> str:
+    """Create a safe filename that doesn't exceed filesystem limits.
+
+    Args:
+        base_name: The base name of the file
+        suffix: Optional suffix to append (e.g., "_raw.json")
+
+    Returns:
+        A filename that's guaranteed to be within filesystem limits
+    """
+    total_len = len(base_name) + len(suffix)
+
+    if total_len <= MAX_FILENAME_LEN:
+        return f"{base_name}{suffix}"
+
+    # Need to truncate - use hash to preserve uniqueness
+    # Format: <truncated>_<hash><suffix>
+    hash_len = 8
+    separator_len = 1  # for "_"
+    available = MAX_FILENAME_LEN - len(suffix) - hash_len - separator_len
+
+    truncated = base_name[:available]
+    name_hash = hashlib.md5(base_name.encode()).hexdigest()[:hash_len]
+
+    return f"{truncated}_{name_hash}{suffix}"
 
 
 class GenerateFlashcardsUseCase:
@@ -53,6 +84,9 @@ class GenerateFlashcardsUseCase:
         "8. NÃO gere flashcards no formato pergunta-resposta, apenas cloze. "
         "9. O VERSO deve conter detalhes extras/explicação, "
         "NÃO apenas a resposta. "
+        "10. NUNCA mencione 'Exercício X', 'Questão Y', ou referências a "
+        "seções/números que não existam explicitamente no texto original. "
+        "Crie cards baseados APENAS no conteúdo factual presente. "
         "FORMATO: Frente (cloze com resposta oculta); "
         "Verso (detalhes/explicação adicional)"
     )
@@ -340,7 +374,7 @@ class GenerateFlashcardsUseCase:
                 return None
 
             # Download and parse
-            json_path = pdf_output_path / f"{chunk_deck_name}_raw.json"
+            json_path = pdf_output_path / _safe_filename(chunk_deck_name, "_raw.json")
             try:
                 self.generator.download_flashcards(
                     chunk_notebook_id, artifact_id, json_path
@@ -505,7 +539,7 @@ class GenerateFlashcardsUseCase:
         deck_name: str,
     ) -> Deck:
         """Download and convert flashcards."""
-        json_path = output_path / f"{deck_name}_raw.json"
+        json_path = output_path / _safe_filename(deck_name, "_raw.json")
 
         try:
             self.generator.download_flashcards(notebook_id, artifact_id, json_path)

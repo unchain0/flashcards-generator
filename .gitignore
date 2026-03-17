@@ -16,3 +16,8 @@ wheels/
 outputs/
 output/
 .temp_chunks/
+
+# Input directories
+pdfs/
+inputs/
+input/

@@ -6,6 +6,7 @@ Gera flashcards Anki a partir de PDFs e PPTX usando o NotebookLM do Google.
 
 ```bash
 uv sync
+uv pip install -e .
 notebooklm login
 ```
 

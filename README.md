@@ -1,71 +1,42 @@
 # Flashcards Generator
 
-Gera flashcards com **Cloze Deletion** a partir de PDFs usando o NotebookLM do Google.
-
-## Formato Anki
-
-Os flashcards são gerados no formato **Cloze Deletion** compatível com o Anki.
-
-### Formato CSV (Principal)
-
-Arquivos `.csv` para importação direta:
-
-```csv
-Front,Back,Tags
-"A capital da França é {{c1::Paris}}.","Paris","geografia"
-"A fórmula \(E=mc^2\) foi criada por {{c1::Einstein}}.","Einstein","fisica"
-```
-
-**Math inline:** `\( ... \)`
-**Math display:** `\[ ... \]`
-
-### Importação no Anki
-
-1. Gere os flashcards:
-   ```bash
-   python main.py --input-dir ./pdfs --output-dir ./decks
-   ```
-
-2. Arquivo → Importar → Selecione `{tema}.csv`
-
-3. Configure:
-   - **Tipo de nota:** Cloze
-   - **Delimitador:** Vírgula
-   - **Aspas:** Aspas duplas (")
-   - **Tags:** Coluna 3
-
-### Formatos Suportados
-
-| Arquivo | Formato | Uso |
-|---------|---------|-----|
-| `{tema}.csv` | **CSV** | **Importação Anki (principal)** |
-| `{tema}.json` | JSON | Dados completos |
-| `{tema}_anki.txt` | TSV | Importação alternativa |
-| `{tema}.md` | Markdown | Referência legível |
+Gera flashcards Anki a partir de PDFs e PPTX usando o NotebookLM do Google.
 
 ## Instalação
 
 ```bash
-uv tool install notebooklm-py --with playwright
-playwright install chromium
-notebooklm login  # Autenticar no Google
+uv sync
+notebooklm login
 ```
 
 ## Uso
 
+Gerar flashcards:
+
 ```bash
-python main.py --input-dir ./pdfs --output-dir ./decks
+uv run main.py generate -i ./input -o ./output
 ```
 
-## Estrutura de Pastas
+Limpar notebooks:
 
-```
-pdfs/
-├── Anatomia/
-│   ├── capitulo1.pdf
-│   └── capitulo2.pdf
-├── Fisiologia/
-│   └── aula1.pdf
+```bash
+uv run main.py cleanup --all
 ```
 
-Cada pasta vira um deck separado no Anki.
+## Importação no Anki
+
+1. Arquivo → Importar → Selecione `{tema}.csv`
+2. Configure:
+   - **Tipo:** Cloze
+   - **Delimitador:** Vírgula
+   - **Tags:** Coluna 3
+
+## Estrutura
+
+```
+input/
+├── Tema1/
+│   └── arquivo.pdf
+└── Tema2/
+    └── arquivo.pptx
+```

@@ -179,6 +179,20 @@ class TestNotebookLMAdapterParseDatetime:
         assert result is not None
         assert result.year == 2024
 
+    def test_parse_datetime_iso_no_timezone(self):
+        """Test parsing ISO format without timezone (NotebookLM CLI format)."""
+        adapter = NotebookLMAdapter("notebooklm")
+
+        dt_str = "2024-01-15T10:30:00"
+        result = adapter._parse_datetime(dt_str)
+
+        assert result is not None
+        assert result.year == 2024
+        assert result.month == 1
+        assert result.day == 15
+        assert result.hour == 10
+        assert result.tzinfo is not None  # Should have UTC timezone applied
+
     def test_parse_datetime_invalid(self):
         """Test parsing invalid datetime."""
         adapter = NotebookLMAdapter("notebooklm")
@@ -281,4 +295,67 @@ class TestNotebookLMAdapterDeleteAll:
                 deleted, _failed = adapter.delete_all_notebooks()
 
         assert deleted == 2
+        assert mock_delete.call_count == 2
+
+    def test_delete_all_notebooks_with_progress(self):
+        """Test deletion with progress bar display."""
+        adapter = NotebookLMAdapter("notebooklm")
+
+        with patch.object(adapter, "list_notebooks") as mock_list:
+            mock_list.return_value = [{"id": "nb1"}, {"id": "nb2"}]
+
+            with patch.object(adapter, "delete_notebook") as mock_delete:
+                mock_delete.return_value = True
+                deleted, failed = adapter.delete_all_notebooks(show_progress=True)
+
+        assert deleted == 2
+        assert failed == 0
+        assert mock_delete.call_count == 2
+        # Verify silent mode is passed
+        mock_delete.assert_called_with("nb2", silent=True)
+
+    def test_delete_all_notebooks_empty_with_progress(self):
+        """Test progress bar when no notebooks to delete."""
+        adapter = NotebookLMAdapter("notebooklm")
+
+        with patch.object(adapter, "list_notebooks") as mock_list:
+            mock_list.return_value = []
+            deleted, failed = adapter.delete_all_notebooks(show_progress=True)
+
+        assert deleted == 0
+        assert failed == 0
+
+    def test_delete_all_notebooks_no_id_with_progress(self):
+        """Test progress bar skips notebooks without id."""
+        adapter = NotebookLMAdapter("notebooklm")
+
+        with patch.object(adapter, "list_notebooks") as mock_list:
+            mock_list.return_value = [
+                {"id": "nb1"},
+                {"no_id": "missing"},
+                {"id": "nb2"},
+            ]
+
+            with patch.object(adapter, "delete_notebook") as mock_delete:
+                mock_delete.return_value = True
+                deleted, failed = adapter.delete_all_notebooks(show_progress=True)
+
+        assert deleted == 2
+        assert failed == 0
+        assert mock_delete.call_count == 2
+
+    def test_delete_all_notebooks_with_progress_and_failures(self):
+        """Test progress bar counts failed deletions."""
+        adapter = NotebookLMAdapter("notebooklm")
+
+        with patch.object(adapter, "list_notebooks") as mock_list:
+            mock_list.return_value = [{"id": "nb1"}, {"id": "nb2"}]
+
+            with patch.object(adapter, "delete_notebook") as mock_delete:
+                # First succeeds, second fails
+                mock_delete.side_effect = [True, False]
+                deleted, failed = adapter.delete_all_notebooks(show_progress=True)
+
+        assert deleted == 1
+        assert failed == 1
         assert mock_delete.call_count == 2

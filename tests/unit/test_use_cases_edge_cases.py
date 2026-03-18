@@ -9,9 +9,9 @@ from flashcards_generator.application.use_cases import GenerateFlashcardsUseCase
 
 
 class TestSafePdfPathEdgeCases:
-    """Test _is_safe_pdf_path edge cases for 100% coverage."""
+    """Test _is_safe_file_path edge cases for 100% coverage."""
 
-    def test_is_safe_pdf_path_rejects_symlink(self, tmp_path, mock_generator):
+    def test_is_safe_file_path_rejects_symlink(self, tmp_path, mock_generator):
         """Test that symlinks are rejected (lines 195-196)."""
         input_dir = tmp_path / "input"
         input_dir.mkdir()
@@ -27,10 +27,10 @@ class TestSafePdfPathEdgeCases:
         use_case = GenerateFlashcardsUseCase(generator=mock_generator())
 
         # Symlink should be rejected
-        result = use_case._is_safe_pdf_path(symlink_pdf, input_dir)
+        result = use_case._is_safe_file_path(symlink_pdf, input_dir)
         assert result is False
 
-    def test_is_safe_pdf_path_rejects_non_pdf(self, tmp_path, mock_generator):
+    def test_is_safe_file_path_rejects_non_pdf(self, tmp_path, mock_generator):
         """Test that non-PDF files are rejected (lines 216-217)."""
         input_dir = tmp_path / "input"
         input_dir.mkdir()
@@ -42,10 +42,10 @@ class TestSafePdfPathEdgeCases:
         use_case = GenerateFlashcardsUseCase(generator=mock_generator())
 
         # Non-PDF should be rejected
-        result = use_case._is_safe_pdf_path(text_file, input_dir)
+        result = use_case._is_safe_file_path(text_file, input_dir)
         assert result is False
 
-    def test_is_safe_pdf_path_outside_directory(self, tmp_path, mock_generator):
+    def test_is_safe_file_path_outside_directory(self, tmp_path, mock_generator):
         """Test that paths outside input directory are rejected (lines 205-207)."""
         input_dir = tmp_path / "input"
         input_dir.mkdir()
@@ -59,7 +59,7 @@ class TestSafePdfPathEdgeCases:
         use_case = GenerateFlashcardsUseCase(generator=mock_generator())
 
         # PDF outside input directory should be rejected
-        result = use_case._is_safe_pdf_path(other_pdf, input_dir)
+        result = use_case._is_safe_file_path(other_pdf, input_dir)
         assert result is False
 
 

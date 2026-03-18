@@ -86,7 +86,7 @@ class PDFChunker:
     """Handles PDF page counting and chunking for large files."""
 
     DEFAULT_CHUNK_SIZE = 100
-    DEFAULT_THRESHOLD = 100
+    DEFAULT_THRESHOLD = 150
 
     def __init__(self, chunk_size: int = DEFAULT_CHUNK_SIZE):
         self.chunk_size = chunk_size

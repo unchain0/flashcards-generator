@@ -24,7 +24,9 @@ class TestCLICleanup:
             result = cli.run()
 
         assert result == 0
-        mock_adapter.delete_all_notebooks.assert_called_once_with(days=7)
+        mock_adapter.delete_all_notebooks.assert_called_once_with(
+            days=7, show_progress=True
+        )
 
     @patch.object(CLI, "check_auth")
     @patch("flashcards_generator.interfaces.cli.NotebookLMAdapter")
@@ -42,7 +44,7 @@ class TestCLICleanup:
             result = cli.run()
 
         assert result == 0
-        mock_adapter.delete_all_notebooks.assert_called_once_with()
+        mock_adapter.delete_all_notebooks.assert_called_once_with(show_progress=True)
 
     @patch.object(CLI, "check_auth")
     @patch("flashcards_generator.interfaces.cli.NotebookLMAdapter")

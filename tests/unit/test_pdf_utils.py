@@ -12,7 +12,7 @@ class TestPDFChunker:
     def test_init_default(self):
         chunker = PDFChunker()
         assert chunker.chunk_size == 100
-        assert chunker.DEFAULT_THRESHOLD == 100
+        assert chunker.DEFAULT_THRESHOLD == 150
 
     def test_init_custom_size(self):
         chunker = PDFChunker(chunk_size=50)

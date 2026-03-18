@@ -205,16 +205,43 @@ class TestNotebookLMAdapter:
 
         assert result is True
 
+    @patch("flashcards_generator.adapters.notebooklm_adapter.time.sleep")
     @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
-    def test_download_flashcards_error(self, mock_popen_class):
+    def test_download_flashcards_error_after_retries(
+        self, mock_popen_class, mock_sleep
+    ):
+        """Test download fails after all retries are exhausted."""
+        from flashcards_generator.domain.exceptions import ArtifactDownloadError
+
         mock_popen_class.return_value = mock_popen(
             returncode=1, stdout="", stderr="Error"
         )
-        from flashcards_generator.domain.exceptions import ArtifactDownloadError
 
         adapter = NotebookLMAdapter("notebooklm")
         with pytest.raises(ArtifactDownloadError):
             adapter.download_flashcards("nb123", "art789", Path("/tmp/out.json"))
+
+        # Should have tried 3 times
+        assert mock_popen_class.call_count == 3
+        # Should have slept twice (between retries)
+        assert mock_sleep.call_count == 2
+
+    @patch("flashcards_generator.adapters.notebooklm_adapter.time.sleep")
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_download_flashcards_success_on_retry(self, mock_popen_class, mock_sleep):
+        """Test download succeeds on second attempt."""
+        # First call fails, second succeeds
+        mock_popen_class.side_effect = [
+            mock_popen(returncode=1, stdout="", stderr="Rate limited"),
+            mock_popen(returncode=0, stdout="", stderr=""),
+        ]
+
+        adapter = NotebookLMAdapter("notebooklm")
+        result = adapter.download_flashcards("nb123", "art789", Path("/tmp/out.json"))
+
+        assert result is True
+        assert mock_popen_class.call_count == 2
+        assert mock_sleep.call_count == 1
 
     def test_extract_cards_data_with_flashcards_key(self):
         adapter = NotebookLMAdapter("notebooklm")
@@ -271,6 +298,16 @@ class TestNotebookLMAdapter:
         result = adapter.delete_notebook("nb123")
 
         assert result is False
+
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_delete_notebook_silent_mode(self, mock_popen_class):
+        """Test delete notebook with silent mode (no logs)."""
+        mock_popen_class.return_value = mock_popen(returncode=0)
+
+        adapter = NotebookLMAdapter("notebooklm")
+        result = adapter.delete_notebook("nb123", silent=True)
+
+        assert result is True
 
     @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
     def test_run_command_keyboard_interrupt(self, mock_popen_class):

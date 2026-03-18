@@ -2,6 +2,7 @@
 
 import hashlib
 from pathlib import Path
+from typing import ClassVar
 
 from flashcards_generator.application.converter import ClozeConverter
 from flashcards_generator.application.dto.generate_request import (
@@ -29,7 +30,7 @@ logger = get_logger("use_cases")
 # Constants for file handling and timeouts
 MAX_FILENAME_LEN = 50  # Conservative limit for temp files in nested directories
 SOURCE_WAIT_TIMEOUT = 600  # seconds
-PDF_CHUNKING_THRESHOLD = 100  # pages
+PDF_CHUNKING_THRESHOLD = 150  # Only chunk PDFs with more than 150 pages
 MIN_CARDS_QUALITY_LENGTH = 10  # minimum characters for valid card
 BORDER_LENGTH = 60  # characters for border lines
 
@@ -163,12 +164,12 @@ class GenerateFlashcardsUseCase:
         all_pdfs = [
             pdf_path
             for pdf_path in input_path.rglob("*.pdf")
-            if self._is_safe_pdf_path(pdf_path, input_path)
+            if self._is_safe_file_path(pdf_path, input_path)
         ]
         all_pptx = [
             pptx_path
             for pptx_path in input_path.rglob("*.pptx")
-            if self._is_safe_pdf_path(pptx_path, input_path)
+            if self._is_safe_file_path(pptx_path, input_path)
         ]
         all_files = all_pdfs + all_pptx
 
@@ -188,42 +189,47 @@ class GenerateFlashcardsUseCase:
 
         return all_files
 
-    def _is_safe_pdf_path(self, pdf_path: Path, input_path: Path) -> bool:
+    # Supported file extensions that NotebookLM can process
+    SUPPORTED_EXTENSIONS: ClassVar[set[str]] = {".pdf", ".pptx"}
+
+    def _is_safe_file_path(self, file_path: Path, input_path: Path) -> bool:
+        """Validate that file is safe to process and has supported extension."""
         try:
             # Reject symlinks to prevent path traversal attacks
-            if pdf_path.is_symlink():
-                logger.warning(f"Skipping symlink: {pdf_path}")
+            if file_path.is_symlink():
+                logger.warning(f"Skipping symlink: {file_path}")
                 return False
 
             # Use strict=True to ensure path exists before resolving
-            resolved_pdf = pdf_path.resolve(strict=True)
+            resolved_file = file_path.resolve(strict=True)
             resolved_input = input_path.resolve(strict=True)
 
             # Ensure resolved path is within allowed directory
             try:
-                resolved_pdf.relative_to(resolved_input)
+                resolved_file.relative_to(resolved_input)
             except ValueError:
-                logger.warning(f"Skipping PDF outside input directory: {pdf_path}")
+                logger.warning(f"Skipping file outside input directory: {file_path}")
                 return False
 
             # Verify it's a regular file
-            if not resolved_pdf.is_file():
-                logger.warning(f"Skipping non-file path: {pdf_path}")
+            if not resolved_file.is_file():
+                logger.warning(f"Skipping non-file path: {file_path}")
                 return False
 
-            # Verify it's a PDF file
-            if resolved_pdf.suffix.lower() != ".pdf":
-                logger.warning(f"Skipping non-PDF file: {pdf_path}")
+            # Verify it has a supported extension
+            ext = resolved_file.suffix.lower()
+            if ext not in self.SUPPORTED_EXTENSIONS:
+                logger.warning(f"Skipping unsupported file type: {file_path}")
                 return False
 
             # Check for empty files
-            if resolved_pdf.stat().st_size == 0:
-                logger.warning(f"Skipping empty PDF: {pdf_path}")
+            if resolved_file.stat().st_size == 0:
+                logger.warning(f"Skipping empty file: {file_path}")
                 return False
 
             return True
         except (OSError, ValueError) as e:
-            logger.warning(f"Skipping invalid PDF path {pdf_path}: {e}")
+            logger.warning(f"Skipping invalid file path {file_path}: {e}")
             return False
 
     def _get_deck_name(self, pdf_path: Path, input_path: Path) -> str:
@@ -620,11 +626,7 @@ class GenerateFlashcardsUseCase:
 
     def _save_deck(self, deck: Deck, output_path: Path) -> None:
         """Save deck to output directory."""
-        base_path = output_path
-        for part in deck.name.split("_")[:-1]:
-            base_path = base_path / part
-            base_path.mkdir(exist_ok=True)
-
-        filename = deck.name.split("_")[-1]
-        self.exporter.export_csv(deck, base_path / f"{filename}.csv")
-        logger.info(f"Saved to: {base_path}")
+        # output_path already contains the correct directory structure
+        # from _get_output_subdir, so we just use deck.name as filename
+        self.exporter.export_csv(deck, output_path / f"{deck.name}.csv")
+        logger.info(f"Saved to: {output_path / deck.name}.csv")

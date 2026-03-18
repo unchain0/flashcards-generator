@@ -270,6 +270,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pypdf" },
+    { name = "rich" },
 ]
 
 [package.dev-dependencies]
@@ -294,6 +295,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pydantic-settings", specifier = ">=2.13.1" },
     { name = "pypdf", specifier = ">=5.0.0" },
+    { name = "rich", specifier = ">=14.3.3" },
 ]
 
 [package.metadata.requires-dev]

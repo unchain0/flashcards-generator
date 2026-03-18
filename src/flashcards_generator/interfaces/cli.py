@@ -253,10 +253,12 @@ class CLI:
 
         if args.days:
             logger.info(f"Deletando notebooks dos últimos {args.days} dia(s)...")
-            deleted, failed = adapter.delete_all_notebooks(days=args.days)
+            deleted, failed = adapter.delete_all_notebooks(
+                days=args.days, show_progress=True
+            )
         elif args.all:
             logger.info("Deletando todos os notebooks...")
-            deleted, failed = adapter.delete_all_notebooks()
+            deleted, failed = adapter.delete_all_notebooks(show_progress=True)
         else:
             logger.error("Especifique --days ou --all")
             return 1

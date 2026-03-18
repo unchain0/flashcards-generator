@@ -9,6 +9,15 @@ import time
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, ClassVar
 
+from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+)
+
 from flashcards_generator.domain.entities import Flashcard
 from flashcards_generator.domain.exceptions import (
     ArtifactDownloadError,
@@ -225,7 +234,7 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
     def download_flashcards(
         self, notebook_id: str, artifact_id: str, output_path: Path
     ) -> bool:
-        """Download flashcards artifact."""
+        """Download flashcards artifact with retry logic."""
         cmd = [
             "download",
             "flashcards",
@@ -237,15 +246,39 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
             "json",
             str(output_path),
         ]
-        try:
-            self._run_command(cmd)
-            return True
-        except (
-            subprocess.CalledProcessError,
-            subprocess.TimeoutExpired,
-            RuntimeError,
-        ) as e:
-            raise ArtifactDownloadError(artifact_id, str(e)) from e
+
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                self._run_command(cmd)
+                return True
+            except (
+                subprocess.CalledProcessError,
+                subprocess.TimeoutExpired,
+                RuntimeError,
+            ) as e:
+                error_msg = str(e)
+                # Check if it's a rate limit or transient error
+                is_retryable = (
+                    self._needs_retry(error_msg)
+                    or "artifact" in error_msg.lower()
+                    or attempt < max_retries - 1
+                )
+
+                if is_retryable and attempt < max_retries - 1:
+                    retry_delay = 30 * (attempt + 1)  # 30s, 60s, 90s
+                    logger.warning(
+                        f"Download failed (attempt {attempt + 1}/{max_retries}), "
+                        f"retrying in {retry_delay}s..."
+                    )
+                    time.sleep(retry_delay)
+                else:
+                    raise ArtifactDownloadError(artifact_id, error_msg) from e
+
+        # This should never be reached - loop always returns or raises
+        raise AssertionError(
+            "Unreachable code in download_flashcards"
+        )  # pragma: no cover
 
     def _extract_cards_data(self, data: dict | list) -> list:
         """Extract cards list from various JSON structures."""
@@ -277,15 +310,17 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
             logger.error(f"Failed to parse flashcards from {json_path}: {e}")
         return flashcards
 
-    def delete_notebook(self, notebook_id: str) -> bool:
+    def delete_notebook(self, notebook_id: str, silent: bool = False) -> bool:
         """Delete notebook (best effort)."""
         try:
-            logger.debug(f"Deleting notebook: {notebook_id[:8]}...")
+            if not silent:
+                logger.debug(f"Deleting notebook: {notebook_id[:8]}...")
             returncode, _, _ = self._run_command(
                 ["delete", "-n", notebook_id, "-y"], check=False
             )
             if returncode == 0:
-                logger.info(f"Successfully deleted notebook: {notebook_id[:8]}...")
+                if not silent:
+                    logger.info(f"Successfully deleted notebook: {notebook_id[:8]}...")
                 return True
             else:
                 logger.warning(f"Failed to delete notebook {notebook_id[:8]}...")
@@ -332,6 +367,7 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
         formats = [
             "%Y-%m-%dT%H:%M:%S.%fZ",
             "%Y-%m-%dT%H:%M:%SZ",
+            "%Y-%m-%dT%H:%M:%S",  # ISO format without timezone
             "%Y-%m-%d %H:%M:%S",
             "%Y-%m-%d",
         ]
@@ -342,7 +378,9 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
                 continue
         return None
 
-    def delete_all_notebooks(self, days: int | None = None) -> tuple[int, int]:
+    def delete_all_notebooks(
+        self, days: int | None = None, show_progress: bool = False
+    ) -> tuple[int, int]:
         """Delete all notebooks. Returns (deleted_count, failed_count)."""
         notebooks = self.list_notebooks(days=days)
         if not notebooks:
@@ -352,17 +390,45 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
         deleted = 0
         failed = 0
         total = len(notebooks)
-        logger.info(f"Found {total} notebook(s) to delete...")
 
-        for i, notebook in enumerate(notebooks, 1):
-            notebook_id = notebook.get("id") if isinstance(notebook, dict) else notebook
-            if not notebook_id:
-                continue
-            logger.info(f"[{i}/{total}] Deleting {str(notebook_id)[:8]}...")
-            if self.delete_notebook(str(notebook_id)):
-                deleted += 1
-            else:
-                failed += 1
+        if show_progress:
+            console = Console()
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[bold blue]{task.description}"),
+                BarColumn(bar_width=40),
+                TaskProgressColumn(),
+                console=console,
+            ) as progress:
+                task = progress.add_task(f"Deleting {total} notebooks...", total=total)
+
+                for notebook in notebooks:
+                    notebook_id = (
+                        notebook.get("id") if isinstance(notebook, dict) else notebook
+                    )
+                    if not notebook_id:
+                        progress.update(task, advance=1)
+                        continue
+
+                    if self.delete_notebook(str(notebook_id), silent=True):
+                        deleted += 1
+                    else:
+                        failed += 1
+                    progress.update(task, advance=1)
+        else:
+            logger.info(f"Found {total} notebook(s) to delete...")
+
+            for i, notebook in enumerate(notebooks, 1):
+                notebook_id = (
+                    notebook.get("id") if isinstance(notebook, dict) else notebook
+                )
+                if not notebook_id:
+                    continue
+                logger.info(f"[{i}/{total}] Deleting {str(notebook_id)[:8]}...")
+                if self.delete_notebook(str(notebook_id)):
+                    deleted += 1
+                else:
+                    failed += 1
 
         logger.info(f"Cleanup complete: {deleted} deleted, {failed} failed")
         return deleted, failed

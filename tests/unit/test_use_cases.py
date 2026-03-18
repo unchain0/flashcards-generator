@@ -629,8 +629,8 @@ class TestGenerateFlashcardsUseCase:
 
         assert result is None
 
-    def test_is_safe_pdf_path_outside_directory(self, temp_dirs, mock_generator):
-        """Test _is_safe_pdf_path returns False for PDF outside input dir."""
+    def test_is_safe_file_path_outside_directory(self, temp_dirs, mock_generator):
+        """Test _is_safe_file_path returns False for PDF outside input dir."""
         input_dir, _output_dir = temp_dirs
 
         generator = mock_generator()
@@ -639,12 +639,12 @@ class TestGenerateFlashcardsUseCase:
         # Try a PDF outside the input directory
         outside_pdf = Path("/tmp/outside.pdf")
 
-        result = use_case._is_safe_pdf_path(outside_pdf, input_dir)
+        result = use_case._is_safe_file_path(outside_pdf, input_dir)
 
         assert result is False
 
-    def test_is_safe_pdf_path_non_file(self, temp_dirs, mock_generator):
-        """Test _is_safe_pdf_path returns False for non-file path."""
+    def test_is_safe_file_path_non_file(self, temp_dirs, mock_generator):
+        """Test _is_safe_file_path returns False for non-file path."""
         input_dir, _output_dir = temp_dirs
 
         generator = mock_generator()
@@ -654,12 +654,12 @@ class TestGenerateFlashcardsUseCase:
         test_dir = input_dir / "testdir"
         test_dir.mkdir()
 
-        result = use_case._is_safe_pdf_path(test_dir, input_dir)
+        result = use_case._is_safe_file_path(test_dir, input_dir)
 
         assert result is False
 
-    def test_is_safe_pdf_path_exception(self, temp_dirs, mock_generator, monkeypatch):
-        """Test _is_safe_pdf_path handles exceptions."""
+    def test_is_safe_file_path_exception(self, temp_dirs, mock_generator, monkeypatch):
+        """Test _is_safe_file_path handles exceptions."""
         input_dir, _output_dir = temp_dirs
 
         generator = mock_generator()
@@ -671,6 +671,6 @@ class TestGenerateFlashcardsUseCase:
 
         monkeypatch.setattr(Path, "resolve", mock_resolve)
 
-        result = use_case._is_safe_pdf_path(input_dir / "test.pdf", input_dir)
+        result = use_case._is_safe_file_path(input_dir / "test.pdf", input_dir)
 
         assert result is False

@@ -154,7 +154,7 @@ class TestUseCasesEdgeCases:
         generator = mock_generator()
         use_case = GenerateFlashcardsUseCase(generator=generator)
 
-        result = use_case._is_safe_pdf_path(pdf_file, input_dir)
+        result = use_case._is_safe_file_path(pdf_file, input_dir)
 
         assert result is False
 
@@ -391,8 +391,8 @@ class TestCLIKeyboardInterrupt:
 class TestUseCasesExceptionHandling:
     """Test exception handling in use cases."""
 
-    def test_is_safe_pdf_path_value_error(self, temp_dirs, mock_generator):
-        """Test _is_safe_pdf_path handling ValueError - lines 130-132."""
+    def test_is_safe_file_path_value_error(self, temp_dirs, mock_generator):
+        """Test _is_safe_file_path handling ValueError - lines 130-132."""
         input_dir, _output_dir = temp_dirs
 
         generator = mock_generator()
@@ -404,7 +404,7 @@ class TestUseCasesExceptionHandling:
                 raise ValueError("Invalid path")
 
         bad_path = BadPath(input_dir / "test.pdf")
-        result = use_case._is_safe_pdf_path(bad_path, input_dir)
+        result = use_case._is_safe_file_path(bad_path, input_dir)
 
         assert result is False
 

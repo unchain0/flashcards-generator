@@ -22,7 +22,7 @@ class TestConverterEdgeCases:
         """Test _create_complex_cloze when all important words are trivial."""
         converter = ClozeConverter()
         # Mock _extract_important to return a trivial word ("um" is in TRIVIAL_WORDS)
-        converter._extract_important = lambda s: "um"
+        converter._extract_important = lambda sentence: "um"
 
         result = converter._create_complex_cloze(
             "This is a test sentence with just um and uh words. Another sentence here.",
@@ -47,8 +47,8 @@ class TestUseCasesEdgeCases:
         pdf_path.write_text("PDF content")  # Create actual file
         result = use_case._get_output_subdir(pdf_path, input_dir, output_dir)
 
-        # Should return output_path directly when parent is empty
         assert result == output_dir
+        assert result.exists()
 
     def test_cleanup_orphaned_raw_files_success(self, temp_dirs, mock_generator):
         """Test _cleanup_orphaned_raw_files successful cleanup (line 169)."""
@@ -102,9 +102,9 @@ class TestUseCasesEdgeCases:
         use_case = GenerateFlashcardsUseCase(generator=generator)
 
         # Ensure needs_chunking returns False to go to the else branch
-        use_case.pdf_chunker.needs_chunking = lambda pdf_path, threshold: False
+        use_case.pdf_chunker.needs_chunking = MagicMock(return_value=False)
         # Mock _add_pdf_source to return None directly (avoiding the logging error)
-        use_case._add_pdf_source = lambda nb, path: None
+        use_case._add_pdf_source = MagicMock(return_value=None)
 
         request = GenerateFlashcardsRequest(
             input_dir=input_dir,
@@ -128,9 +128,9 @@ class TestUseCasesEdgeCases:
         use_case = GenerateFlashcardsUseCase(generator=generator)
 
         # Mock needs_chunking to return True to trigger large PDF path
-        use_case.pdf_chunker.needs_chunking = lambda pdf_path, threshold: True
+        use_case.pdf_chunker.needs_chunking = MagicMock(return_value=True)
         # Mock _process_large_pdf to return False
-        use_case._process_large_pdf = lambda pdf, nb, temp: False
+        use_case._process_large_pdf = MagicMock(return_value=None)
 
         request = GenerateFlashcardsRequest(
             input_dir=input_dir,
@@ -426,9 +426,7 @@ class TestUseCasesExceptionCoverage:
         chunk_file.touch()
 
         # Mock _create_notebook to raise RuntimeError (caught by specific handler)
-        use_case._create_notebook = lambda name: (_ for _ in ()).throw(
-            RuntimeError("Test error")
-        )
+        use_case._create_notebook = MagicMock(side_effect=RuntimeError("Test error"))
 
         request = GenerateFlashcardsRequest(
             input_dir=input_dir,

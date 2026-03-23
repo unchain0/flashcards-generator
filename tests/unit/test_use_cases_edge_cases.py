@@ -77,6 +77,7 @@ class TestGetOutputSubdirEdgeCases:
         result = use_case._get_output_subdir(pdf_file, input_dir, output_dir)
 
         assert result == output_dir
+        assert result.exists()
 
 
 class TestProcessPdfRuntimeError:

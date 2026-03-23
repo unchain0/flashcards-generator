@@ -7,10 +7,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from flashcards_generator.adapters.notebooklm_adapter import NotebookLMAdapter
+from flashcards_generator.application.csv_merger import CsvMerger
 from flashcards_generator.application.dto.generate_request import (
     GenerateFlashcardsRequest,
 )
+from flashcards_generator.application.dto.merge_request import MergeCsvRequest
 from flashcards_generator.application.use_cases import GenerateFlashcardsUseCase
+from flashcards_generator.domain.exceptions import CSVMergeError
 from flashcards_generator.infrastructure.logging_config import (
     configure_logging,
     get_logger,
@@ -60,7 +63,7 @@ class CLI:
             "-o",
             type=Path,
             default=Path("./output"),
-            help="Diretório de saída",
+            help="Diretório raiz de saída; a estrutura relativa do input é preservada dentro dele",
         )
         generate_parser.add_argument(
             "--difficulty",
@@ -124,6 +127,30 @@ class CLI:
             help="Deletar todos os notebooks",
         )
         cleanup_parser.add_argument("--skip-auth-check", action="store_true")
+
+        merge_parser = subparsers.add_parser(
+            "merge", help="Mesclar arquivos CSV de flashcards"
+        )
+        merge_parser.add_argument(
+            "--folder",
+            "-f",
+            required=True,
+            type=Path,
+            help="Pasta contendo arquivos CSV para mesclar",
+        )
+        merge_parser.add_argument(
+            "--output",
+            "-o",
+            type=str,
+            default="merged_flashcards.csv",
+            help="Nome do arquivo de saída (padrão: merged_flashcards.csv)",
+        )
+        merge_parser.add_argument(
+            "--deduplicate",
+            "-d",
+            action="store_true",
+            help="Remover flashcards duplicados durante a mescla",
+        )
 
         return parser
 
@@ -204,7 +231,7 @@ class CLI:
         """Log configuration."""
         logger.info("Iniciando...")
         logger.info(f"Entrada: {request.input_dir}")
-        logger.info(f"Saída: {request.output_dir}")
+        logger.info(f"Saída: {request.output_dir} (preservando a estrutura relativa)")
         logger.info(f"Dificuldade: {request.difficulty}")
         logger.info(f"Quantidade: {request.quantity}")
 
@@ -270,6 +297,27 @@ class CLI:
         logger.info(f"✅ {deleted} notebook(s) deletado(s) com sucesso")
         return 0
 
+    def _run_merge(self, args: argparse.Namespace) -> int:
+        """Run merge command."""
+        if not args.folder.exists():
+            logger.error(f"Pasta não existe: {args.folder}")
+            return 1
+
+        request = MergeCsvRequest(
+            folder_path=args.folder,
+            output_filename=args.output,
+            deduplicate=args.deduplicate,
+        )
+
+        try:
+            rows = CsvMerger.merge(request)
+            output_path = args.folder / args.output
+            logger.info(f"✅ {rows} flashcards mesclados em: {output_path}")
+            return 0
+        except CSVMergeError as e:
+            logger.error(f"Erro ao mesclar: {e.reason}")
+            return 1
+
     def run(self) -> int:
         """Run CLI."""
         args = self.parser.parse_args()
@@ -277,6 +325,8 @@ class CLI:
 
         if args.command == "cleanup":
             return self._run_cleanup(args)
+        elif args.command == "merge":
+            return self._run_merge(args)
         elif args.command == "generate":
             return self._run_generate(args)
         else:

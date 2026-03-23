@@ -121,7 +121,6 @@ class GenerateFlashcardsUseCase:
         input_path = request.input_dir
         output_path = request.output_dir
         output_path.mkdir(parents=True, exist_ok=True)
-
         self._cleanup_orphaned_raw_files(output_path)
 
         decks: list[Deck] = []
@@ -135,10 +134,13 @@ class GenerateFlashcardsUseCase:
             logger.info(f"{len(all_pdfs)} PDF(s) found")
 
             for pdf_path in sorted(all_pdfs):
+                pdf_output_path = self._get_output_subdir(
+                    pdf_path, input_path, output_path
+                )
                 deck = self._process_pdf(pdf_path, input_path, output_path, request)
                 if deck:
                     decks.append(deck)
-                    self._save_deck(deck, output_path)
+                    self._save_deck(deck, pdf_output_path, pdf_path.stem)
 
             return decks
         finally:
@@ -241,19 +243,11 @@ class GenerateFlashcardsUseCase:
     def _get_output_subdir(
         self, pdf_path: Path, input_path: Path, output_path: Path
     ) -> Path:
-        """Get output directory for PDF - uses two-level structure."""
         relative_path = pdf_path.relative_to(input_path)
-
         parent = relative_path.parent
-        if parent != Path("."):
-            parts = parent.parts
-            if len(parts) >= 2:
-                subdir = output_path / parts[0] / parts[1]
-            else:
-                subdir = output_path / parts[0]
-            subdir.mkdir(parents=True, exist_ok=True)
-            return subdir
-        return output_path
+        subdir = output_path if parent == Path(".") else output_path / parent
+        subdir.mkdir(parents=True, exist_ok=True)
+        return subdir
 
     def _cleanup_notebooks(self) -> None:
         """Clean up created notebooks."""
@@ -469,7 +463,7 @@ class GenerateFlashcardsUseCase:
         pdf_output_path = self._get_output_subdir(pdf_path, input_path, output_path)
 
         filename = pdf_path.stem
-        expected_csv = pdf_output_path / f"{filename}.csv"
+        expected_csv = pdf_output_path / _safe_filename(filename, ".csv")
         if expected_csv.exists():
             logger.info(f"Skipping {pdf_path.name} - CSV already exists")
             return None
@@ -624,9 +618,8 @@ class GenerateFlashcardsUseCase:
 
         return deck
 
-    def _save_deck(self, deck: Deck, output_path: Path) -> None:
+    def _save_deck(self, deck: Deck, output_path: Path, pdf_stem: str) -> None:
         """Save deck to output directory."""
-        # output_path already contains the correct directory structure
-        # from _get_output_subdir, so we just use deck.name as filename
-        self.exporter.export_csv(deck, output_path / f"{deck.name}.csv")
-        logger.info(f"Saved to: {output_path / deck.name}.csv")
+        csv_path = output_path / _safe_filename(pdf_stem, ".csv")
+        self.exporter.export_csv(deck, csv_path)
+        logger.info(f"Saved to: {csv_path}")

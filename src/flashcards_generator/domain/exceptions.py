@@ -46,3 +46,12 @@ class NotebookCleanupError(FlashcardsGeneratorError):
         self.notebook_id = notebook_id
         self.reason = reason
         super().__init__(f"Cleanup failed for {notebook_id}: {reason}")
+
+
+class CSVMergeError(FlashcardsGeneratorError):
+    """Raised when CSV merge operation fails."""
+
+    def __init__(self, folder_path: Path, reason: str) -> None:
+        self.folder_path = folder_path
+        self.reason = reason
+        super().__init__(f"CSV merge failed for {folder_path}: {reason}")

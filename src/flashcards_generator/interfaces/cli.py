@@ -63,7 +63,10 @@ class CLI:
             "-o",
             type=Path,
             default=Path("./output"),
-            help="Diretório raiz de saída; a estrutura relativa do input é preservada dentro dele",
+            help=(
+                "Diretório raiz de saída; a estrutura relativa do input "
+                "é preservada dentro dele"
+            ),
         )
         generate_parser.add_argument(
             "--difficulty",
@@ -150,6 +153,11 @@ class CLI:
             "-d",
             action="store_true",
             help="Remover flashcards duplicados durante a mescla",
+        )
+        merge_parser.add_argument(
+            "--no-recursive",
+            action="store_true",
+            help="Não buscar em subpastas (padrão: busca recursiva)",
         )
 
         return parser
@@ -307,6 +315,7 @@ class CLI:
             folder_path=args.folder,
             output_filename=args.output,
             deduplicate=args.deduplicate,
+            recursive=not args.no_recursive,
         )
 
         try:

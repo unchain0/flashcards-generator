@@ -15,3 +15,4 @@ class MergeCsvRequest(BaseModel):
     folder_path: Path
     output_filename: str = Field(default="merged_flashcards.csv")
     deduplicate: bool = Field(default=False)
+    recursive: bool = Field(default=True)

@@ -28,7 +28,8 @@ class CsvMerger:
         if not request.folder_path.exists():
             raise CSVMergeError(request.folder_path, "Folder does not exist")
 
-        csv_files = sorted(request.folder_path.glob("*.csv"))
+        pattern = "**/*.csv" if request.recursive else "*.csv"
+        csv_files = sorted(request.folder_path.glob(pattern))
 
         # Exclude output file if it exists
         output_path = request.folder_path / request.output_filename

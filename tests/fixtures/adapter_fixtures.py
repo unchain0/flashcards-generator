@@ -102,5 +102,5 @@ def sample_flashcards():
     """Sample flashcards for testing."""
     return [
         {"front": "What is Python?", "back": "A programming language"},
-        {"front": "What is 2+2?", "back": "4"},
+        {"front": "What is FastAPI?", "back": "A modern web framework"},
     ]

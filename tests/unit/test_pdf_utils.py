@@ -13,7 +13,7 @@ class TestPDFChunker:
         chunker = PDFChunker()
         assert chunker.chunk_size == 30
         assert chunker.overlap_pages == 5
-        assert chunker.DEFAULT_THRESHOLD == 30
+        assert chunker.DEFAULT_THRESHOLD == 50
 
     def test_init_custom_params(self):
         chunker = PDFChunker(chunk_size=30, overlap_pages=3)

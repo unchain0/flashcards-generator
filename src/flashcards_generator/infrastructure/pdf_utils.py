@@ -85,11 +85,17 @@ class PPTXConverter:
 class PDFChunker:
     """Handles PDF page counting and chunking for large files."""
 
-    DEFAULT_CHUNK_SIZE = 100
-    DEFAULT_THRESHOLD = 150
+    DEFAULT_CHUNK_SIZE = 50  # Reduced from 100 based on research (optimal: 30-50 pages)
+    DEFAULT_THRESHOLD = 50  # Align with chunk_size
+    DEFAULT_OVERLAP_PAGES = 5  # 10% overlap for context continuity
 
-    def __init__(self, chunk_size: int = DEFAULT_CHUNK_SIZE):
+    def __init__(
+        self,
+        chunk_size: int = DEFAULT_CHUNK_SIZE,
+        overlap_pages: int = DEFAULT_OVERLAP_PAGES,
+    ):
         self.chunk_size = chunk_size
+        self.overlap_pages = overlap_pages
         self._has_pypdf = self._check_pypdf()
 
     def _check_pypdf(self) -> bool:
@@ -120,6 +126,64 @@ class PDFChunker:
                 with contextlib.suppress(OSError):
                     reader.stream.close()
 
+    def get_chapter_boundaries(self, pdf_path: Path) -> list[tuple[int, int, str]]:
+        """Extract chapter boundaries from PDF outline/bookmarks.
+
+        Returns list of (start_page, end_page, title) tuples with 0-indexed pages.
+        """
+        if not self._has_pypdf:
+            return []
+
+        reader = None
+        try:
+            from pypdf import PdfReader
+
+            reader = PdfReader(str(pdf_path))
+            total_pages = len(reader.pages)
+
+            if not reader.outline:
+                return []
+
+            chapters = []
+            outline_items = self._flatten_outline(reader.outline)
+
+            for i, item in enumerate(outline_items):
+                if isinstance(item, dict) and "/Page" in item:
+                    page_num = reader.get_page_number(item["/Page"])
+                    title = str(item.get("/Title", f"Chapter {i + 1}"))
+
+                    if i < len(outline_items) - 1:
+                        next_item = outline_items[i + 1]
+                        if isinstance(next_item, dict) and "/Page" in next_item:
+                            end_page = reader.get_page_number(next_item["/Page"])
+                        else:
+                            end_page = total_pages
+                    else:
+                        end_page = total_pages
+
+                    if end_page > page_num:
+                        chapters.append((page_num, end_page, title))
+
+            logger.info(f"Found {len(chapters)} chapters in {pdf_path.name}")
+            return chapters
+        except (OSError, ImportError, RuntimeError) as e:
+            logger.warning(f"Failed to extract chapter boundaries from {pdf_path}: {e}")
+            return []
+        finally:
+            if reader is not None:
+                with contextlib.suppress(OSError):
+                    reader.stream.close()
+
+    def _flatten_outline(self, outline: list, depth: int = 0) -> list:
+        """Flatten nested outline structure."""
+        flat = []
+        for item in outline:
+            if isinstance(item, list):
+                flat.extend(self._flatten_outline(item, depth + 1))
+            else:
+                flat.append(item)
+        return flat
+
     def needs_chunking(
         self, pdf_path: Path, threshold: int = DEFAULT_THRESHOLD
     ) -> bool:
@@ -135,55 +199,162 @@ class PDFChunker:
 
         return page_count > threshold
 
-    def chunk_pdf(self, pdf_path: Path, output_dir: Path) -> Generator[Path]:
-        """Split PDF into chunks and yield paths to chunk files."""
+    def chunk_pdf(
+        self,
+        pdf_path: Path,
+        output_dir: Path,
+        use_chapters: bool = True,
+    ) -> Generator[Path]:
+        """Split PDF into chunks and yield paths to chunk files.
+
+        Uses chapter boundaries when available and requested, otherwise falls back
+        to fixed-size chunks with overlap.
+        """
         if not self._has_pypdf:
             yield pdf_path
             return
 
-        reader = None
-        try:
-            from pypdf import PdfReader, PdfWriter
+        if use_chapters:
+            chapters = self.get_chapter_boundaries(pdf_path)
+            if chapters:
+                yield from self._chunk_by_chapters(pdf_path, output_dir, chapters)
+                return
+            else:
+                logger.info(
+                    "No chapter outline found, using fixed-size chunking with overlap"
+                )
 
-            reader = PdfReader(str(pdf_path))
-            total_pages = len(reader.pages)
-            num_chunks = (total_pages + self.chunk_size - 1) // self.chunk_size
+        yield from self._chunk_fixed_size_with_overlap(pdf_path, output_dir)
 
-            logger.info(
-                f"Splitting {pdf_path.name} ({total_pages} pages) "
-                f"into {num_chunks} chunks"
+    def _chunk_by_chapters(
+        self,
+        pdf_path: Path,
+        output_dir: Path,
+        chapters: list[tuple[int, int, str]],
+    ) -> Generator[Path]:
+        """Create chunks respecting chapter boundaries."""
+        from pypdf import PdfReader, PdfWriter
+
+        reader = PdfReader(str(pdf_path))
+        total_pages = len(reader.pages)
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        current_chunk_start = 0
+        current_chunk_pages = 0
+        chapters_in_chunk: list[str] = []
+        chunk_writers: list[tuple[PdfWriter, list[str], int, int]] = []
+        current_writer = PdfWriter()
+
+        for ch_start, ch_end, ch_title in chapters:
+            chapter_pages = ch_end - ch_start
+
+            # If adding this chapter would exceed chunk size, finalize current chunk
+            if (
+                current_chunk_pages > 0
+                and current_chunk_pages + chapter_pages > self.chunk_size
+            ):
+                chunk_writers.append(
+                    (
+                        current_writer,
+                        chapters_in_chunk.copy(),
+                        current_chunk_start,
+                        current_chunk_start + current_chunk_pages,
+                    )
+                )
+                # Start new chunk with overlap
+                current_writer = PdfWriter()
+                chapters_in_chunk = []
+                overlap_start = max(
+                    0, current_chunk_start + current_chunk_pages - self.overlap_pages
+                )
+                for page_num in range(
+                    overlap_start, current_chunk_start + current_chunk_pages
+                ):
+                    current_writer.add_page(reader.pages[page_num])
+                current_chunk_start = overlap_start
+                current_chunk_pages = self.overlap_pages
+
+            # Add chapter pages to current chunk
+            for page_num in range(ch_start, min(ch_end, total_pages)):
+                current_writer.add_page(reader.pages[page_num])
+
+            if ch_title not in chapters_in_chunk:
+                chapters_in_chunk.append(ch_title)
+            current_chunk_pages += chapter_pages
+
+        # Add the last chunk
+        if current_chunk_pages > 0:
+            chunk_writers.append(
+                (
+                    current_writer,
+                    chapters_in_chunk.copy(),
+                    current_chunk_start,
+                    current_chunk_start + current_chunk_pages,
+                )
             )
 
-            output_dir.mkdir(parents=True, exist_ok=True)
+        # Write chunks to files
+        for i, (writer, ch_titles, start, end) in enumerate(chunk_writers, 1):
+            chunk_filename = f"{pdf_path.stem}_chunk_{i:03d}.pdf"
+            chunk_path = output_dir / chunk_filename
 
-            for chunk_idx in range(num_chunks):
-                start_page = chunk_idx * self.chunk_size
+            with open(chunk_path, "wb") as output_file:
+                writer.write(output_file)
+
+            chapter_info = (
+                f" (chapters: {', '.join(ch_titles[:3])})" if ch_titles else ""
+            )
+            msg = f"Created chunk {i}/{len(chunk_writers)}: "
+            msg += f"pages {start + 1}-{end}{chapter_info}"
+            logger.info(msg)
+            yield chunk_path
+
+    def _chunk_fixed_size_with_overlap(
+        self, pdf_path: Path, output_dir: Path
+    ) -> Generator[Path]:
+        """Split PDF into fixed-size chunks with overlap."""
+        from pypdf import PdfReader, PdfWriter
+
+        reader = PdfReader(str(pdf_path))
+        total_pages = len(reader.pages)
+        effective_chunk_size = self.chunk_size - self.overlap_pages
+        num_chunks = (total_pages + effective_chunk_size - 1) // effective_chunk_size
+
+        logger.info(
+            f"Splitting {pdf_path.name} ({total_pages} pages) "
+            f"into {num_chunks} chunks with {self.overlap_pages} pages overlap"
+        )
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        for chunk_idx in range(num_chunks):
+            effective_chunk_size = self.chunk_size - self.overlap_pages
+            start_page = chunk_idx * effective_chunk_size
+
+            if chunk_idx == 0:
+                end_page = min(start_page + self.chunk_size, total_pages)
+            else:
+                start_page = max(0, start_page - self.overlap_pages)
                 end_page = min(start_page + self.chunk_size, total_pages)
 
-                writer = PdfWriter()
-                for page_num in range(start_page, end_page):
-                    writer.add_page(reader.pages[page_num])
+            writer = PdfWriter()
+            for page_num in range(start_page, end_page):
+                writer.add_page(reader.pages[page_num])
 
-                chunk_filename = f"{pdf_path.stem}_chunk_{chunk_idx + 1:03d}.pdf"
-                chunk_path = output_dir / chunk_filename
+            chunk_filename = f"{pdf_path.stem}_chunk_{chunk_idx + 1:03d}.pdf"
+            chunk_path = output_dir / chunk_filename
 
-                with open(chunk_path, "wb") as output_file:
-                    writer.write(output_file)
+            with open(chunk_path, "wb") as output_file:
+                writer.write(output_file)
 
-                msg = (
-                    f"Created chunk {chunk_idx + 1}/{num_chunks}: "
-                    f"pages {start_page + 1}-{end_page}"
-                )
-                logger.info(msg)
-                yield chunk_path
-
-        except (OSError, ImportError, RuntimeError) as e:
-            logger.error(f"Failed to chunk PDF {pdf_path}: {e}")
-            yield pdf_path
-        finally:
-            if reader is not None:
-                with contextlib.suppress(OSError):
-                    reader.stream.close()
+            overlap_info = f" (+{self.overlap_pages} overlap)" if chunk_idx > 0 else ""
+            msg = (
+                f"Created chunk {chunk_idx + 1}/{num_chunks}: "
+                f"pages {start_page + 1}-{end_page}{overlap_info}"
+            )
+            logger.info(msg)
+            yield chunk_path
 
     def cleanup_chunks(self, chunks: list[Path]) -> None:
         """Delete temporary chunk files."""

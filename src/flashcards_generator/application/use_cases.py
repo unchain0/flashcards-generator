@@ -21,6 +21,7 @@ from flashcards_generator.domain.ports.flashcard_generator import (
 )
 from flashcards_generator.infrastructure.logging_config import get_logger
 from flashcards_generator.infrastructure.pdf_utils import PDFChunker
+from flashcards_generator.infrastructure.semantic_chunker import QualityFilter
 
 # Explicit runtime usage to prevent type-checking-only false positives
 _ = (Path, GenerateFlashcardsRequest)
@@ -30,7 +31,7 @@ logger = get_logger("use_cases")
 # Constants for file handling and timeouts
 MAX_FILENAME_LEN = 50  # Conservative limit for temp files in nested directories
 SOURCE_WAIT_TIMEOUT = 600  # seconds
-PDF_CHUNKING_THRESHOLD = 150  # Only chunk PDFs with more than 150 pages
+PDF_CHUNKING_THRESHOLD = 100  # Only chunk PDFs with more than 100 pages
 MIN_CARDS_QUALITY_LENGTH = 10  # minimum characters for valid card
 BORDER_LENGTH = 60  # characters for border lines
 
@@ -77,23 +78,31 @@ class GenerateFlashcardsUseCase:
         "Crie frases completas onde o conceito importante está envolto em "
         "{{c1::conceito}}. "
         "Exemplo: 'Um {{c1::conjunto}} é uma coleção de elementos.' "
-        "REGRAS: "
-        "1. Teste apenas CONCEITOS IMPORTANTES: definições, termos técnicos, "
-        "fórmulas, notações matemáticas. "
-        "2. NUNCA crie cloze para palavras triviais como: é, são, de, da, um, uma. "
-        "3. Frases curtas (máximo 20-30 palavras) e diretas. "
-        "4. Cada card deve testar UMA ÚNICA ideia central. "
-        "5. Use LaTeX $...$ para matemática. "
-        "6. Priorize: definições, teoremas, propriedades, exemplos. "
-        "7. Evite: perguntas triviais, traduções simples ou óbvias. "
-        "8. NÃO gere flashcards no formato pergunta-resposta, apenas cloze. "
-        "9. O VERSO deve conter detalhes extras/explicação, "
-        "NÃO apenas a resposta. "
-        "10. NUNCA mencione 'Exercício X', 'Questão Y', ou referências a "
-        "seções/números que não existam explicitamente no texto original. "
-        "Crie cards baseados APENAS no conteúdo factual presente. "
-        "FORMATO: Frente (cloze com resposta oculta); "
-        "Verso (detalhes/explicação adicional)"
+        "ETAPA 1 - DECOMPOSIÇÃO: Primeiro decompõe todo o conteúdo em "
+        "sentenças declarativas atômicas (uma única ideia por sentença). "
+        "ETAPA 2 - GERAÇÃO: Depois converte cada sentença atômica em cloze. "
+        "PRINCÍPIOS FUNDAMENTAIS: "
+        "1. CONTEXTO AUTO-CONTIDO: Cada card deve conter TODO o contexto "
+        "necessário para respondê-lo. NUNCA referencie 'a seção anterior' "
+        "ou 'mencionado acima' sem incluir esse contexto no card. "
+        "2. ATOMICIDADE: Teste APENAS UM conceito por card. Se uma frase "
+        "tem múltiplos conceitos, divida em cards separados. "
+        "3. CONTEXTO vs RESPOSTA: Mantenha palavras de categoria/qualificador "
+        "(ex: 'design pattern', 'função') visíveis; oculte apenas o fato específico. "
+        "4. LISTAS COM CLOZE PROGRESSIVO: Para listas completas, use UM card "
+        "com clozes progressivos: {{c1::itemA}} {{c2::itemB}} {{c3::itemC}}. "
+        "REGRAS DE CONTEÚDO: "
+        "5. NUNCA crie cloze para palavras triviais: é, são, de, da, um, uma. "
+        "6. NUNCA inclua sinônimos ou traduções entre parênteses ao lado do cloze. "
+        "7. NUNCA crie cards com juízos subjetivos: 'poderoso', 'obsoleto', 'ruim'. "
+        "8. Use LaTeX $...$ para matemática. "
+        "9. Frases curtas (máximo 20-25 palavras) e diretas. "
+        "10. Para AMBIGUIDADE use hints: {{c1::termo::dica_de_contexto}}. "
+        "TIPOS ESPECÍFICOS: "
+        "- Código: Extraia APENAS o elemento sintático-chave, não blocos inteiros. "
+        "- Definições: Use padrão 'Conceito é Descritor'. "
+        "- Processos: Teste UMA etapa por card, não sequências inteiras. "
+        "FORMATO: Frente (cloze com contexto); Verso (explicação adicional)"
     )
 
     def __init__(
@@ -329,15 +338,60 @@ class GenerateFlashcardsUseCase:
             logger.info(f"Total flashcards from all chunks: {len(all_flashcards)}")
 
             # Create combined deck with all flashcards
-            return Deck(
+            combined_deck = Deck(
                 name=deck_name,
                 description=f"Deck de {deck_name} ({len(chunks)} chunks)",
                 flashcards=all_flashcards,
                 notebook_id="",  # No single notebook - chunks had separate notebooks
             )
 
+            removed = combined_deck.deduplicate(similarity_threshold=0.85)
+            if removed > 0:
+                logger.info(f"Removed {removed} duplicate flashcards")
+
+            # Apply quality filter
+            self._apply_quality_filter(combined_deck)
+
+            return combined_deck
+
         finally:
             self.pdf_chunker.cleanup_chunks(chunks)
+
+    def _apply_quality_filter(self, deck: Deck) -> None:
+        """Apply quality filtering to remove trivial and similar cards."""
+        if not deck.flashcards:
+            return
+
+        quality_filter = QualityFilter()
+        cards_to_keep = []
+        trivial_count = 0
+
+        for card in deck.flashcards:
+            if quality_filter.is_trivial(card.front, card.back):
+                trivial_count += 1
+            else:
+                cards_to_keep.append(card)
+
+        if trivial_count > 0:
+            logger.info(f"Quality filter removed {trivial_count} trivial cards")
+
+        # Find and remove similar cards
+        if len(cards_to_keep) > 1:
+            card_tuples = [(c.front, c.back) for c in cards_to_keep]
+            similar_pairs = quality_filter.find_similar_cards(card_tuples)
+
+            indices_to_remove = {j for _, j, _ in similar_pairs}
+            filtered_cards = [
+                c for idx, c in enumerate(cards_to_keep) if idx not in indices_to_remove
+            ]
+
+            removed_similar = len(cards_to_keep) - len(filtered_cards)
+            if removed_similar > 0:
+                logger.info(f"Quality filter removed {removed_similar} similar cards")
+
+            cards_to_keep = filtered_cards
+
+        deck.flashcards = cards_to_keep
 
     def _process_chunk(
         self,
@@ -373,12 +427,14 @@ class GenerateFlashcardsUseCase:
             # Generate flashcards for this chunk
             logger.info(f"Chunk {chunk_index}/{total_chunks}: generating flashcards...")
             instructions = request.instructions or self.DEFAULT_INSTRUCTIONS
-            # Add context that this is a partial document
+            # Add context that this is a partial document with overlap context
             chunk_instructions = (
                 f"{instructions}\n\n"
-                f"IMPORTANT: This is part {chunk_index} of {total_chunks} "
-                f"of the document. Generate flashcards ONLY from the content "
-                f"in this section. Do not reference content from other parts."
+                f"CONTEXT: This is part {chunk_index} of {total_chunks} "
+                f"of the document. This section includes context from the previous "
+                f"section to ensure continuity. Generate flashcards from the content "
+                f"in this section, and feel free to reference concepts from the "
+                f"overlapping context pages when relevant for understanding."
             )
 
             gen_config = GenerationConfig(

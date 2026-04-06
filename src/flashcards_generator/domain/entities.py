@@ -1,6 +1,7 @@
 """Domain entities for flashcard generation."""
 
 from datetime import datetime
+from difflib import SequenceMatcher
 
 from pydantic import BaseModel, Field
 
@@ -17,6 +18,10 @@ class Flashcard(BaseModel):
         """Convert to Anki TSV format."""
         tags_str = " ".join(self.tags)
         return f"{self.front}\t{self.back}\t{tags_str}"
+
+    def normalized_front(self) -> str:
+        """Return normalized front text for comparison."""
+        return " ".join(self.front.lower().split())
 
 
 class Deck(BaseModel):
@@ -36,3 +41,40 @@ class Deck(BaseModel):
     def add_flashcard(self, card: Flashcard) -> None:
         """Add a card to the deck."""
         self.flashcards.append(card)
+
+    def deduplicate(self, similarity_threshold: float = 0.85) -> int:
+        """Remove duplicate flashcards based on front content similarity.
+
+        Args:
+            similarity_threshold: Minimum similarity ratio (0-1) to consider
+                cards as duplicates.
+
+        Returns:
+            Number of duplicates removed.
+        """
+        if not self.flashcards:
+            return 0
+
+        unique_cards: list[Flashcard] = []
+        removed_count = 0
+
+        for card in self.flashcards:
+            is_duplicate = False
+            normalized = card.normalized_front()
+
+            for existing in unique_cards:
+                existing_normalized = existing.normalized_front()
+                similarity = SequenceMatcher(
+                    None, normalized, existing_normalized
+                ).ratio()
+
+                if similarity >= similarity_threshold:
+                    is_duplicate = True
+                    removed_count += 1
+                    break
+
+            if not is_duplicate:
+                unique_cards.append(card)
+
+        self.flashcards = unique_cards
+        return removed_count

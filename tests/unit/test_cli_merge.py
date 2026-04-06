@@ -89,12 +89,15 @@ class TestCLIMerge:
 
     @patch("flashcards_generator.interfaces.cli.CsvMerger.merge")
     @patch("flashcards_generator.interfaces.cli.logger")
-    def test_merge_command_logs_success(self, mock_logger, mock_merge):
+    def test_merge_command_logs_success(self, mock_logger, mock_merge, tmp_path):
         """Test merge command logs success message."""
         mock_merge.return_value = 10
 
+        test_folder = tmp_path / "test_merge"
+        test_folder.mkdir()
+
         cli = CLI()
-        with patch("sys.argv", ["cli", "merge", "--folder", "/tmp/test"]):
+        with patch("sys.argv", ["cli", "merge", "--folder", str(test_folder)]):
             cli.run()
 
         mock_logger.info.assert_called()

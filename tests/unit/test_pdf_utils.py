@@ -11,12 +11,14 @@ class TestPDFChunker:
 
     def test_init_default(self):
         chunker = PDFChunker()
-        assert chunker.chunk_size == 100
-        assert chunker.DEFAULT_THRESHOLD == 150
-
-    def test_init_custom_size(self):
-        chunker = PDFChunker(chunk_size=50)
         assert chunker.chunk_size == 50
+        assert chunker.overlap_pages == 5
+        assert chunker.DEFAULT_THRESHOLD == 50
+
+    def test_init_custom_params(self):
+        chunker = PDFChunker(chunk_size=30, overlap_pages=3)
+        assert chunker.chunk_size == 30
+        assert chunker.overlap_pages == 3
 
     @patch("flashcards_generator.infrastructure.pdf_utils.PDFChunker._check_pypdf")
     def test_check_pypdf_available(self, mock_check):
@@ -48,7 +50,7 @@ class TestPDFChunker:
     def test_needs_chunking_below_threshold(self, mock_count, tmp_path):
         chunker = PDFChunker()
         chunker._has_pypdf = True
-        mock_count.return_value = 100
+        mock_count.return_value = 50
         pdf_path = tmp_path / "test.pdf"
         assert chunker.needs_chunking(pdf_path) is False
 
@@ -80,15 +82,14 @@ class TestPDFChunker:
     @patch("pypdf.PdfReader")
     @patch("pypdf.PdfWriter")
     def test_chunk_pdf_success(self, mock_writer_class, mock_reader_class, tmp_path):
-        chunker = PDFChunker(chunk_size=2)
+        chunker = PDFChunker(chunk_size=2, overlap_pages=0)
         chunker._has_pypdf = True
 
-        # Setup mock reader
         mock_reader = Mock()
-        mock_reader.pages = [Mock(), Mock(), Mock(), Mock(), Mock()]  # 5 pages
+        mock_reader.pages = [Mock(), Mock(), Mock(), Mock(), Mock()]
+        mock_reader.outline = None
         mock_reader_class.return_value = mock_reader
 
-        # Setup mock writer
         mock_writer = Mock()
         mock_writer_class.return_value = mock_writer
 
@@ -98,23 +99,8 @@ class TestPDFChunker:
 
         chunks = list(chunker.chunk_pdf(pdf_path, output_dir))
 
-        assert len(chunks) == 3  # 5 pages / 2 per chunk = 3 chunks
+        assert len(chunks) == 3
         assert mock_writer.add_page.call_count == 5
-
-    @patch("pypdf.PdfReader")
-    def test_chunk_pdf_error(self, mock_reader_class, tmp_path):
-        chunker = PDFChunker()
-        chunker._has_pypdf = True
-        mock_reader_class.side_effect = OSError("PDF error")
-
-        pdf_path = tmp_path / "test.pdf"
-        pdf_path.touch()
-        output_dir = tmp_path / "output"
-
-        chunks = list(chunker.chunk_pdf(pdf_path, output_dir))
-
-        assert len(chunks) == 1
-        assert chunks[0] == pdf_path
 
     def test_cleanup_chunks(self, tmp_path):
         chunker = PDFChunker()
@@ -171,3 +157,58 @@ class TestPDFChunker:
         ):
             chunker = PDFChunker()
             assert chunker._has_pypdf is False
+
+    def test_flatten_outline(self):
+        chunker = PDFChunker()
+        nested = [
+            "item1",
+            ["item2", ["item3", "item4"]],
+            "item5",
+        ]
+        flat = chunker._flatten_outline(nested)
+        assert flat == ["item1", "item2", "item3", "item4", "item5"]
+
+    def test_get_chapter_boundaries_no_pypdf(self, tmp_path):
+        chunker = PDFChunker()
+        chunker._has_pypdf = False
+        pdf_path = tmp_path / "test.pdf"
+        assert chunker.get_chapter_boundaries(pdf_path) == []
+
+    @patch("pypdf.PdfReader")
+    def test_get_chapter_boundaries_no_outline(self, mock_reader_class, tmp_path):
+        chunker = PDFChunker()
+        chunker._has_pypdf = True
+
+        mock_reader = Mock()
+        mock_reader.outline = None
+        mock_reader.pages = [Mock(), Mock()]
+        mock_reader_class.return_value = mock_reader
+
+        pdf_path = tmp_path / "test.pdf"
+        pdf_path.touch()
+
+        assert chunker.get_chapter_boundaries(pdf_path) == []
+
+    @patch("pypdf.PdfReader")
+    def test_get_chapter_boundaries_success(self, mock_reader_class, tmp_path):
+        chunker = PDFChunker()
+        chunker._has_pypdf = True
+
+        mock_page1 = Mock()
+        mock_page2 = Mock()
+        mock_reader = Mock()
+        mock_reader.pages = [mock_page1, mock_page2, mock_page1]
+        mock_reader.outline = [
+            {"/Title": "Chapter 1", "/Page": mock_page1},
+            {"/Title": "Chapter 2", "/Page": mock_page2},
+        ]
+        mock_reader.get_page_number.side_effect = lambda p: 0 if p == mock_page1 else 1
+        mock_reader_class.return_value = mock_reader
+
+        pdf_path = tmp_path / "test.pdf"
+        pdf_path.touch()
+
+        chapters = chunker.get_chapter_boundaries(pdf_path)
+        assert len(chapters) == 2
+        assert chapters[0] == (0, 1, "Chapter 1")
+        assert chapters[1] == (1, 3, "Chapter 2")

@@ -242,6 +242,22 @@ class PDFChunker:
         "about the authors",
         "foreword",
         "dedication",
+        "about the reviewer",
+        "about the technical reviewer",
+        "who this book is for",
+        "what this book covers",
+        "to get the most out of this book",
+        "conventions used",
+        "get in touch",
+        "share your thoughts",
+        "download a free pdf",
+        " Errata ",
+        " piracy ",
+        "questions",
+        "why subscribe",
+        "other books you may enjoy",
+        "packt.com",
+        "packtpub.com",
     )
 
     def _is_relevant_chapter(self, title: str) -> bool:
@@ -255,7 +271,6 @@ class PDFChunker:
         chapters: list[tuple[int, int, str]],
         use_overlap: bool = False,
     ) -> Generator[Path]:
-        """Create chunks respecting chapter boundaries."""
         from pypdf import PdfReader, PdfWriter
 
         reader = PdfReader(str(pdf_path))
@@ -263,49 +278,49 @@ class PDFChunker:
 
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        relevant_chapters = [
-            (ch_start, ch_end, ch_title)
-            for ch_start, ch_end, ch_title in chapters
-            if self._is_relevant_chapter(ch_title)
-        ]
-
-        if not relevant_chapters:
-            logger.warning("No relevant chapters found after filtering")
-            relevant_chapters = chapters
-
-        logger.info(
-            f"Processing {len(relevant_chapters)} relevant chapters "
-            f"({len(chapters) - len(relevant_chapters)} filtered out)"
-        )
-
         current_chunk_start = 0
         current_chunk_pages = 0
         chapters_in_chunk: list[str] = []
-        chunk_writers: list[tuple[PdfWriter, list[str], int, int]] = []
+        relevant_chapters_in_chunk: list[str] = []
+        chunk_writers: list[tuple[PdfWriter, list[str], int, int, list[str]]] = []
         current_writer = PdfWriter()
 
-        for ch_start, ch_end, ch_title in relevant_chapters:
-            chapter_pages = ch_end - ch_start
+        filtered_chunks_count = 0
 
-            # If adding this chapter would exceed chunk size, finalize current chunk
+        for ch_start, ch_end, ch_title in chapters:
+            chapter_pages = ch_end - ch_start
+            is_relevant = self._is_relevant_chapter(ch_title)
+
             if (
                 current_chunk_pages > 0
                 and current_chunk_pages + chapter_pages > self.chunk_size
             ):
                 actual_end_page = current_chunk_start + current_chunk_pages
-                chunk_writers.append(
-                    (
-                        current_writer,
-                        chapters_in_chunk.copy(),
-                        current_chunk_start,
-                        actual_end_page,
+
+                if relevant_chapters_in_chunk:
+                    chunk_writers.append(
+                        (
+                            current_writer,
+                            chapters_in_chunk.copy(),
+                            current_chunk_start,
+                            actual_end_page,
+                            relevant_chapters_in_chunk.copy(),
+                        )
                     )
-                )
+                else:
+                    filtered_chunks_count += 1
+                    logger.debug(
+                        f"Filtered chunk with pages "
+                        f"{current_chunk_start + 1}-{actual_end_page}: "
+                        f"only irrelevant chapters "
+                        f"({', '.join(chapters_in_chunk[:3])})"
+                    )
 
                 current_writer = PdfWriter()
                 chapters_in_chunk = []
+                relevant_chapters_in_chunk = []
 
-                if use_overlap:
+                if use_overlap and relevant_chapters_in_chunk:
                     overlap_start = max(0, actual_end_page - self.overlap_pages)
                     for page_num in range(overlap_start, actual_end_page):
                         current_writer.add_page(reader.pages[page_num])
@@ -315,28 +330,45 @@ class PDFChunker:
                     current_chunk_start = actual_end_page
                     current_chunk_pages = 0
 
-            # Add chapter pages to current chunk
             for page_num in range(ch_start, min(ch_end, total_pages)):
                 current_writer.add_page(reader.pages[page_num])
 
             if ch_title not in chapters_in_chunk:
                 chapters_in_chunk.append(ch_title)
+                if is_relevant:
+                    relevant_chapters_in_chunk.append(ch_title)
             current_chunk_pages += chapter_pages
 
-        # Add the last chunk
         if current_chunk_pages > 0:
             actual_end_page = current_chunk_start + current_chunk_pages
-            chunk_writers.append(
-                (
-                    current_writer,
-                    chapters_in_chunk.copy(),
-                    current_chunk_start,
-                    actual_end_page,
+
+            if relevant_chapters_in_chunk:
+                chunk_writers.append(
+                    (
+                        current_writer,
+                        chapters_in_chunk.copy(),
+                        current_chunk_start,
+                        actual_end_page,
+                        relevant_chapters_in_chunk.copy(),
+                    )
                 )
+            else:
+                filtered_chunks_count += 1
+                logger.debug(
+                    f"Filtered final chunk with pages "
+                    f"{current_chunk_start + 1}-{actual_end_page}: "
+                    f"only irrelevant chapters "
+                    f"({', '.join(chapters_in_chunk[:3])})"
+                )
+
+        if filtered_chunks_count > 0:
+            logger.info(
+                f"Filtered out {filtered_chunks_count} chunks "
+                f"containing only irrelevant chapters "
+                f"({len(chunk_writers)} chunks retained)"
             )
 
-        # Write chunks to files
-        for i, (writer, ch_titles, start, end) in enumerate(chunk_writers, 1):
+        for i, (writer, ch_titles, start, end, _) in enumerate(chunk_writers, 1):
             chunk_filename = f"{pdf_path.stem}_chunk_{i:03d}.pdf"
             chunk_path = output_dir / chunk_filename
 

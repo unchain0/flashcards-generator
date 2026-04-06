@@ -31,7 +31,7 @@ logger = get_logger("use_cases")
 # Constants for file handling and timeouts
 MAX_FILENAME_LEN = 50  # Conservative limit for temp files in nested directories
 SOURCE_WAIT_TIMEOUT = 600  # seconds
-PDF_CHUNKING_THRESHOLD = 100  # Only chunk PDFs with more than 100 pages
+PDF_CHUNKING_THRESHOLD = 50  # Only chunk PDFs with more than 50 pages
 MIN_CARDS_QUALITY_LENGTH = 10  # minimum characters for valid card
 BORDER_LENGTH = 60  # characters for border lines
 
@@ -102,6 +102,12 @@ class GenerateFlashcardsUseCase:
         "- Código: Extraia APENAS o elemento sintático-chave, não blocos inteiros. "
         "- Definições: Use padrão 'Conceito é Descritor'. "
         "- Processos: Teste UMA etapa por card, não sequências inteiras. "
+        "CONTEXTO DO DOCUMENTO: "
+        "- Este é um trecho de um documento maior. "
+        "Gere flashcards APENAS sobre o conteúdo presente nesta seção. "
+        "- Se um conceito parecer incompleto ou continuar em outra seção, ignore-o. "
+        "- NÃO crie flashcards que dependam de conteúdo de outras partes. "
+        "- Foque em fatos e conceitos completos e auto-contidos. "
         "FORMATO: Frente (cloze com contexto); Verso (explicação adicional)"
     )
 

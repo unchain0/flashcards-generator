@@ -85,8 +85,10 @@ class PPTXConverter:
 class PDFChunker:
     """Handles PDF page counting and chunking for large files."""
 
-    DEFAULT_CHUNK_SIZE = 50  # Reduced from 100 based on research (optimal: 30-50 pages)
-    DEFAULT_THRESHOLD = 50  # Align with chunk_size
+    DEFAULT_CHUNK_SIZE = (
+        30  # Optimal for flashcard quality (NVIDIA benchmark: 20-30 pages)
+    )
+    DEFAULT_THRESHOLD = 30  # Align with chunk_size
     DEFAULT_OVERLAP_PAGES = 5  # 10% overlap for context continuity
 
     def __init__(

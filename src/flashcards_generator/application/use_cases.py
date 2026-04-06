@@ -35,7 +35,11 @@ SOURCE_WAIT_TIMEOUT = 600  # seconds
 PDF_CHUNKING_THRESHOLD = 50  # Only chunk PDFs with more than 50 pages
 MIN_CARDS_QUALITY_LENGTH = 10  # minimum characters for valid card
 BORDER_LENGTH = 60  # characters for border lines
-CHUNK_DELAY_SECONDS = 2
+CHUNK_DELAY_SECONDS = 5
+CHUNK_RETRY_MAX_ATTEMPTS = 3
+CHUNK_RETRY_INITIAL_DELAY = 5
+CHUNK_RETRY_MAX_DELAY = 60
+CHUNK_RETRY_BACKOFF_MULTIPLIER = 2.0
 
 
 def _safe_filename(base_name: str, suffix: str = "") -> str:
@@ -414,18 +418,87 @@ class GenerateFlashcardsUseCase:
         chunk_index: int,
         total_chunks: int,
     ) -> Deck | None:
-        """Process a single chunk independently.
+        """Process a single chunk independently with retry logic."""
+        return self._process_chunk_with_retry(
+            chunk_path, deck_name, pdf_output_path, request, chunk_index, total_chunks
+        )
 
-        Creates a separate notebook for each chunk, generates flashcards,
-        then cleans up the notebook.
-        """
+    def _process_chunk_with_retry(
+        self,
+        chunk_path: Path,
+        deck_name: str,
+        pdf_output_path: Path,
+        request: GenerateFlashcardsRequest,
+        chunk_index: int,
+        total_chunks: int,
+    ) -> Deck | None:
+        """Process chunk with exponential backoff retry on rate limit errors."""
+        delay = CHUNK_RETRY_INITIAL_DELAY
+
+        for attempt in range(1, CHUNK_RETRY_MAX_ATTEMPTS + 1):
+            try:
+                result = self._process_chunk_internal(
+                    chunk_path,
+                    deck_name,
+                    pdf_output_path,
+                    request,
+                    chunk_index,
+                    total_chunks,
+                )
+                if result is not None:
+                    return result
+
+                if attempt < CHUNK_RETRY_MAX_ATTEMPTS:
+                    logger.warning(
+                        f"Chunk {chunk_index}/{total_chunks}: "
+                        f"retry {attempt}/{CHUNK_RETRY_MAX_ATTEMPTS} in {delay}s..."
+                    )
+                    time.sleep(delay)
+                    delay = min(
+                        delay * CHUNK_RETRY_BACKOFF_MULTIPLIER, CHUNK_RETRY_MAX_DELAY
+                    )
+
+            except RuntimeError as e:
+                error_msg = str(e).lower()
+                is_rate_limit = any(
+                    pattern in error_msg
+                    for pattern in [
+                        "rpc create_artifact",
+                        "rate limit",
+                        "generation_failed",
+                    ]
+                )
+
+                if is_rate_limit and attempt < CHUNK_RETRY_MAX_ATTEMPTS:
+                    logger.warning(
+                        f"Chunk {chunk_index}/{total_chunks}: "
+                        f"rate limit error, retry {attempt}/{CHUNK_RETRY_MAX_ATTEMPTS} "
+                        f"in {delay}s..."
+                    )
+                    time.sleep(delay)
+                    delay = min(
+                        delay * CHUNK_RETRY_BACKOFF_MULTIPLIER, CHUNK_RETRY_MAX_DELAY
+                    )
+                else:
+                    logger.error(f"Chunk {chunk_index}/{total_chunks}: {e}")
+                    return None
+
+        return None
+
+    def _process_chunk_internal(
+        self,
+        chunk_path: Path,
+        deck_name: str,
+        pdf_output_path: Path,
+        request: GenerateFlashcardsRequest,
+        chunk_index: int,
+        total_chunks: int,
+    ) -> Deck | None:
         chunk_notebook_id = None
         try:
-            # Create separate notebook for this chunk
             chunk_deck_name = f"{deck_name}_chunk{chunk_index}"
             chunk_notebook_id = self._create_notebook(chunk_deck_name)
 
-            # Add chunk as source
             source_id = self._add_pdf_source(chunk_notebook_id, chunk_path)
             if not source_id:
                 logger.error(f"Failed to add chunk {chunk_index} as source")
@@ -436,17 +509,12 @@ class GenerateFlashcardsUseCase:
                 chunk_notebook_id, source_id, timeout=SOURCE_WAIT_TIMEOUT
             )
 
-            # Generate flashcards for this chunk
             logger.info(f"Chunk {chunk_index}/{total_chunks}: generating flashcards...")
             instructions = request.instructions or self.DEFAULT_INSTRUCTIONS
-            # Add context that this is a partial document with overlap context
             chunk_instructions = (
                 f"{instructions}\n\n"
                 f"CONTEXT: This is part {chunk_index} of {total_chunks} "
-                f"of the document. This section includes context from the previous "
-                f"section to ensure continuity. Generate flashcards from the content "
-                f"in this section, and feel free to reference concepts from the "
-                f"overlapping context pages when relevant for understanding."
+                f"of the document."
             )
 
             gen_config = GenerationConfig(
@@ -464,7 +532,6 @@ class GenerateFlashcardsUseCase:
                 logger.error(f"Chunk {chunk_index}/{total_chunks}: failed to generate")
                 return None
 
-            # Wait and download
             completed = self.generator.wait_for_artifact(
                 chunk_notebook_id, artifact_id, timeout=request.timeout
             )
@@ -473,7 +540,6 @@ class GenerateFlashcardsUseCase:
                 logger.warning(f"Chunk {chunk_index}/{total_chunks}: timeout")
                 return None
 
-            # Download and parse - use short temp name for chunks
             temp_chunk_name = f"chunk{chunk_index}"
             json_path = pdf_output_path / _safe_filename(temp_chunk_name, "_raw.json")
             try:
@@ -487,7 +553,6 @@ class GenerateFlashcardsUseCase:
                 except OSError as e:
                     logger.warning(f"Failed to cleanup temp file: {e}")
 
-            # Convert to cloze format
             cloze_cards = []
             for card in flashcards:
                 cloze_card = self.converter.convert(card)
@@ -506,9 +571,8 @@ class GenerateFlashcardsUseCase:
 
         except (GenerationError, SourceProcessingError, OSError, RuntimeError) as e:
             logger.error(f"Chunk {chunk_index}/{total_chunks}: error - {e}")
-            return None
+            raise
         finally:
-            # Cleanup chunk notebook immediately
             if chunk_notebook_id and chunk_notebook_id in self._created_notebooks:
                 try:
                     self.generator.delete_notebook(chunk_notebook_id)

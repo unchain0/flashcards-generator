@@ -1,6 +1,7 @@
 """Generate flashcards use case with dependency injection."""
 
 import hashlib
+import time
 from pathlib import Path
 from typing import ClassVar
 
@@ -34,6 +35,7 @@ SOURCE_WAIT_TIMEOUT = 600  # seconds
 PDF_CHUNKING_THRESHOLD = 50  # Only chunk PDFs with more than 50 pages
 MIN_CARDS_QUALITY_LENGTH = 10  # minimum characters for valid card
 BORDER_LENGTH = 60  # characters for border lines
+CHUNK_DELAY_SECONDS = 2
 
 
 def _safe_filename(base_name: str, suffix: str = "") -> str:
@@ -336,6 +338,10 @@ class GenerateFlashcardsUseCase:
                     )
                 else:
                     logger.warning(f"Chunk {i}/{len(chunks)}: no flashcards generated")
+
+                if i < len(chunks):
+                    logger.debug(f"Waiting {CHUNK_DELAY_SECONDS}s before next chunk...")
+                    time.sleep(CHUNK_DELAY_SECONDS)
 
             if not all_flashcards:
                 logger.error("No flashcards generated from any chunk")

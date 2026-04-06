@@ -1,4 +1,5 @@
 import csv
+from unittest.mock import patch
 
 import pytest
 
@@ -166,3 +167,22 @@ class TestCsvMerger:
             reader = csv.reader(f)
             content = list(reader)
             assert len(content) == 2
+
+    def test_merge_handles_exception(self, tmp_path):
+        """Test that CSVMergeError is raised on unexpected exception."""
+        csv_file = tmp_path / "flashcards.csv"
+        with open(csv_file, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f, quoting=csv.QUOTE_ALL)
+            writer.writerow(["Front", "Back"])
+
+        request = MergeCsvRequest(folder_path=tmp_path)
+
+        with patch(
+            "flashcards_generator.application.csv_merger.csv.reader"
+        ) as mock_reader:
+            mock_reader.side_effect = Exception("Unexpected CSV error")
+
+            with pytest.raises(CSVMergeError) as exc_info:
+                CsvMerger.merge(request)
+
+            assert "Unexpected CSV error" in str(exc_info.value)

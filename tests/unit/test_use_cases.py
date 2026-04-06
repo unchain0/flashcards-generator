@@ -740,3 +740,69 @@ class TestGenerateFlashcardsUseCase:
         result = use_case._is_safe_file_path(input_dir / "test.pdf", input_dir)
 
         assert result is False
+
+
+class TestQualityFilter:
+    """Test quality filter functionality."""
+
+    def test_apply_quality_filter_empty_deck(self, mock_generator):
+        """Test quality filter with empty deck."""
+        from flashcards_generator.domain.entities import Deck
+
+        use_case = GenerateFlashcardsUseCase(generator=mock_generator())
+        deck = Deck(name="Test", description="Test", flashcards=[], notebook_id="123")
+        use_case._apply_quality_filter(deck)
+        assert deck.flashcards == []
+
+    def test_apply_quality_filter_with_trivial_cards(self, mock_generator):
+        """Test quality filter removes trivial cards."""
+        from flashcards_generator.domain.entities import Deck, Flashcard
+
+        use_case = GenerateFlashcardsUseCase(generator=mock_generator())
+
+        valid_card = Flashcard(
+            front="FastAPI {{c1::dependency injection}} uses constructor.",
+            back="Dependencies are injected through constructor parameters",
+        )
+        trivial_card = Flashcard(front="The {{c1::the}} is a word.", back="Article")
+        deck = Deck(
+            name="Test",
+            description="Test",
+            flashcards=[valid_card, trivial_card],
+            notebook_id="123",
+        )
+        use_case._apply_quality_filter(deck)
+        assert len(deck.flashcards) == 1
+        assert "dependency injection" in deck.flashcards[0].front
+
+    def test_apply_quality_filter_no_trivial_cards(self, mock_generator):
+        """Test quality filter with no trivial cards."""
+        from flashcards_generator.domain.entities import Deck, Flashcard
+
+        use_case = GenerateFlashcardsUseCase(generator=mock_generator())
+
+        valid_card = Flashcard(
+            front="FastAPI {{c1::dependency injection}} uses constructor.",
+            back="Dependencies are injected through constructor",
+        )
+        deck = Deck(
+            name="Test", description="Test", flashcards=[valid_card], notebook_id="123"
+        )
+        use_case._apply_quality_filter(deck)
+        assert len(deck.flashcards) == 1
+
+    def test_apply_quality_filter_single_card(self, mock_generator):
+        """Test quality filter with single card (no similarity check)."""
+        from flashcards_generator.domain.entities import Deck, Flashcard
+
+        use_case = GenerateFlashcardsUseCase(generator=mock_generator())
+
+        valid_card = Flashcard(
+            front="Python {{c1::decorators}} modify other functions.",
+            back="Decorators wrap functions to extend behavior",
+        )
+        deck = Deck(
+            name="Test", description="Test", flashcards=[valid_card], notebook_id="123"
+        )
+        use_case._apply_quality_filter(deck)
+        assert len(deck.flashcards) == 1

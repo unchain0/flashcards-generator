@@ -11,9 +11,9 @@ class TestPDFChunker:
 
     def test_init_default(self):
         chunker = PDFChunker()
-        assert chunker.chunk_size == 50
+        assert chunker.chunk_size == 30
         assert chunker.overlap_pages == 5
-        assert chunker.DEFAULT_THRESHOLD == 50
+        assert chunker.DEFAULT_THRESHOLD == 30
 
     def test_init_custom_params(self):
         chunker = PDFChunker(chunk_size=30, overlap_pages=3)
@@ -50,7 +50,7 @@ class TestPDFChunker:
     def test_needs_chunking_below_threshold(self, mock_count, tmp_path):
         chunker = PDFChunker()
         chunker._has_pypdf = True
-        mock_count.return_value = 50
+        mock_count.return_value = 25
         pdf_path = tmp_path / "test.pdf"
         assert chunker.needs_chunking(pdf_path) is False
 

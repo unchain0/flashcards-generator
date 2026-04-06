@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import subprocess
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from flashcards_generator.infrastructure.logging_config import get_logger
 
@@ -88,7 +88,7 @@ class PDFChunker:
     DEFAULT_CHUNK_SIZE = (
         30  # Optimal for flashcard quality (NVIDIA benchmark: 20-30 pages)
     )
-    DEFAULT_THRESHOLD = 30  # Align with chunk_size
+    DEFAULT_THRESHOLD = 50
     DEFAULT_OVERLAP_PAGES = 5  # 10% overlap for context continuity
 
     def __init__(
@@ -219,7 +219,9 @@ class PDFChunker:
         if use_chapters:
             chapters = self.get_chapter_boundaries(pdf_path)
             if chapters:
-                yield from self._chunk_by_chapters(pdf_path, output_dir, chapters)
+                yield from self._chunk_by_chapters(
+                    pdf_path, output_dir, chapters, use_overlap=False
+                )
                 return
             else:
                 logger.info(
@@ -228,11 +230,30 @@ class PDFChunker:
 
         yield from self._chunk_fixed_size_with_overlap(pdf_path, output_dir)
 
+    SKIP_CHAPTER_PATTERNS: ClassVar[tuple[str, ...]] = (
+        "copyright",
+        "table of contents",
+        "toc",
+        "preface",
+        "acknowledgments",
+        "index",
+        "bibliography",
+        "about the author",
+        "about the authors",
+        "foreword",
+        "dedication",
+    )
+
+    def _is_relevant_chapter(self, title: str) -> bool:
+        title_lower = title.lower()
+        return not any(pattern in title_lower for pattern in self.SKIP_CHAPTER_PATTERNS)
+
     def _chunk_by_chapters(
         self,
         pdf_path: Path,
         output_dir: Path,
         chapters: list[tuple[int, int, str]],
+        use_overlap: bool = False,
     ) -> Generator[Path]:
         """Create chunks respecting chapter boundaries."""
         from pypdf import PdfReader, PdfWriter
@@ -242,13 +263,28 @@ class PDFChunker:
 
         output_dir.mkdir(parents=True, exist_ok=True)
 
+        relevant_chapters = [
+            (ch_start, ch_end, ch_title)
+            for ch_start, ch_end, ch_title in chapters
+            if self._is_relevant_chapter(ch_title)
+        ]
+
+        if not relevant_chapters:
+            logger.warning("No relevant chapters found after filtering")
+            relevant_chapters = chapters
+
+        logger.info(
+            f"Processing {len(relevant_chapters)} relevant chapters "
+            f"({len(chapters) - len(relevant_chapters)} filtered out)"
+        )
+
         current_chunk_start = 0
         current_chunk_pages = 0
         chapters_in_chunk: list[str] = []
         chunk_writers: list[tuple[PdfWriter, list[str], int, int]] = []
         current_writer = PdfWriter()
 
-        for ch_start, ch_end, ch_title in chapters:
+        for ch_start, ch_end, ch_title in relevant_chapters:
             chapter_pages = ch_end - ch_start
 
             # If adding this chapter would exceed chunk size, finalize current chunk
@@ -256,26 +292,28 @@ class PDFChunker:
                 current_chunk_pages > 0
                 and current_chunk_pages + chapter_pages > self.chunk_size
             ):
+                actual_end_page = current_chunk_start + current_chunk_pages
                 chunk_writers.append(
                     (
                         current_writer,
                         chapters_in_chunk.copy(),
                         current_chunk_start,
-                        current_chunk_start + current_chunk_pages,
+                        actual_end_page,
                     )
                 )
-                # Start new chunk with overlap
+
                 current_writer = PdfWriter()
                 chapters_in_chunk = []
-                overlap_start = max(
-                    0, current_chunk_start + current_chunk_pages - self.overlap_pages
-                )
-                for page_num in range(
-                    overlap_start, current_chunk_start + current_chunk_pages
-                ):
-                    current_writer.add_page(reader.pages[page_num])
-                current_chunk_start = overlap_start
-                current_chunk_pages = self.overlap_pages
+
+                if use_overlap:
+                    overlap_start = max(0, actual_end_page - self.overlap_pages)
+                    for page_num in range(overlap_start, actual_end_page):
+                        current_writer.add_page(reader.pages[page_num])
+                    current_chunk_start = overlap_start
+                    current_chunk_pages = actual_end_page - overlap_start
+                else:
+                    current_chunk_start = actual_end_page
+                    current_chunk_pages = 0
 
             # Add chapter pages to current chunk
             for page_num in range(ch_start, min(ch_end, total_pages)):
@@ -287,12 +325,13 @@ class PDFChunker:
 
         # Add the last chunk
         if current_chunk_pages > 0:
+            actual_end_page = current_chunk_start + current_chunk_pages
             chunk_writers.append(
                 (
                     current_writer,
                     chapters_in_chunk.copy(),
                     current_chunk_start,
-                    current_chunk_start + current_chunk_pages,
+                    actual_end_page,
                 )
             )
 

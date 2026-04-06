@@ -19,21 +19,22 @@ src/flashcards_generator/
 ├── domain/          # Entities, value objects, domain exceptions, ports (protocols)
 ├── application/     # Use cases, DTOs, business logic orchestration
 ├── infrastructure/  # External services: PDF parsing, NotebookLM API, logging
-├── interfaces/      # CLI entry point ( Typer-based)
+├── interfaces/      # CLI entry point (argparse-based)
 └── adapters/        # External API adapters (NotebookLM client wrapper)
 ```
 
 ## Entry Points
 
 - `main.py` → `flashcards_generator.interfaces.cli:main()`
-- CLI command: `python -m flashcards_generator`
+- Module execution: `python -m flashcards_generator` (via `src/flashcards_generator/__main__.py`)
+- Console script: `flashcards` (after `pip install -e .`)
 
 ## Key Patterns
 
 - **Domain**: Pure Python, no external deps. Define entities in `entities.py`, ports in `ports/`
 - **Application**: Use cases orchestrate via injected ports. DTOs in `dto/` folder
 - **Infrastructure**: External service implementations. PDF chunking in `pdf_utils.py` (DEFAULT_THRESHOLD=100)
-- **Interfaces**: Single CLI file using Typer. All I/O happens here
+- **Interfaces**: Single CLI file using argparse. All I/O happens here
 
 ## Conventions
 
@@ -66,6 +67,6 @@ src/flashcards_generator/
 
 ## Dependencies
 
-- Core: Typer, Pydantic, aiohttp, pypdf
+- Core: Pydantic, pypdf, loguru, rich, playwright, notebooklm-py
 - Dev: Ruff, pytest, pre-commit, mypy
 - External: NotebookLM API (via `notebooklm-client`)

@@ -28,7 +28,7 @@ Core source package implementing Clean Architecture layers for PDF-to-flashcard 
 - `application/use_cases.py` — Main `GenerateFlashcardsUseCase`
 - `infrastructure/pdf_utils.py` — PDFChunker with `DEFAULT_THRESHOLD=100`
 - `infrastructure/notebooklm_client.py` — NotebookLM API client
-- `interfaces/cli.py` — Typer CLI app
+- `interfaces/cli.py` — argparse CLI app
 
 ## Code Patterns
 

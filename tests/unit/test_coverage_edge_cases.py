@@ -192,6 +192,7 @@ class TestPDFUtilsEdgeCases:
         result = chunker.count_pages(pdf_path)
 
         assert result == 3
+        mock_reader_class.assert_called_once_with(str(pdf_path), strict=False)
         # Verify stream.close() was called (lines 52-53)
         mock_reader.stream.close.assert_called_once()
 
@@ -213,6 +214,7 @@ class TestPDFUtilsEdgeCases:
         result = chunker.count_pages(pdf_path)
 
         assert result == 1
+        mock_reader_class.assert_called_once_with(str(pdf_path), strict=False)
 
     def test_cleanup_chunks_exception(self, tmp_path, monkeypatch):
         """Test cleanup_chunks handles exception (lines 127-128)."""

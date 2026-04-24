@@ -109,6 +109,12 @@ class PDFChunker:
             logger.warning("pypdf not installed. PDF chunking disabled.")
             return False
 
+    def _create_reader(self, pdf_path: Path):
+        """Create a forgiving PDF reader for real-world malformed files."""
+        from pypdf import PdfReader
+
+        return PdfReader(str(pdf_path), strict=False)
+
     def count_pages(self, pdf_path: Path) -> int:
         """Count pages in PDF file."""
         if not self._has_pypdf:
@@ -116,9 +122,7 @@ class PDFChunker:
 
         reader = None
         try:
-            from pypdf import PdfReader
-
-            reader = PdfReader(str(pdf_path))
+            reader = self._create_reader(pdf_path)
             return len(reader.pages)
         except (OSError, ImportError, RuntimeError) as e:
             logger.error(f"Failed to count pages in {pdf_path}: {e}")
@@ -138,9 +142,7 @@ class PDFChunker:
 
         reader = None
         try:
-            from pypdf import PdfReader
-
-            reader = PdfReader(str(pdf_path))
+            reader = self._create_reader(pdf_path)
             total_pages = len(reader.pages)
 
             if not reader.outline:
@@ -152,12 +154,17 @@ class PDFChunker:
             for i, item in enumerate(outline_items):
                 if isinstance(item, dict) and "/Page" in item:
                     page_num = reader.get_page_number(item["/Page"])
+                    if page_num is None:
+                        continue
+
                     title = str(item.get("/Title", f"Chapter {i + 1}"))
 
                     if i < len(outline_items) - 1:
                         next_item = outline_items[i + 1]
                         if isinstance(next_item, dict) and "/Page" in next_item:
                             end_page = reader.get_page_number(next_item["/Page"])
+                            if end_page is None:
+                                end_page = total_pages
                         else:
                             end_page = total_pages
                     else:
@@ -271,9 +278,9 @@ class PDFChunker:
         chapters: list[tuple[int, int, str]],
         use_overlap: bool = False,
     ) -> Generator[Path]:
-        from pypdf import PdfReader, PdfWriter
+        from pypdf import PdfWriter
 
-        reader = PdfReader(str(pdf_path))
+        reader = self._create_reader(pdf_path)
         total_pages = len(reader.pages)
 
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -387,9 +394,9 @@ class PDFChunker:
         self, pdf_path: Path, output_dir: Path
     ) -> Generator[Path]:
         """Split PDF into fixed-size chunks with overlap."""
-        from pypdf import PdfReader, PdfWriter
+        from pypdf import PdfWriter
 
-        reader = PdfReader(str(pdf_path))
+        reader = self._create_reader(pdf_path)
         total_pages = len(reader.pages)
         effective_chunk_size = self.chunk_size - self.overlap_pages
         num_chunks = (total_pages + effective_chunk_size - 1) // effective_chunk_size

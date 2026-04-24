@@ -188,6 +188,7 @@ class TestPDFChunker:
         pdf_path.touch()
 
         assert chunker.get_chapter_boundaries(pdf_path) == []
+        mock_reader_class.assert_called_once_with(str(pdf_path), strict=False)
 
     @patch("pypdf.PdfReader")
     def test_get_chapter_boundaries_success(self, mock_reader_class, tmp_path):
@@ -212,3 +213,4 @@ class TestPDFChunker:
         assert len(chapters) == 2
         assert chapters[0] == (0, 1, "Chapter 1")
         assert chapters[1] == (1, 3, "Chapter 2")
+        mock_reader_class.assert_called_once_with(str(pdf_path), strict=False)

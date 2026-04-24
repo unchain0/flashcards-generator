@@ -79,7 +79,7 @@ class SemanticChunker:
         try:
             from pypdf import PdfReader
 
-            reader = PdfReader(str(pdf_path))
+            reader = PdfReader(str(pdf_path), strict=False)
             segments = []
 
             for page_num, page in enumerate(reader.pages, 1):

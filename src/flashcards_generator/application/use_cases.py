@@ -1,16 +1,25 @@
 """Generate flashcards use case with dependency injection."""
 
+from __future__ import annotations
+
 import hashlib
 import time
+from contextlib import suppress
+from datetime import datetime
 from pathlib import Path
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from flashcards_generator.application.converter import ClozeConverter
 from flashcards_generator.application.dto.generate_request import (
     GenerateFlashcardsRequest,
 )
 from flashcards_generator.application.exporter import DeckExporter
-from flashcards_generator.domain.entities import Deck
+from flashcards_generator.domain.entities import (
+    ChunkResumeManifest,
+    ChunkState,
+    ChunkStatus,
+    Deck,
+)
 from flashcards_generator.domain.exceptions import (
     GenerationError,
     NotebookCleanupError,
@@ -23,6 +32,9 @@ from flashcards_generator.domain.ports.flashcard_generator import (
 from flashcards_generator.infrastructure.logging_config import get_logger
 from flashcards_generator.infrastructure.pdf_utils import PDFChunker
 from flashcards_generator.infrastructure.semantic_chunker import QualityFilter
+
+if TYPE_CHECKING:
+    from flashcards_generator.domain.ports import ChunkStatePort
 
 # Explicit runtime usage to prevent type-checking-only false positives
 _ = (Path, GenerateFlashcardsRequest)
@@ -123,12 +135,15 @@ class GenerateFlashcardsUseCase:
         converter: ClozeConverter | None = None,
         exporter: DeckExporter | None = None,
         pdf_chunker: PDFChunker | None = None,
+        chunk_state_repository: ChunkStatePort | None = None,
     ):
         self.generator = generator
         self.converter = converter or ClozeConverter()
         self.exporter = exporter or DeckExporter()
         self.pdf_chunker = pdf_chunker or PDFChunker()
+        self._chunk_state_repository = chunk_state_repository
         self._created_notebooks: list[str] = []
+        self._last_chunk_error_message: str | None = None
 
     def execute(self, request: GenerateFlashcardsRequest) -> list[Deck]:
         """Execute flashcard generation for all PDFs in input directory.
@@ -162,10 +177,96 @@ class GenerateFlashcardsUseCase:
                 if deck:
                     decks.append(deck)
                     self._save_deck(deck, pdf_output_path, pdf_path.stem)
+                    if request.resume and self._chunk_state_repository:
+                        self._cleanup_resume_state(pdf_output_path, pdf_path.stem)
 
             return decks
         finally:
             self._cleanup_notebooks()
+
+    def _get_resume_dir(self, pdf_output_path: Path, pdf_stem: str) -> Path:
+        """Return the directory used to persist resume state."""
+        return pdf_output_path / ".flashcards_resume" / _safe_filename(pdf_stem)
+
+    def _get_state_file_path(self, pdf_output_path: Path, pdf_stem: str) -> Path:
+        """Return the manifest path for a chunked PDF."""
+        return self._get_resume_dir(pdf_output_path, pdf_stem) / "state.json"
+
+    def _get_chunk_result_path(self, resume_dir: Path, chunk_index: int) -> Path:
+        """Return the persisted result path for a chunk."""
+        return resume_dir / f"chunk_{chunk_index:03d}.json"
+
+    def _compute_source_signature(self, pdf_path: Path) -> str:
+        """Compute a stable signature for resume validation."""
+        stat = pdf_path.stat()
+        return f"{stat.st_size}:{stat.st_mtime}:{pdf_path.resolve()}"
+
+    def _build_resume_manifest(
+        self,
+        pdf_path: Path,
+        deck_name: str,
+        total_chunks: int,
+        source_signature: str,
+    ) -> ChunkResumeManifest:
+        """Create a fresh manifest for resume-enabled chunk processing."""
+        now = datetime.now()
+        return ChunkResumeManifest(
+            source_pdf=str(pdf_path),
+            source_signature=source_signature,
+            deck_name=deck_name,
+            total_chunks=total_chunks,
+            chunks=[],
+            created_at=now,
+            updated_at=now,
+        )
+
+    def _set_chunk_state(
+        self,
+        manifest: ChunkResumeManifest,
+        chunk_index: int,
+        status: ChunkStatus,
+        *,
+        card_count: int = 0,
+        result_path: Path | None = None,
+        error_message: str | None = None,
+    ) -> None:
+        """Upsert manifest state for a single chunk."""
+        now = datetime.now()
+        state = ChunkState(
+            chunk_index=chunk_index,
+            status=status,
+            card_count=card_count,
+            result_path=str(result_path) if result_path else None,
+            updated_at=now,
+            error_message=error_message,
+        )
+
+        for index, existing_state in enumerate(manifest.chunks):
+            if existing_state.chunk_index == chunk_index:
+                manifest.chunks[index] = state
+                break
+        else:
+            manifest.chunks.append(state)
+
+        manifest.updated_at = now
+
+    def _cleanup_resume_state(self, pdf_output_path: Path, pdf_stem: str) -> None:
+        """Remove persisted resume artifacts after successful completion."""
+        if not self._chunk_state_repository:
+            return
+
+        resume_dir = self._get_resume_dir(pdf_output_path, pdf_stem)
+        state_path = self._get_state_file_path(pdf_output_path, pdf_stem)
+        temp_chunks = list((pdf_output_path / ".temp_chunks").glob("*.pdf"))
+
+        self._chunk_state_repository.delete_manifest(state_path)
+        self._chunk_state_repository.delete_chunk_results(resume_dir)
+        self.pdf_chunker.cleanup_chunks(temp_chunks)
+
+        with suppress(OSError):
+            (pdf_output_path / ".temp_chunks").rmdir()
+
+        logger.info("Resume state cleaned up")
 
     def _find_all_pdfs(
         self, input_path: Path, request: GenerateFlashcardsRequest
@@ -323,29 +424,132 @@ class GenerateFlashcardsUseCase:
         """
         temp_dir = pdf_output_path / ".temp_chunks"
         chunks: list[Path] = []
-        all_flashcards = []
+        chunk_decks: dict[int, Deck] = {}
+        cleanup_chunks_on_exit = not request.resume
 
         try:
             chunks = list(self.pdf_chunker.chunk_pdf(pdf_path, temp_dir))
-            logger.info(f"Processing {len(chunks)} chunks independently...")
+            total_chunks = len(chunks)
+            logger.info(f"Processing {total_chunks} chunks independently...")
 
-            for i, chunk_path in enumerate(chunks, 1):
-                logger.info(f"Processing chunk {i}/{len(chunks)}...")
-                chunk_deck = self._process_chunk(
-                    chunk_path, deck_name, pdf_output_path, request, i, len(chunks)
+            manifest: ChunkResumeManifest | None = None
+            completed_chunk_indexes: set[int] = set()
+            resume_dir: Path | None = None
+            state_path: Path | None = None
+
+            if request.resume and self._chunk_state_repository:
+                resume_dir = self._get_resume_dir(pdf_output_path, pdf_path.stem)
+                state_path = self._get_state_file_path(pdf_output_path, pdf_path.stem)
+                source_signature = self._compute_source_signature(pdf_path)
+                existing_manifest = self._chunk_state_repository.load_manifest(
+                    state_path
                 )
-                if chunk_deck and chunk_deck.flashcards:
-                    all_flashcards.extend(chunk_deck.flashcards)
+
+                if (
+                    existing_manifest
+                    and existing_manifest.source_signature == source_signature
+                    and existing_manifest.total_chunks == total_chunks
+                ):
+                    manifest = existing_manifest
+                    for chunk_state in manifest.chunks:
+                        if (
+                            chunk_state.status == ChunkStatus.COMPLETED
+                            and chunk_state.result_path
+                        ):
+                            chunk_decks[chunk_state.chunk_index] = (
+                                self._chunk_state_repository.load_chunk_result(
+                                    Path(chunk_state.result_path)
+                                )
+                            )
+                            completed_chunk_indexes.add(chunk_state.chunk_index)
+
                     logger.info(
-                        f"Chunk {i}/{len(chunks)}: "
+                        "Resuming PDF processing: "
+                        f"{len(completed_chunk_indexes)} of {total_chunks} chunks "
+                        "already completed"
+                    )
+                else:
+                    self._chunk_state_repository.delete_chunk_results(resume_dir)
+                    manifest = self._build_resume_manifest(
+                        pdf_path,
+                        deck_name,
+                        total_chunks,
+                        source_signature,
+                    )
+                    self._chunk_state_repository.save_manifest(state_path, manifest)
+
+            for chunk_index, chunk_path in enumerate(chunks, 1):
+                if chunk_index in completed_chunk_indexes:
+                    logger.info(
+                        f"Skipping chunk {chunk_index}/{total_chunks} - already done"
+                    )
+                    chunk_deck = chunk_decks[chunk_index]
+                else:
+                    logger.info(f"Processing chunk {chunk_index}/{total_chunks}...")
+                    self._last_chunk_error_message = None
+                    chunk_deck = self._process_chunk(
+                        chunk_path,
+                        deck_name,
+                        pdf_output_path,
+                        request,
+                        chunk_index,
+                        total_chunks,
+                    )
+
+                    if not chunk_deck:
+                        if manifest and state_path and self._chunk_state_repository:
+                            self._set_chunk_state(
+                                manifest,
+                                chunk_index,
+                                ChunkStatus.FAILED,
+                                error_message=self._last_chunk_error_message
+                                or "Chunk processing failed",
+                            )
+                            self._chunk_state_repository.save_manifest(
+                                state_path, manifest
+                            )
+                        return None
+
+                    chunk_decks[chunk_index] = chunk_deck
+
+                    if (
+                        manifest
+                        and resume_dir
+                        and state_path
+                        and self._chunk_state_repository
+                    ):
+                        chunk_result_path = self._get_chunk_result_path(
+                            resume_dir, chunk_index
+                        )
+                        self._chunk_state_repository.save_chunk_result(
+                            chunk_result_path, chunk_deck
+                        )
+                        self._set_chunk_state(
+                            manifest,
+                            chunk_index,
+                            ChunkStatus.COMPLETED,
+                            card_count=len(chunk_deck.flashcards),
+                            result_path=chunk_result_path,
+                        )
+                        self._chunk_state_repository.save_manifest(state_path, manifest)
+
+                if chunk_deck and chunk_deck.flashcards:
+                    logger.info(
+                        f"Chunk {chunk_index}/{total_chunks}: "
                         f"{len(chunk_deck.flashcards)} flashcards"
                     )
                 else:
-                    logger.warning(f"Chunk {i}/{len(chunks)}: no flashcards generated")
+                    logger.warning(
+                        f"Chunk {chunk_index}/{total_chunks}: no flashcards generated"
+                    )
 
-                if i < len(chunks):
+                if chunk_index < total_chunks:
                     logger.debug(f"Waiting {CHUNK_DELAY_SECONDS}s before next chunk...")
                     time.sleep(CHUNK_DELAY_SECONDS)
+
+            all_flashcards = []
+            for chunk_index in range(1, total_chunks + 1):
+                all_flashcards.extend(chunk_decks[chunk_index].flashcards)
 
             if not all_flashcards:
                 logger.error("No flashcards generated from any chunk")
@@ -356,7 +560,7 @@ class GenerateFlashcardsUseCase:
             # Create combined deck with all flashcards
             combined_deck = Deck(
                 name=deck_name,
-                description=f"Deck de {deck_name} ({len(chunks)} chunks)",
+                description=f"Deck de {deck_name} ({total_chunks} chunks)",
                 flashcards=all_flashcards,
                 notebook_id="",  # No single notebook - chunks had separate notebooks
             )
@@ -371,7 +575,8 @@ class GenerateFlashcardsUseCase:
             return combined_deck
 
         finally:
-            self.pdf_chunker.cleanup_chunks(chunks)
+            if cleanup_chunks_on_exit:
+                self.pdf_chunker.cleanup_chunks(chunks)
 
     def _apply_quality_filter(self, deck: Deck) -> None:
         """Apply quality filtering to remove trivial and similar cards."""
@@ -434,6 +639,7 @@ class GenerateFlashcardsUseCase:
     ) -> Deck | None:
         """Process chunk with exponential backoff retry on rate limit errors."""
         delay = CHUNK_RETRY_INITIAL_DELAY
+        self._last_chunk_error_message = None
 
         for attempt in range(1, CHUNK_RETRY_MAX_ATTEMPTS + 1):
             try:
@@ -446,6 +652,7 @@ class GenerateFlashcardsUseCase:
                     total_chunks,
                 )
                 if result is not None:
+                    self._last_chunk_error_message = None
                     return result
 
                 if attempt < CHUNK_RETRY_MAX_ATTEMPTS:
@@ -457,8 +664,13 @@ class GenerateFlashcardsUseCase:
                     delay = min(
                         delay * CHUNK_RETRY_BACKOFF_MULTIPLIER, CHUNK_RETRY_MAX_DELAY
                     )
+                else:
+                    self._last_chunk_error_message = (
+                        "Chunk processing returned no result after retries"
+                    )
 
             except RuntimeError as e:
+                self._last_chunk_error_message = str(e)
                 error_msg = str(e).lower()
                 is_rate_limit = any(
                     pattern in error_msg
@@ -560,8 +772,6 @@ class GenerateFlashcardsUseCase:
                     cloze_card.tags.append(deck_name.lower().replace(" ", "_"))
                     cloze_cards.append(cloze_card)
 
-            logger.info(f"Chunk {chunk_index}/{total_chunks}: {len(cloze_cards)} cards")
-
             return Deck(
                 name=chunk_deck_name,
                 description=f"Chunk {chunk_index} of {total_chunks}",
@@ -609,7 +819,10 @@ class GenerateFlashcardsUseCase:
             if pdf_path.suffix.lower() == ".pdf" and self.pdf_chunker.needs_chunking(
                 pdf_path, threshold=PDF_CHUNKING_THRESHOLD
             ):
-                logger.info("Large PDF detected (>100 pages), using chunking...")
+                logger.info(
+                    f"Large PDF detected (>{PDF_CHUNKING_THRESHOLD} pages), "
+                    "using chunking..."
+                )
                 return self._process_large_pdf(
                     pdf_path, deck_name, pdf_output_path, request
                 )

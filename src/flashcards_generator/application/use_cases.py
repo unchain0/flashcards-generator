@@ -609,7 +609,10 @@ class GenerateFlashcardsUseCase:
             if pdf_path.suffix.lower() == ".pdf" and self.pdf_chunker.needs_chunking(
                 pdf_path, threshold=PDF_CHUNKING_THRESHOLD
             ):
-                logger.info("Large PDF detected (>100 pages), using chunking...")
+                logger.info(
+                    f"Large PDF detected (>{PDF_CHUNKING_THRESHOLD} pages), "
+                    "using chunking..."
+                )
                 return self._process_large_pdf(
                     pdf_path, deck_name, pdf_output_path, request
                 )

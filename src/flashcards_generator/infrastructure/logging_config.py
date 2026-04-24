@@ -1,5 +1,6 @@
 """Logging configuration for the application."""
 
+import logging
 import sys
 from typing import TYPE_CHECKING
 
@@ -9,9 +10,15 @@ if TYPE_CHECKING:
     from loguru import Logger
 
 
+def _configure_third_party_loggers() -> None:
+    """Reduce noise from third-party libraries during normal execution."""
+    logging.getLogger("pypdf").setLevel(logging.ERROR)
+
+
 def configure_logging(level: str = "INFO") -> None:
     """Configure application logging with loguru."""
     logger.remove()
+    _configure_third_party_loggers()
 
     fmt = (
         "<green>{time:HH:mm:ss}</green> "

@@ -19,6 +19,7 @@ class GenerateFlashcardsRequest(BaseModel):
     instructions: str = Field(default="")
     wait_for_completion: bool = Field(default=True)
     timeout: int = Field(default=900)
+    resume: bool = Field(default=True)
     include_pattern: str | None = Field(default=None)
     exclude_pattern: str | None = Field(default=None)
     explicit_files: list[str] = Field(default_factory=list)

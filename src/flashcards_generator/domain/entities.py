@@ -1,9 +1,45 @@
 """Domain entities for flashcard generation."""
 
+from __future__ import annotations
+
 from datetime import datetime
 from difflib import SequenceMatcher
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
+
+
+class ChunkStatus(StrEnum):
+    """Processing status for a chunk."""
+
+    PENDING = "pending"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class ChunkState(BaseModel):
+    """Resume state for a single processed chunk."""
+
+    chunk_index: int
+    status: ChunkStatus
+    page_start: int | None = None
+    page_end: int | None = None
+    card_count: int = 0
+    result_path: str | None = None
+    updated_at: datetime
+    error_message: str | None = None
+
+
+class ChunkResumeManifest(BaseModel):
+    """Persisted state for resuming chunked PDF processing."""
+
+    source_pdf: str
+    source_signature: str
+    deck_name: str
+    total_chunks: int
+    chunks: list[ChunkState] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime
 
 
 class Flashcard(BaseModel):

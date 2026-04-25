@@ -24,7 +24,9 @@ class TestMainEntryPoint:
             del sys.modules["flashcards_generator.__main__"]
 
         # Mock __name__ == "__main__" condition
-        with patch.dict("sys.modules", {"flashcards_generator.__main__": None}):
+        with patch.dict(
+            "sys.modules", {"flashcards_generator.__main__": None}
+        ):
             # Import and execute
             from flashcards_generator import __main__
 

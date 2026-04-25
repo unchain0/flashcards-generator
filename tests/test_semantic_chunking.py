@@ -160,7 +160,10 @@ class TestQualityFilter:
         """Test full deck filtering."""
         filter_q = QualityFilter()
         cards = [
-            ("FastAPI is a {{c1::modern}} web framework.", "A Python framework"),
+            (
+                "FastAPI is a {{c1::modern}} web framework.",
+                "A Python framework",
+            ),
             ("{{c1::Python}} is a programming language.", "Created by Guido"),
             ("The {{c1::the}} is a word.", "Article"),  # Trivial
         ]
@@ -206,7 +209,8 @@ class TestTokenCounterEdgeCases:
         from unittest.mock import patch
 
         with patch(
-            "builtins.__import__", side_effect=ImportError("No module named 'tiktoken'")
+            "builtins.__import__",
+            side_effect=ImportError("No module named 'tiktoken'"),
         ):
             counter = TokenCounter()
             counter._available = False

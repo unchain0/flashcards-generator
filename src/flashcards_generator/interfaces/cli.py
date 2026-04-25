@@ -12,8 +12,13 @@ from flashcards_generator.application.dto.generate_request import (
     GenerateFlashcardsRequest,
 )
 from flashcards_generator.application.dto.merge_request import MergeCsvRequest
-from flashcards_generator.application.use_cases import GenerateFlashcardsUseCase
+from flashcards_generator.application.use_cases import (
+    GenerateFlashcardsUseCase,
+)
 from flashcards_generator.domain.exceptions import CSVMergeError
+from flashcards_generator.infrastructure.chunk_state_repository import (
+    FileSystemChunkStateRepository,
+)
 from flashcards_generator.infrastructure.logging_config import (
     configure_logging,
     get_logger,
@@ -45,7 +50,9 @@ class CLI:
             help="Nível de log (padrão: INFO)",
         )
 
-        subparsers = parser.add_subparsers(dest="command", help="Comandos disponíveis")
+        subparsers = parser.add_subparsers(
+            dest="command", help="Comandos disponíveis"
+        )
 
         # Generate command (default)
         generate_parser = subparsers.add_parser(
@@ -80,7 +87,9 @@ class CLI:
             choices=["fewer", "standard", "more"],
             default="standard",
         )
-        generate_parser.add_argument("--instructions", help="Instruções customizadas")
+        generate_parser.add_argument(
+            "--instructions", help="Instruções customizadas"
+        )
         generate_parser.add_argument(
             "--language",
             "-l",
@@ -109,7 +118,6 @@ class CLI:
             type=str,
             help="Lista explícita de PDFs separados por vírgula",
         )
-
         # Cleanup command
         cleanup_parser = subparsers.add_parser(
             "cleanup", help="Limpar notebooks do NotebookLM"
@@ -170,6 +178,7 @@ class CLI:
                 [notebooklm, "auth", "check"],
                 capture_output=True,
                 text=True,
+                check=False,
                 timeout=10,
             )
             return result.returncode == 0 and "✓" in result.stdout
@@ -201,6 +210,7 @@ class CLI:
             subprocess.run(
                 [notebooklm, "language", "set", language],
                 capture_output=True,
+                check=False,
                 timeout=10,
             )
             logger.info(f"Idioma configurado: {language}")
@@ -212,12 +222,19 @@ class CLI:
         notebooklm_path = find_notebooklm()
         return NotebookLMAdapter(notebooklm_path, timeout=timeout)
 
-    def _create_use_case(self, args: argparse.Namespace) -> GenerateFlashcardsUseCase:
+    def _create_use_case(
+        self, args: argparse.Namespace
+    ) -> GenerateFlashcardsUseCase:
         """Create use case with dependencies wired."""
         generator = self._create_adapter(args.timeout)
-        return GenerateFlashcardsUseCase(generator=generator)
+        return GenerateFlashcardsUseCase(
+            generator=generator,
+            chunk_state_repository=FileSystemChunkStateRepository(),
+        )
 
-    def _create_request(self, args: argparse.Namespace) -> GenerateFlashcardsRequest:
+    def _create_request(
+        self, args: argparse.Namespace
+    ) -> GenerateFlashcardsRequest:
         """Create request DTO from CLI args."""
         explicit_files = []
         if args.files:
@@ -239,7 +256,9 @@ class CLI:
         """Log configuration."""
         logger.info("Iniciando...")
         logger.info(f"Entrada: {request.input_dir}")
-        logger.info(f"Saída: {request.output_dir} (preservando a estrutura relativa)")
+        logger.info(
+            f"Saída: {request.output_dir} (preservando a estrutura relativa)"
+        )
         logger.info(f"Dificuldade: {request.difficulty}")
         logger.info(f"Quantidade: {request.quantity}")
 
@@ -287,7 +306,9 @@ class CLI:
         adapter = self._create_adapter()
 
         if args.days:
-            logger.info(f"Deletando notebooks dos últimos {args.days} dia(s)...")
+            logger.info(
+                f"Deletando notebooks dos últimos {args.days} dia(s)..."
+            )
             deleted, failed = adapter.delete_all_notebooks(
                 days=args.days, show_progress=True
             )

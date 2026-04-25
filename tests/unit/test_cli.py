@@ -13,6 +13,65 @@ class TestCLI:
 
         assert parser is not None
 
+    def test_parser_rejects_removed_no_resume_flag(self, tmp_path):
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+
+        cli = CLI()
+        with pytest.raises(SystemExit):
+            cli.parser.parse_args([
+                "generate",
+                "--input-dir",
+                str(input_dir),
+                "--no-resume",
+            ])
+
+    def test_create_request_keeps_resume_enabled_by_default(self, tmp_path):
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+
+        cli = CLI()
+        args = cli.parser.parse_args([
+            "generate",
+            "--input-dir",
+            str(input_dir),
+            "--output-dir",
+            str(output_dir),
+        ])
+
+        request = cli._create_request(args)
+
+        assert request.resume is True
+
+    @patch("flashcards_generator.interfaces.cli.GenerateFlashcardsUseCase")
+    @patch.object(CLI, "_create_adapter")
+    def test_create_use_case_always_wires_chunk_state_repository(
+        self, mock_create_adapter, mock_use_case_class, tmp_path
+    ):
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+
+        cli = CLI()
+        args = cli.parser.parse_args([
+            "generate",
+            "--input-dir",
+            str(input_dir),
+        ])
+        mock_generator = MagicMock()
+        mock_create_adapter.return_value = mock_generator
+
+        cli._create_use_case(args)
+
+        mock_use_case_class.assert_called_once()
+        assert (
+            mock_use_case_class.call_args.kwargs["generator"] is mock_generator
+        )
+        assert (
+            mock_use_case_class.call_args.kwargs["chunk_state_repository"]
+            is not None
+        )
+
     @patch("flashcards_generator.interfaces.cli.find_notebooklm")
     @patch("flashcards_generator.interfaces.cli.subprocess.run")
     def test_check_auth_success(self, mock_run, mock_find):
@@ -30,7 +89,9 @@ class TestCLI:
     @patch("flashcards_generator.interfaces.cli.subprocess.run")
     def test_check_auth_failure(self, mock_run, mock_find):
         mock_find.return_value = "notebooklm"
-        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="Error")
+        mock_run.return_value = MagicMock(
+            returncode=1, stdout="", stderr="Error"
+        )
 
         cli = CLI()
         result = cli.check_auth()
@@ -43,7 +104,9 @@ class TestCLI:
         mock_find.return_value = "notebooklm"
         import subprocess
 
-        mock_run.side_effect = subprocess.TimeoutExpired(cmd="test", timeout=10)
+        mock_run.side_effect = subprocess.TimeoutExpired(
+            cmd="test", timeout=10
+        )
 
         cli = CLI()
         result = cli.check_auth()
@@ -71,7 +134,13 @@ class TestCLI:
 
         with patch(
             "sys.argv",
-            ["cli", "generate", "--input-dir", str(input_dir), "--skip-auth-check"],
+            [
+                "cli",
+                "generate",
+                "--input-dir",
+                str(input_dir),
+                "--skip-auth-check",
+            ],
         ):
             result = cli.run()
 
@@ -101,7 +170,9 @@ class TestCLI:
 
         cli = CLI()
 
-        with patch("sys.argv", ["cli", "generate", "--input-dir", str(input_dir)]):
+        with patch(
+            "sys.argv", ["cli", "generate", "--input-dir", str(input_dir)]
+        ):
             result = cli.run()
 
         assert result == 1
@@ -123,7 +194,9 @@ class TestCLI:
 
         cli = CLI()
 
-        with patch("sys.argv", ["cli", "generate", "--input-dir", str(input_dir)]):
+        with patch(
+            "sys.argv", ["cli", "generate", "--input-dir", str(input_dir)]
+        ):
             result = cli.run()
 
         assert result == 0
@@ -175,7 +248,9 @@ class TestCLI:
 
     @patch.object(CLI, "check_auth")
     @patch("flashcards_generator.interfaces.cli.GenerateFlashcardsUseCase")
-    def test_run_empty_decks(self, mock_use_case_class, mock_check_auth, tmp_path):
+    def test_run_empty_decks(
+        self, mock_use_case_class, mock_check_auth, tmp_path
+    ):
         mock_check_auth.return_value = True
 
         mock_use_case = MagicMock()
@@ -190,7 +265,13 @@ class TestCLI:
 
         with patch(
             "sys.argv",
-            ["cli", "generate", "--input-dir", str(input_dir), "--skip-auth-check"],
+            [
+                "cli",
+                "generate",
+                "--input-dir",
+                str(input_dir),
+                "--skip-auth-check",
+            ],
         ):
             result = cli.run()
 
@@ -220,7 +301,13 @@ class TestCLI:
 
         with patch(
             "sys.argv",
-            ["cli", "generate", "--input-dir", str(input_dir), "--skip-auth-check"],
+            [
+                "cli",
+                "generate",
+                "--input-dir",
+                str(input_dir),
+                "--skip-auth-check",
+            ],
         ):
             result = cli.run()
 
@@ -234,7 +321,10 @@ class TestMain:
         mock_cli.run.return_value = 0
         mock_cli_class.return_value = mock_cli
 
-        with patch("sys.argv", ["main"]), pytest.raises(SystemExit) as exc_info:
+        with (
+            patch("sys.argv", ["main"]),
+            pytest.raises(SystemExit) as exc_info,
+        ):
             main()
 
         assert exc_info.value.code == 0
@@ -246,7 +336,10 @@ class TestMain:
         mock_cli.run.return_value = 1
         mock_cli_class.return_value = mock_cli
 
-        with patch("sys.argv", ["main"]), pytest.raises(SystemExit) as exc_info:
+        with (
+            patch("sys.argv", ["main"]),
+            pytest.raises(SystemExit) as exc_info,
+        ):
             main()
 
         assert exc_info.value.code == 1

@@ -40,65 +40,16 @@ where = ["src"]
 
 [tool.ruff]
 target-version = "py314"
-line-length = 88
+line-length = 79
 indent-width = 4
 show-fixes = true
-
-[tool.ruff.lint]
-select = [
-  "E",    # pycodestyle errors
-  "W",    # pycodestyle warnings
-  "F",    # Pyflakes
-  "I",    # isort
-  "N",    # pep8-naming
-  "D",    # pydocstyle
-  "UP",   # pyupgrade
-  "B",    # flake8-bugbear
-  "C4",   # flake8-comprehensions
-  "SIM",  # flake8-simplify
-  "TCH",  # flake8-type-checking
-  "TID",  # flake8-tidy-imports
-  "Q",    # flake8-quotes
-  "FLY",  # flynt
-  "PERF", # Perflint
-  "RUF",  # Ruff-specific rules
-]
-ignore = [
-  "D100", # Missing docstring in public module
-  "D104", # Missing docstring in public package
-  "D107", # Missing docstring in __init__
-  "D203", # 1 blank line required before class docstring (conflicts with D211)
-  "D213", # Multi-line docstring summary should start at the second line
-]
-
-[tool.ruff.lint.pydocstyle]
-convention = "google"
-
-[tool.ruff.lint.isort]
-known-first-party = ["flashcards_generator"]
-combine-as-imports = true
-split-on-trailing-comma = false
-
-[tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = [
-  "D", # Disable all docstring rules in tests
-  "S", # Disable bandit in tests
-]
-"**/__init__.py" = ["F401"] # Allow unused imports in __init__.py
+preview = true
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
-
-[tool.ruff.lint.flake8-quotes]
-inline-quotes = "double"
-multiline-quotes = "double"
-docstring-quotes = "double"
-
-[tool.ruff.lint.mccabe]
-max-complexity = 10
 
 [tool.pytest]
 testpaths = ["tests"]
@@ -110,7 +61,6 @@ markers = [
   "integration: marks tests as integration tests (slow)",
   "unit: marks tests as unit tests (fast)",
 ]
-filterwarnings = ["ignore::DeprecationWarning"]
 
 [tool.mypy]
 python_version = "3.14"
@@ -131,3 +81,16 @@ strict_equality = true
 module = "tests.*"
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
+
+[tool.taskipy.tasks]
+format = "ruff format"
+lint = "ruff check"
+post_test = "coverage html"
+pre_format = "ruff check --fix"
+pre_test = "task lint"
+quality-gate = "echo '🔍 Checking complexity (max B6)...' && VIOLATIONS=$(uv run radon cc . --min B -s | grep -E 'B \\([7-9]\\)|B \\([1-9][0-9]\\)|[CDEF] \\(' | sort -t'(' -k2 -n -r) && if [ -n \"$VIOLATIONS\" ]; then echo ''; echo '❌ QUALITY GATE FAILED'; echo 'Complexity threshold: B(6) maximum'; echo 'Following functions exceed limit:'; echo ''; echo \"$VIOLATIONS\" | while read line; do echo \"  $line\"; done; echo ''; exit 1; else echo '✅ All functions within B(6) limit'; fi && uv run radon mi api/ --min B -nb"
+sonar-complex = "radon cc . --min B -nb -s --average"
+sonar-maintain = "radon mi api/ --min B -nb -s"
+sonar-report = "radon cc . -a -s --total-average && echo '---' && radon mi . -s && echo '---' && radon raw . -s"
+test = "pytest -s -x --cov=api -vv"
+typecheck = "mypy ."

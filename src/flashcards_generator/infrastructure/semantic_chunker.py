@@ -39,7 +39,9 @@ class TokenCounter:
             self.encoding = tiktoken.get_encoding("cl100k_base")
             self._available = True
         except ImportError:
-            logger.warning("tiktoken not available, using word-based estimation")
+            logger.warning(
+                "tiktoken not available, using word-based estimation"
+            )
             self._available = False
 
     def count(self, text: str) -> int:
@@ -96,7 +98,8 @@ class SemanticChunker:
                     )
 
             return segments
-        except Exception as e:
+        # PDF extraction is optional enrichment and must degrade to no segments.
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Failed to extract text from {pdf_path}: {e}")
             return []
 
@@ -105,7 +108,9 @@ class SemanticChunker:
         sentences = self.SENTENCE_ENDINGS.split(text)
         return [s.strip() for s in sentences if s.strip()]
 
-    def find_semantic_boundaries(self, segments: list[TextSegment]) -> list[int]:
+    def find_semantic_boundaries(
+        self, segments: list[TextSegment]
+    ) -> list[int]:
         """Find semantic boundaries using TF-IDF similarity."""
         if len(segments) < 3:
             return list(range(1, len(segments)))
@@ -128,11 +133,16 @@ class SemanticChunker:
                     boundaries.append(i)
 
             return boundaries if boundaries else list(range(1, len(segments)))
-        except Exception as e:
-            logger.warning(f"Semantic analysis failed: {e}, using fixed intervals")
+        # Semantic analysis must fall back when third-party vectorization fails.
+        except Exception as e:  # noqa: BLE001
+            logger.warning(
+                f"Semantic analysis failed: {e}, using fixed intervals"
+            )
             return list(range(1, len(segments)))
 
-    def create_semantic_chunks(self, pdf_path: Path) -> Generator[tuple[str, int, int]]:
+    def create_semantic_chunks(
+        self, pdf_path: Path
+    ) -> Generator[tuple[str, int, int]]:
         """Create chunks respecting semantic boundaries and token limits.
 
         Yields tuples of (chunk_text, start_page, end_page).
@@ -144,8 +154,8 @@ class SemanticChunker:
         # Find semantic boundaries
         boundaries = self.find_semantic_boundaries(segments)
 
-        chunks = []
-        current_chunk_text = []
+        chunks: list[tuple[str, int, int]] = []
+        current_chunk_text: list[str] = []
         current_chunk_tokens = 0
         current_start_page = segments[0].start_page
         current_end_page = segments[0].start_page
@@ -160,13 +170,11 @@ class SemanticChunker:
                 if current_chunk_tokens + sentence_tokens > self.max_tokens:
                     # Save current chunk
                     if current_chunk_tokens >= self.min_tokens:
-                        chunks.append(
-                            (
-                                " ".join(current_chunk_text),
-                                current_start_page,
-                                current_end_page,
-                            )
-                        )
+                        chunks.append((
+                            " ".join(current_chunk_text),
+                            current_start_page,
+                            current_end_page,
+                        ))
 
                     # Start new chunk with overlap
                     overlap_text = self._get_overlap_text(current_chunk_text)
@@ -183,26 +191,22 @@ class SemanticChunker:
 
             # Check for semantic boundary
             if i in boundaries and current_chunk_tokens >= self.target_tokens:
-                chunks.append(
-                    (
-                        " ".join(current_chunk_text),
-                        current_start_page,
-                        current_end_page,
-                    )
-                )
+                chunks.append((
+                    " ".join(current_chunk_text),
+                    current_start_page,
+                    current_end_page,
+                ))
                 current_chunk_text = []
                 current_chunk_tokens = 0
                 current_start_page = segment.start_page
 
         # Don't forget the last chunk
         if current_chunk_text and current_chunk_tokens >= self.min_tokens:
-            chunks.append(
-                (
-                    " ".join(current_chunk_text),
-                    current_start_page,
-                    current_end_page,
-                )
-            )
+            chunks.append((
+                " ".join(current_chunk_text),
+                current_start_page,
+                current_end_page,
+            ))
 
         # Yield chunks with logging
         for idx, (text, start_page, end_page) in enumerate(chunks, 1):
@@ -215,7 +219,7 @@ class SemanticChunker:
 
     def _get_overlap_text(self, previous_chunk_text: list[str]) -> list[str]:
         """Get overlap text from previous chunk."""
-        overlap_text = []
+        overlap_text: list[str] = []
         overlap_tokens = 0
 
         for sentence in reversed(previous_chunk_text):
@@ -267,8 +271,10 @@ class QualityFilter:
     MIN_CONTENT_WORDS = 3
     MAX_SIMILARITY = 0.85
 
-    def __init__(self):
-        self.vectorizer = TfidfVectorizer(max_features=50, stop_words="english")
+    def __init__(self) -> None:
+        self.vectorizer = TfidfVectorizer(
+            max_features=50, stop_words="english"
+        )
 
     def is_trivial(self, front: str, back: str) -> bool:
         """Check if flashcard is too trivial."""
@@ -319,7 +325,8 @@ class QualityFilter:
                         similar_pairs.append((i, j, float(sim)))
 
             return similar_pairs
-        except Exception as e:
+        # Similarity analysis is optional; an empty result preserves the deck.
+        except Exception as e:  # noqa: BLE001
             logger.warning(f"Similarity analysis failed: {e}")
             return []
 

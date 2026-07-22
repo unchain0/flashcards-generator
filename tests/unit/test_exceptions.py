@@ -52,7 +52,9 @@ class TestExceptions:
 
 class TestAbstractPorts:
     def test_deck_repository_port_save_not_implemented(self):
-        from flashcards_generator.domain.ports.deck_repository import DeckRepositoryPort
+        from flashcards_generator.domain.ports.deck_repository import (
+            DeckRepositoryPort,
+        )
 
         class ConcreteRepo(DeckRepositoryPort):
             pass

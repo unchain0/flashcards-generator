@@ -1,5 +1,7 @@
 """Domain-specific exceptions."""
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -8,8 +10,6 @@ if TYPE_CHECKING:
 
 class FlashcardsGeneratorError(Exception):
     """Base exception for all domain errors."""
-
-    pass
 
 
 class SourceProcessingError(FlashcardsGeneratorError):

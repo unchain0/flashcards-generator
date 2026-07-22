@@ -1,12 +1,16 @@
 """CSV merger for combining flashcard files."""
 
+from __future__ import annotations
+
 import csv
 from typing import TYPE_CHECKING
 
 from flashcards_generator.domain.exceptions import CSVMergeError
 
 if TYPE_CHECKING:
-    from flashcards_generator.application.dto.merge_request import MergeCsvRequest
+    from flashcards_generator.application.dto.merge_request import (
+        MergeCsvRequest,
+    )
 
 
 class CsvMerger:
@@ -36,9 +40,13 @@ class CsvMerger:
         csv_files = [f for f in csv_files if f != output_path]
 
         if not csv_files:
-            raise CSVMergeError(request.folder_path, "No CSV files found in folder")
+            raise CSVMergeError(
+                request.folder_path, "No CSV files found in folder"
+            )
 
-        seen = set() if request.deduplicate else None
+        seen: set[tuple[str, str]] | None = (
+            set() if request.deduplicate else None
+        )
         total_rows = 0
 
         try:
@@ -67,5 +75,6 @@ class CsvMerger:
 
             return total_rows
 
+        # This application boundary must translate every merge failure consistently.
         except Exception as e:
             raise CSVMergeError(request.folder_path, str(e)) from e

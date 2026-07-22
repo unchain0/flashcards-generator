@@ -153,7 +153,9 @@ class TestCsvMerger:
             writer.writerow(["Front 2", "Back 2"])
 
         custom_name = "my_custom_merge.csv"
-        request = MergeCsvRequest(folder_path=tmp_path, output_filename=custom_name)
+        request = MergeCsvRequest(
+            folder_path=tmp_path, output_filename=custom_name
+        )
         rows = CsvMerger.merge(request)
 
         assert rows == 2

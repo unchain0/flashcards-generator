@@ -86,7 +86,9 @@ class TestClozeConverter:
         assert "}}" in result
 
     def test_extract_important_first_pattern(self, cloze_converter):
-        sentence = "A Mitocondria é a organela responsavel pela respiracao celular"
+        sentence = (
+            "A Mitocondria é a organela responsavel pela respiracao celular"
+        )
         result = cloze_converter._extract_important(sentence)
         assert "Mitocondria" in result
 
@@ -116,7 +118,9 @@ class TestClozeConverter:
         assert result == 2
 
     def test_convert_already_has_cloze(self, cloze_converter):
-        card = Flashcard(front="Text with {{c1::cloze}} already", back="answer")
+        card = Flashcard(
+            front="Text with {{c1::cloze}} already", back="answer"
+        )
         result = cloze_converter.convert(card)
         assert result is not None
         assert "{{c" in result.front
@@ -136,11 +140,15 @@ class TestClozeConverter:
         assert result == ""
 
     def test_create_simple_cloze_with_what_no_article(self, cloze_converter):
-        result = cloze_converter._create_simple_cloze("What is capital?", "Paris", 1)
+        result = cloze_converter._create_simple_cloze(
+            "What is capital?", "Paris", 1
+        )
         assert "{{c1::Paris}}" in result
 
     def test_create_complex_cloze_single_sentence(self, cloze_converter):
-        result = cloze_converter._create_complex_cloze("A short sentence here.", 1)
+        result = cloze_converter._create_complex_cloze(
+            "A short sentence here.", 1
+        )
         assert "{{c" in result
 
     def test_create_word_cloze_no_important_word(self, cloze_converter):
@@ -171,7 +179,9 @@ class TestClozeConverter:
         assert result is False
 
     def test_is_quality_valid_all_words_trivial(self, cloze_converter):
-        result = cloze_converter._is_quality_valid("Text {{c1::a o e}} more text")
+        result = cloze_converter._is_quality_valid(
+            "Text {{c1::a o e}} more text"
+        )
         assert result is False
 
     def test_create_complex_cloze_trivial_important(self, cloze_converter):
@@ -186,7 +196,9 @@ class TestClozeConverter:
         result = cloze_converter._create_complex_cloze(sentence, 1)
         assert sentence in result or "{{c" in result
 
-    def test_extract_important_fallback_to_first_30_chars(self, cloze_converter):
+    def test_extract_important_fallback_to_first_30_chars(
+        self, cloze_converter
+    ):
         sentence = ",.,.,.,. a"
         result = cloze_converter._extract_important(sentence)
         assert len(result) <= 30

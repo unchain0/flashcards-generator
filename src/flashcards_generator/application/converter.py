@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import re
-from typing import ClassVar
+from typing import ClassVar, Optional
 
-from flashcards_generator.application.math_processor import convert_to_anki_math_format
+from flashcards_generator.application.math_processor import (
+    convert_to_anki_math_format,
+)
 from flashcards_generator.domain.entities import Flashcard
 
 
@@ -31,7 +33,9 @@ class ClozeConverter:
 
     # Patterns for extracting important content
     IMPORTANT_PATTERNS: ClassVar[list[re.Pattern]] = [
-        re.compile(r"([A-Z][a-z]+(?:\s+[a-z]+){0,4}\s+(?:é|são|is|are)\s+[^(,|.)]+)"),
+        re.compile(
+            r"([A-Z][a-z]+(?:\s+[a-z]+){0,4}\s+(?:é|são|is|are)\s+[^(,|.)]+)"
+        ),
         re.compile(r"((?:é|são|is|are)\s+[^(,|.)]+)"),
         re.compile(r"([^(,|.)]{10,50})"),
     ]
@@ -218,7 +222,7 @@ class ClozeConverter:
         "left",
     }
 
-    def convert(self, flashcard: Flashcard) -> Flashcard | None:
+    def convert(self, flashcard: Flashcard) -> Optional[Flashcard]:
         """Convert a flashcard to cloze deletion format."""
         question = self._clean(flashcard.front)
         answer = self._clean(flashcard.back)
@@ -234,7 +238,9 @@ class ClozeConverter:
         if not self._is_quality_valid(cloze_text):
             return None
 
-        return Flashcard(front=cloze_text, back=flashcard.back, tags=flashcard.tags)
+        return Flashcard(
+            front=cloze_text, back=flashcard.back, tags=flashcard.tags
+        )
 
     def _is_quality_valid(self, cloze_text: str) -> bool:
         if not cloze_text or len(cloze_text) < 10:
@@ -268,7 +274,9 @@ class ClozeConverter:
 
         return self._create_complex_cloze(answer, card_num)
 
-    def _create_simple_cloze(self, question: str, answer: str, card_num: int) -> str:
+    def _create_simple_cloze(
+        self, question: str, answer: str, card_num: int
+    ) -> str:
         if answer.strip().lower() in self.TRIVIAL_WORDS:
             return ""
 
@@ -293,7 +301,10 @@ class ClozeConverter:
             if len(sentence.strip()) > 10:
                 cloze_counter += 1
                 important = self._extract_important(sentence)
-                if important and important.strip().lower() not in self.TRIVIAL_WORDS:
+                if (
+                    important
+                    and important.strip().lower() not in self.TRIVIAL_WORDS
+                ):
                     cloze_sentence = sentence.replace(
                         important,
                         f"{{{{c{card_num + cloze_counter - 1}::{important}}}}}",
@@ -325,7 +336,9 @@ class ClozeConverter:
         for word in words:
             if self._is_keyword(word) and cloze_counter < 3:
                 cloze_counter += 1
-                cloze_parts.append(f"{{{{c{card_num + cloze_counter - 1}::{word}}}}}")
+                cloze_parts.append(
+                    f"{{{{c{card_num + cloze_counter - 1}::{word}}}}}"
+                )
             else:
                 cloze_parts.append(word)
 
@@ -345,7 +358,9 @@ class ClozeConverter:
             if match:
                 candidate = match.group(1).strip()
                 words = candidate.split()
-                if words and not all(w.lower() in self.TRIVIAL_WORDS for w in words):
+                if words and not all(
+                    w.lower() in self.TRIVIAL_WORDS for w in words
+                ):
                     return candidate
 
         return sentence[:30].strip()
@@ -353,6 +368,8 @@ class ClozeConverter:
     def _find_important_index(self, words: list[str]) -> int:
         for i, word in enumerate(words):
             clean = self.WORD_CLEAN_PATTERN.sub("", word.lower())
-            if clean not in self.TRIVIAL_WORDS and (word[0].isupper() or i > 0):
+            if clean not in self.TRIVIAL_WORDS and (
+                word[0].isupper() or i > 0
+            ):
                 return i
         return len(words) // 2

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 import pytest
 from pydantic import ValidationError
@@ -24,7 +24,7 @@ def repository() -> FileSystemChunkStateRepository:
 
 @pytest.fixture
 def sample_manifest() -> ChunkResumeManifest:
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     return ChunkResumeManifest(
         source_pdf="/tmp/source.pdf",
         source_signature="abc123",
@@ -55,7 +55,7 @@ def sample_manifest() -> ChunkResumeManifest:
 
 @pytest.fixture
 def sample_deck() -> Deck:
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     return Deck(
         name="Chunk Deck",
         description="Saved chunk output",

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -15,7 +15,7 @@ class ChunkStatePort(ABC):
     """Port for reading and writing chunk resume state."""
 
     @abstractmethod
-    def load_manifest(self, state_path: Path) -> ChunkResumeManifest | None:
+    def load_manifest(self, state_path: Path) -> Optional[ChunkResumeManifest]:
         """Load a chunk resume manifest from disk if it exists."""
         # pragma: no cover
 

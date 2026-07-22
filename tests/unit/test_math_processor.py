@@ -122,7 +122,9 @@ class TestCreateClozeWithMath:
         assert "$E=mc^2$" not in result
 
     def test_cloze_preserves_math_delimiters(self):
-        result = create_cloze_with_math("Qual a equação?", "$$\\sum_{i=1}^n i$$", 1)
+        result = create_cloze_with_math(
+            "Qual a equação?", "$$\\sum_{i=1}^n i$$", 1
+        )
         assert "\\[\\sum_{i=1}^n i\\]" in result
 
 

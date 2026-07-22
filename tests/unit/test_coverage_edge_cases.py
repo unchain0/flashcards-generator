@@ -9,8 +9,12 @@ from flashcards_generator.application.converter import ClozeConverter
 from flashcards_generator.application.dto.generate_request import (
     GenerateFlashcardsRequest,
 )
-from flashcards_generator.application.use_cases import GenerateFlashcardsUseCase
-from flashcards_generator.infrastructure.notebooklm_client import NotebookLMClient
+from flashcards_generator.application.use_cases import (
+    GenerateFlashcardsUseCase,
+)
+from flashcards_generator.infrastructure.notebooklm_client import (
+    NotebookLMClient,
+)
 from flashcards_generator.infrastructure.pdf_utils import PDFChunker
 from flashcards_generator.interfaces.cli import CLI
 
@@ -50,7 +54,9 @@ class TestUseCasesEdgeCases:
         assert result == output_dir
         assert result.exists()
 
-    def test_cleanup_orphaned_raw_files_success(self, temp_dirs, mock_generator):
+    def test_cleanup_orphaned_raw_files_success(
+        self, temp_dirs, mock_generator
+    ):
         """Test _cleanup_orphaned_raw_files successful cleanup (line 169)."""
         _input_dir, output_dir = temp_dirs
 
@@ -89,7 +95,9 @@ class TestUseCasesEdgeCases:
         # Should not raise exception
         use_case._cleanup_orphaned_raw_files(output_dir)
 
-    def test_process_pdf_add_source_returns_none(self, temp_dirs, mock_generator):
+    def test_process_pdf_add_source_returns_none(
+        self, temp_dirs, mock_generator
+    ):
         """Test _process_pdf when _add_pdf_source returns None (line 253)."""
         input_dir, output_dir = temp_dirs
 
@@ -111,7 +119,9 @@ class TestUseCasesEdgeCases:
             output_dir=output_dir,
         )
 
-        result = use_case._process_pdf(pdf_file, input_dir, output_dir, request)
+        result = use_case._process_pdf(
+            pdf_file, input_dir, output_dir, request
+        )
 
         assert result is None
 
@@ -137,7 +147,9 @@ class TestUseCasesEdgeCases:
             output_dir=output_dir,
         )
 
-        result = use_case._process_pdf(pdf_file, input_dir, output_dir, request)
+        result = use_case._process_pdf(
+            pdf_file, input_dir, output_dir, request
+        )
 
         assert result is None
 
@@ -197,7 +209,9 @@ class TestPDFUtilsEdgeCases:
         mock_reader.stream.close.assert_called_once()
 
     @patch("pypdf.PdfReader")
-    def test_count_pages_stream_close_exception(self, mock_reader_class, tmp_path):
+    def test_count_pages_stream_close_exception(
+        self, mock_reader_class, tmp_path
+    ):
         """Test count_pages handles stream close exception (lines 52-53)."""
         mock_reader = MagicMock()
         mock_reader.pages = [MagicMock()]
@@ -242,7 +256,11 @@ class TestCLIEdgeCases:
     @patch("flashcards_generator.interfaces.cli.CLI._authenticate")
     @patch("flashcards_generator.interfaces.cli.CLI._set_language")
     def test_run_keyboard_interrupt_in_execute(
-        self, mock_set_language, mock_authenticate, mock_validate, mock_use_case_class
+        self,
+        mock_set_language,
+        mock_authenticate,
+        mock_validate,
+        mock_use_case_class,
     ):
         """Test KeyboardInterrupt handling in run method (lines 194-196)."""
         mock_validate.return_value = True
@@ -290,7 +308,9 @@ class TestCLIEdgeCases:
 class TestPDFSelectionFilters:
     """Test PDF selection and filtering options."""
 
-    def test_find_all_pdfs_with_include_pattern(self, temp_dirs, mock_generator):
+    def test_find_all_pdfs_with_include_pattern(
+        self, temp_dirs, mock_generator
+    ):
         """Test _find_all_pdfs with include pattern filter."""
         input_dir, output_dir = temp_dirs
 
@@ -313,7 +333,9 @@ class TestPDFSelectionFilters:
         assert len(result) == 2
         assert all("capitulo" in str(pdf) for pdf in result)
 
-    def test_find_all_pdfs_with_exclude_pattern(self, temp_dirs, mock_generator):
+    def test_find_all_pdfs_with_exclude_pattern(
+        self, temp_dirs, mock_generator
+    ):
         """Test _find_all_pdfs with exclude pattern filter."""
         input_dir, output_dir = temp_dirs
 
@@ -335,7 +357,9 @@ class TestPDFSelectionFilters:
         assert len(result) == 2
         assert all("_old" not in str(pdf) for pdf in result)
 
-    def test_find_all_pdfs_with_explicit_files(self, temp_dirs, mock_generator):
+    def test_find_all_pdfs_with_explicit_files(
+        self, temp_dirs, mock_generator
+    ):
         """Test _find_all_pdfs with explicit file list."""
         input_dir, output_dir = temp_dirs
 
@@ -356,7 +380,9 @@ class TestPDFSelectionFilters:
 
         assert len(result) == 2
 
-    def test_find_all_pdfs_explicit_file_not_found(self, temp_dirs, mock_generator):
+    def test_find_all_pdfs_explicit_file_not_found(
+        self, temp_dirs, mock_generator
+    ):
         """Test _find_all_pdfs with explicit file that doesn't exist."""
         input_dir, output_dir = temp_dirs
 
@@ -400,13 +426,12 @@ class TestUseCasesExceptionHandling:
         generator = mock_generator()
         use_case = GenerateFlashcardsUseCase(generator=generator)
 
-        # Create a path that will raise ValueError on resolve
-        class BadPath(Path):
-            def resolve(self, strict=False):
-                raise ValueError("Invalid path")
-
-        bad_path = BadPath(input_dir / "test.pdf")
-        result = use_case._is_safe_file_path(bad_path, input_dir)
+        with patch.object(
+            Path, "resolve", side_effect=ValueError("Invalid path")
+        ):
+            result = use_case._is_safe_file_path(
+                input_dir / "test.pdf", input_dir
+            )
 
         assert result is False
 
@@ -428,7 +453,9 @@ class TestUseCasesExceptionCoverage:
         chunk_file.touch()
 
         # Mock _create_notebook to raise RuntimeError (caught by specific handler)
-        use_case._create_notebook = MagicMock(side_effect=RuntimeError("Test error"))
+        use_case._create_notebook = MagicMock(
+            side_effect=RuntimeError("Test error")
+        )
 
         request = GenerateFlashcardsRequest(
             input_dir=input_dir,
@@ -441,7 +468,9 @@ class TestUseCasesExceptionCoverage:
 
         assert result is None
 
-    def test_generate_flashcards_no_artifact_id(self, temp_dirs, mock_generator):
+    def test_generate_flashcards_no_artifact_id(
+        self, temp_dirs, mock_generator
+    ):
         """Test _generate_flashcards when artifact_id is None - lines 452-454."""
         input_dir, output_dir = temp_dirs
 
@@ -551,4 +580,8 @@ class TestCLICoverage:
         request = cli._create_request(mock_args)
 
         assert len(request.explicit_files) == 3
-        assert request.explicit_files == ["file1.pdf", "file2.pdf", "file3.pdf"]
+        assert request.explicit_files == [
+            "file1.pdf",
+            "file2.pdf",
+            "file3.pdf",
+        ]

@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import contextlib
 import subprocess
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, Optional
 
 from flashcards_generator.infrastructure.logging_config import get_logger
 
 if TYPE_CHECKING:
     from collections.abc import Generator
     from pathlib import Path
+
+    from pypdf import PdfReader
 
 logger = get_logger("pdf_utils")
 
@@ -28,16 +30,19 @@ class PPTXConverter:
                 ["soffice", "--version"],
                 capture_output=True,
                 timeout=5,
+                check=False,
             )
             return result.returncode == 0
-        except subprocess.TimeoutExpired, FileNotFoundError:
+        except (subprocess.TimeoutExpired, FileNotFoundError):
             logger.warning("LibreOffice not found. PPTX conversion disabled.")
             return False
 
-    def convert(self, pptx_path: Path, output_dir: Path) -> Path | None:
+    def convert(self, pptx_path: Path, output_dir: Path) -> Optional[Path]:
         """Convert PPTX to PDF using LibreOffice."""
         if not self._has_libreoffice:
-            logger.error(f"Cannot convert {pptx_path.name}: LibreOffice not available")
+            logger.error(
+                f"Cannot convert {pptx_path.name}: LibreOffice not available"
+            )
             return None
 
         try:
@@ -57,6 +62,7 @@ class PPTXConverter:
                 capture_output=True,
                 text=True,
                 timeout=120,
+                check=False,
             )
 
             if result.returncode != 0:
@@ -109,7 +115,7 @@ class PDFChunker:
             logger.warning("pypdf not installed. PDF chunking disabled.")
             return False
 
-    def _create_reader(self, pdf_path: Path):
+    def _create_reader(self, pdf_path: Path) -> PdfReader:
         """Create a forgiving PDF reader for real-world malformed files."""
         from pypdf import PdfReader
 
@@ -132,7 +138,9 @@ class PDFChunker:
                 with contextlib.suppress(OSError):
                     reader.stream.close()
 
-    def get_chapter_boundaries(self, pdf_path: Path) -> list[tuple[int, int, str]]:
+    def get_chapter_boundaries(
+        self, pdf_path: Path
+    ) -> list[tuple[int, int, str]]:
         """Extract chapter boundaries from PDF outline/bookmarks.
 
         Returns list of (start_page, end_page, title) tuples with 0-indexed pages.
@@ -161,8 +169,13 @@ class PDFChunker:
 
                     if i < len(outline_items) - 1:
                         next_item = outline_items[i + 1]
-                        if isinstance(next_item, dict) and "/Page" in next_item:
-                            end_page = reader.get_page_number(next_item["/Page"])
+                        if (
+                            isinstance(next_item, dict)
+                            and "/Page" in next_item
+                        ):
+                            end_page = reader.get_page_number(
+                                next_item["/Page"]
+                            )
                             if end_page is None:
                                 end_page = total_pages
                         else:
@@ -176,7 +189,9 @@ class PDFChunker:
             logger.info(f"Found {len(chapters)} chapters in {pdf_path.name}")
             return chapters
         except (OSError, ImportError, RuntimeError) as e:
-            logger.warning(f"Failed to extract chapter boundaries from {pdf_path}: {e}")
+            logger.warning(
+                f"Failed to extract chapter boundaries from {pdf_path}: {e}"
+            )
             return []
         finally:
             if reader is not None:
@@ -269,7 +284,9 @@ class PDFChunker:
 
     def _is_relevant_chapter(self, title: str) -> bool:
         title_lower = title.lower()
-        return not any(pattern in title_lower for pattern in self.SKIP_CHAPTER_PATTERNS)
+        return not any(
+            pattern in title_lower for pattern in self.SKIP_CHAPTER_PATTERNS
+        )
 
     def _chunk_by_chapters(
         self,
@@ -289,7 +306,9 @@ class PDFChunker:
         current_chunk_pages = 0
         chapters_in_chunk: list[str] = []
         relevant_chapters_in_chunk: list[str] = []
-        chunk_writers: list[tuple[PdfWriter, list[str], int, int, list[str]]] = []
+        chunk_writers: list[
+            tuple[PdfWriter, list[str], int, int, list[str]]
+        ] = []
         current_writer = PdfWriter()
 
         filtered_chunks_count = 0
@@ -305,15 +324,13 @@ class PDFChunker:
                 actual_end_page = current_chunk_start + current_chunk_pages
 
                 if relevant_chapters_in_chunk:
-                    chunk_writers.append(
-                        (
-                            current_writer,
-                            chapters_in_chunk.copy(),
-                            current_chunk_start,
-                            actual_end_page,
-                            relevant_chapters_in_chunk.copy(),
-                        )
-                    )
+                    chunk_writers.append((
+                        current_writer,
+                        chapters_in_chunk.copy(),
+                        current_chunk_start,
+                        actual_end_page,
+                        relevant_chapters_in_chunk.copy(),
+                    ))
                 else:
                     filtered_chunks_count += 1
                     logger.debug(
@@ -328,7 +345,9 @@ class PDFChunker:
                 relevant_chapters_in_chunk = []
 
                 if use_overlap and relevant_chapters_in_chunk:
-                    overlap_start = max(0, actual_end_page - self.overlap_pages)
+                    overlap_start = max(
+                        0, actual_end_page - self.overlap_pages
+                    )
                     for page_num in range(overlap_start, actual_end_page):
                         current_writer.add_page(reader.pages[page_num])
                     current_chunk_start = overlap_start
@@ -350,15 +369,13 @@ class PDFChunker:
             actual_end_page = current_chunk_start + current_chunk_pages
 
             if relevant_chapters_in_chunk:
-                chunk_writers.append(
-                    (
-                        current_writer,
-                        chapters_in_chunk.copy(),
-                        current_chunk_start,
-                        actual_end_page,
-                        relevant_chapters_in_chunk.copy(),
-                    )
-                )
+                chunk_writers.append((
+                    current_writer,
+                    chapters_in_chunk.copy(),
+                    current_chunk_start,
+                    actual_end_page,
+                    relevant_chapters_in_chunk.copy(),
+                ))
             else:
                 filtered_chunks_count += 1
                 logger.debug(
@@ -375,7 +392,9 @@ class PDFChunker:
                 f"({len(chunk_writers)} chunks retained)"
             )
 
-        for i, (writer, ch_titles, start, end, _) in enumerate(chunk_writers, 1):
+        for i, (writer, ch_titles, start, end, _) in enumerate(
+            chunk_writers, 1
+        ):
             chunk_filename = f"{pdf_path.stem}_chunk_{i:03d}.pdf"
             chunk_path = output_dir / chunk_filename
 
@@ -399,7 +418,9 @@ class PDFChunker:
         reader = self._create_reader(pdf_path)
         total_pages = len(reader.pages)
         effective_chunk_size = self.chunk_size - self.overlap_pages
-        num_chunks = (total_pages + effective_chunk_size - 1) // effective_chunk_size
+        num_chunks = (
+            total_pages + effective_chunk_size - 1
+        ) // effective_chunk_size
 
         logger.info(
             f"Splitting {pdf_path.name} ({total_pages} pages) "
@@ -428,7 +449,9 @@ class PDFChunker:
             with open(chunk_path, "wb") as output_file:
                 writer.write(output_file)
 
-            overlap_info = f" (+{self.overlap_pages} overlap)" if chunk_idx > 0 else ""
+            overlap_info = (
+                f" (+{self.overlap_pages} overlap)" if chunk_idx > 0 else ""
+            )
             msg = (
                 f"Created chunk {chunk_idx + 1}/{num_chunks}: "
                 f"pages {start_page + 1}-{end_page}{overlap_info}"

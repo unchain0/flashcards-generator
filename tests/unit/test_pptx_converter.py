@@ -27,7 +27,9 @@ class TestPPTXConverter:
         with patch("subprocess.run") as mock_run:
             import subprocess
 
-            mock_run.side_effect = subprocess.TimeoutExpired(cmd="test", timeout=5)
+            mock_run.side_effect = subprocess.TimeoutExpired(
+                cmd="test", timeout=5
+            )
             converter = PPTXConverter()
             assert converter._has_libreoffice is False
 
@@ -75,7 +77,9 @@ class TestPPTXConverter:
     def test_convert_libreoffice_fails(self, tmp_path):
         """Test conversion when LibreOffice returns error."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=1, stderr="Conversion failed")
+            mock_run.return_value = MagicMock(
+                returncode=1, stderr="Conversion failed"
+            )
             converter = PPTXConverter()
             converter._has_libreoffice = True
 
@@ -109,7 +113,9 @@ class TestPPTXConverter:
         with patch("subprocess.run") as mock_run:
             import subprocess
 
-            mock_run.side_effect = subprocess.TimeoutExpired(cmd="soffice", timeout=120)
+            mock_run.side_effect = subprocess.TimeoutExpired(
+                cmd="soffice", timeout=120
+            )
             converter = PPTXConverter()
             converter._has_libreoffice = True
 

@@ -20,13 +20,17 @@ class TestPDFChunker:
         assert chunker.chunk_size == 30
         assert chunker.overlap_pages == 3
 
-    @patch("flashcards_generator.infrastructure.pdf_utils.PDFChunker._check_pypdf")
+    @patch(
+        "flashcards_generator.infrastructure.pdf_utils.PDFChunker._check_pypdf"
+    )
     def test_check_pypdf_available(self, mock_check):
         mock_check.return_value = True
         chunker = PDFChunker()
         assert chunker._has_pypdf is True
 
-    @patch("flashcards_generator.infrastructure.pdf_utils.PDFChunker._check_pypdf")
+    @patch(
+        "flashcards_generator.infrastructure.pdf_utils.PDFChunker._check_pypdf"
+    )
     def test_check_pypdf_unavailable(self, mock_check):
         mock_check.return_value = False
         chunker = PDFChunker()
@@ -38,7 +42,9 @@ class TestPDFChunker:
         pdf_path = tmp_path / "test.pdf"
         assert chunker.count_pages(pdf_path) == 0
 
-    @patch("flashcards_generator.infrastructure.pdf_utils.PDFChunker.count_pages")
+    @patch(
+        "flashcards_generator.infrastructure.pdf_utils.PDFChunker.count_pages"
+    )
     def test_needs_chunking_no_pypdf(self, mock_count, tmp_path):
         chunker = PDFChunker()
         chunker._has_pypdf = False
@@ -46,7 +52,9 @@ class TestPDFChunker:
         assert chunker.needs_chunking(pdf_path) is False
         mock_count.assert_not_called()
 
-    @patch("flashcards_generator.infrastructure.pdf_utils.PDFChunker.count_pages")
+    @patch(
+        "flashcards_generator.infrastructure.pdf_utils.PDFChunker.count_pages"
+    )
     def test_needs_chunking_below_threshold(self, mock_count, tmp_path):
         chunker = PDFChunker()
         chunker._has_pypdf = True
@@ -54,7 +62,9 @@ class TestPDFChunker:
         pdf_path = tmp_path / "test.pdf"
         assert chunker.needs_chunking(pdf_path) is False
 
-    @patch("flashcards_generator.infrastructure.pdf_utils.PDFChunker.count_pages")
+    @patch(
+        "flashcards_generator.infrastructure.pdf_utils.PDFChunker.count_pages"
+    )
     def test_needs_chunking_above_threshold(self, mock_count, tmp_path):
         chunker = PDFChunker()
         chunker._has_pypdf = True
@@ -62,7 +72,9 @@ class TestPDFChunker:
         pdf_path = tmp_path / "test.pdf"
         assert chunker.needs_chunking(pdf_path) is True
 
-    @patch("flashcards_generator.infrastructure.pdf_utils.PDFChunker.count_pages")
+    @patch(
+        "flashcards_generator.infrastructure.pdf_utils.PDFChunker.count_pages"
+    )
     def test_needs_chunking_zero_pages(self, mock_count, tmp_path):
         chunker = PDFChunker()
         chunker._has_pypdf = True
@@ -81,7 +93,9 @@ class TestPDFChunker:
 
     @patch("pypdf.PdfReader")
     @patch("pypdf.PdfWriter")
-    def test_chunk_pdf_success(self, mock_writer_class, mock_reader_class, tmp_path):
+    def test_chunk_pdf_success(
+        self, mock_writer_class, mock_reader_class, tmp_path
+    ):
         chunker = PDFChunker(chunk_size=2, overlap_pages=0)
         chunker._has_pypdf = True
 
@@ -153,7 +167,8 @@ class TestPDFChunker:
 
     def test_check_pypdf_import_error(self):
         with patch(
-            "builtins.__import__", side_effect=ImportError("No module named pypdf")
+            "builtins.__import__",
+            side_effect=ImportError("No module named pypdf"),
         ):
             chunker = PDFChunker()
             assert chunker._has_pypdf is False
@@ -175,7 +190,9 @@ class TestPDFChunker:
         assert chunker.get_chapter_boundaries(pdf_path) == []
 
     @patch("pypdf.PdfReader")
-    def test_get_chapter_boundaries_no_outline(self, mock_reader_class, tmp_path):
+    def test_get_chapter_boundaries_no_outline(
+        self, mock_reader_class, tmp_path
+    ):
         chunker = PDFChunker()
         chunker._has_pypdf = True
 
@@ -203,7 +220,9 @@ class TestPDFChunker:
             {"/Title": "Chapter 1", "/Page": mock_page1},
             {"/Title": "Chapter 2", "/Page": mock_page2},
         ]
-        mock_reader.get_page_number.side_effect = lambda p: 0 if p == mock_page1 else 1
+        mock_reader.get_page_number.side_effect = lambda p: (
+            0 if p == mock_page1 else 1
+        )
         mock_reader_class.return_value = mock_reader
 
         pdf_path = tmp_path / "test.pdf"

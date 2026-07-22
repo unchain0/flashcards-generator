@@ -4,7 +4,9 @@ import pytest
 
 from flashcards_generator.application.converter import ClozeConverter
 from flashcards_generator.application.exporter import DeckExporter
-from flashcards_generator.infrastructure.notebooklm_client import NotebookLMClient
+from flashcards_generator.infrastructure.notebooklm_client import (
+    NotebookLMClient,
+)
 
 
 @pytest.fixture

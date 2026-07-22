@@ -1,9 +1,13 @@
 """Export decks to various formats."""
 
+from __future__ import annotations
+
 import csv
 from typing import TYPE_CHECKING
 
-from flashcards_generator.application.math_processor import convert_to_anki_math_format
+from flashcards_generator.application.math_processor import (
+    convert_to_anki_math_format,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -18,7 +22,8 @@ class DeckExporter:
     def export_json(deck: Deck, path: Path) -> None:
         """Export deck to JSON file."""
         path.write_text(
-            deck.model_dump_json(indent=2, ensure_ascii=False), encoding="utf-8"
+            deck.model_dump_json(indent=2, ensure_ascii=False),
+            encoding="utf-8",
         )
 
     @staticmethod
@@ -60,18 +65,16 @@ class DeckExporter:
             "",
         ]
         for i, card in enumerate(deck.flashcards, 1):
-            lines.extend(
-                [
-                    f"## Card {i}",
-                    "",
-                    f"**Frente:** {card.front}",
-                    "",
-                    f"**Verso:** {card.back}",
-                    "",
-                    f"**Tags:** {', '.join(card.tags)}",
-                    "",
-                    "---",
-                    "",
-                ]
-            )
+            lines.extend([
+                f"## Card {i}",
+                "",
+                f"**Frente:** {card.front}",
+                "",
+                f"**Verso:** {card.back}",
+                "",
+                f"**Tags:** {', '.join(card.tags)}",
+                "",
+                "---",
+                "",
+            ])
         path.write_text("\n".join(lines), encoding="utf-8")

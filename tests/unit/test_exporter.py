@@ -41,7 +41,9 @@ class TestDeckExporter:
 
         # Verify only 2 columns (tab-separated, no trailing tab)
         lines = [
-            line for line in content.split("\n") if line and not line.startswith("#")
+            line
+            for line in content.split("\n")
+            if line and not line.startswith("#")
         ]
         for line in lines:
             field_count = len(line.split("\t"))

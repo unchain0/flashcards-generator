@@ -35,7 +35,8 @@ class TestCLIMerge:
 
         cli = CLI()
         with patch(
-            "sys.argv", ["cli", "merge", "--folder", str(tmp_path / "nonexistent")]
+            "sys.argv",
+            ["cli", "merge", "--folder", str(tmp_path / "nonexistent")],
         ):
             result = cli.run()
 
@@ -52,7 +53,9 @@ class TestCLIMerge:
             writer.writerow(["Q1", "A1"])
 
         cli = CLI()
-        with patch("sys.argv", ["cli", "merge", "--folder", str(tmp_path), "-d"]):
+        with patch(
+            "sys.argv", ["cli", "merge", "--folder", str(tmp_path), "-d"]
+        ):
             result = cli.run()
 
         assert result == 0
@@ -79,7 +82,9 @@ class TestCLIMerge:
     @patch("flashcards_generator.interfaces.cli.CsvMerger.merge")
     def test_merge_command_no_csv_files(self, mock_merge, tmp_path):
         """Test merge command returns 1 when no CSV files found."""
-        mock_merge.side_effect = CSVMergeError(tmp_path, "No CSV files found in folder")
+        mock_merge.side_effect = CSVMergeError(
+            tmp_path, "No CSV files found in folder"
+        )
 
         cli = CLI()
         with patch("sys.argv", ["cli", "merge", "--folder", str(tmp_path)]):
@@ -89,7 +94,9 @@ class TestCLIMerge:
 
     @patch("flashcards_generator.interfaces.cli.CsvMerger.merge")
     @patch("flashcards_generator.interfaces.cli.logger")
-    def test_merge_command_logs_success(self, mock_logger, mock_merge, tmp_path):
+    def test_merge_command_logs_success(
+        self, mock_logger, mock_merge, tmp_path
+    ):
         """Test merge command logs success message."""
         mock_merge.return_value = 10
 

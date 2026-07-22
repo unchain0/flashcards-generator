@@ -10,7 +10,9 @@ class TestCLICleanup:
 
     @patch.object(CLI, "check_auth")
     @patch("flashcards_generator.interfaces.cli.NotebookLMAdapter")
-    def test_cleanup_with_days(self, mock_adapter_class, mock_check_auth, tmp_path):
+    def test_cleanup_with_days(
+        self, mock_adapter_class, mock_check_auth, tmp_path
+    ):
         """Test cleanup command with --days option."""
         mock_check_auth.return_value = True
 
@@ -30,7 +32,9 @@ class TestCLICleanup:
 
     @patch.object(CLI, "check_auth")
     @patch("flashcards_generator.interfaces.cli.NotebookLMAdapter")
-    def test_cleanup_with_all(self, mock_adapter_class, mock_check_auth, tmp_path):
+    def test_cleanup_with_all(
+        self, mock_adapter_class, mock_check_auth, tmp_path
+    ):
         """Test cleanup command with --all option."""
         mock_check_auth.return_value = True
 
@@ -44,7 +48,9 @@ class TestCLICleanup:
             result = cli.run()
 
         assert result == 0
-        mock_adapter.delete_all_notebooks.assert_called_once_with(show_progress=True)
+        mock_adapter.delete_all_notebooks.assert_called_once_with(
+            show_progress=True
+        )
 
     @patch.object(CLI, "check_auth")
     @patch("flashcards_generator.interfaces.cli.NotebookLMAdapter")
@@ -119,7 +125,9 @@ class TestCLICleanup:
 
     @patch.object(CLI, "check_auth")
     @patch("flashcards_generator.interfaces.cli.NotebookLMAdapter")
-    def test_cleanup_skip_auth_check(self, mock_adapter_class, mock_check_auth):
+    def test_cleanup_skip_auth_check(
+        self, mock_adapter_class, mock_check_auth
+    ):
         """Test cleanup with --skip-auth-check flag."""
         mock_check_auth.return_value = False  # Would fail without skip
 
@@ -129,7 +137,9 @@ class TestCLICleanup:
 
         cli = CLI()
 
-        with patch("sys.argv", ["cli", "cleanup", "--all", "--skip-auth-check"]):
+        with patch(
+            "sys.argv", ["cli", "cleanup", "--all", "--skip-auth-check"]
+        ):
             result = cli.run()
 
         assert result == 0
@@ -167,7 +177,13 @@ class TestCLINoCommand:
 
         with patch(
             "sys.argv",
-            ["cli", "generate", "--input-dir", str(input_dir), "--skip-auth-check"],
+            [
+                "cli",
+                "generate",
+                "--input-dir",
+                str(input_dir),
+                "--skip-auth-check",
+            ],
         ):
             result = cli.run()
 

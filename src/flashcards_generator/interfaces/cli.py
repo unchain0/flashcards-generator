@@ -1,5 +1,7 @@
 """CLI interface with proper dependency wiring."""
 
+from __future__ import annotations
+
 import argparse
 import subprocess
 import sys
@@ -182,7 +184,7 @@ class CLI:
                 timeout=10,
             )
             return result.returncode == 0 and "✓" in result.stdout
-        except subprocess.TimeoutExpired, FileNotFoundError:
+        except (subprocess.TimeoutExpired, FileNotFoundError):
             return False
 
     def _validate_input(self, input_dir: Path) -> bool:
@@ -214,7 +216,7 @@ class CLI:
                 timeout=10,
             )
             logger.info(f"Idioma configurado: {language}")
-        except subprocess.TimeoutExpired, FileNotFoundError:
+        except (subprocess.TimeoutExpired, FileNotFoundError):
             logger.warning("Não foi possível configurar o idioma")
 
     def _create_adapter(self, timeout: int = 900) -> NotebookLMAdapter:

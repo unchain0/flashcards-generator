@@ -9,7 +9,7 @@ CLI tool that generates flashcards from PDFs using Google's NotebookLM API. Proc
 - Follow Clean Architecture: domain → application → infrastructure → interfaces
 - All imports flow inward (interfaces can import infrastructure, never reverse)
 - Use dependency injection via `ports/` protocols for testability
-- Ruff linting enforced (line-length 88, Python 3.14 target)
+- Ruff linting enforced (line-length 79, Python 3.9 target)
 - Pre-commit hooks must pass before commits
 
 ## Architecture
@@ -33,12 +33,12 @@ src/flashcards_generator/
 
 - **Domain**: Pure Python, no external deps. Define entities in `entities.py`, ports in `ports/`
 - **Application**: Use cases orchestrate via injected ports. DTOs in `dto/` folder
-- **Infrastructure**: External service implementations. PDF chunking in `pdf_utils.py` (DEFAULT_THRESHOLD=100)
+- **Infrastructure**: External service implementations. PDF chunking in `pdf_utils.py` (DEFAULT_THRESHOLD=50)
 - **Interfaces**: Single CLI file using argparse. All I/O happens here
 
 ## Conventions
 
-- Ruff: line-length 88, target Python 3.14
+- Ruff: line-length 79, target Python 3.9
 - Imports: Use `TYPE_CHECKING` for circular deps, absolute imports preferred
 - Exceptions: Domain exceptions in `domain/exceptions.py`, infrastructure wraps external errors
 - Logging: Structured logging via `infrastructure/logging_config.py`
@@ -53,7 +53,7 @@ src/flashcards_generator/
 
 ## Critical Files
 
-- `src/flashcards_generator/infrastructure/pdf_utils.py` — PDF chunking logic (threshold: 100)
+- `src/flashcards_generator/infrastructure/pdf_utils.py` — PDF chunking logic (threshold: 50)
 - `src/flashcards_generator/application/use_cases.py` — Main orchestration flow
 - `src/flashcards_generator/domain/ports/` — Abstract interfaces for all external deps
 - `pyproject.toml` — Tool configs: Ruff, pytest, mypy
@@ -67,6 +67,6 @@ src/flashcards_generator/
 
 ## Dependencies
 
-- Core: Pydantic, pypdf, loguru, rich, playwright, notebooklm-py
+- Core: Pydantic, pypdf, loguru, rich, tiktoken, NumPy, scikit-learn
 - Dev: Ruff, pytest, pre-commit, mypy
-- External: NotebookLM API (via `notebooklm-client`)
+- External: `notebooklm-py[browser]==0.7.3` CLI via an isolated Python 3.14 uv tool

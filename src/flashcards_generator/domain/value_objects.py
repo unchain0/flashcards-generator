@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Config(BaseModel):
@@ -19,8 +19,7 @@ class Config(BaseModel):
     wait_for_completion: bool = Field(default=True)
     timeout: int = Field(default=900)
 
-    class Config:  # noqa: D106
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class SourceInfo(BaseModel):

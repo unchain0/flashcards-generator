@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -23,7 +23,7 @@ def sample_deck():
         name="Geografia",
         description="Deck de geografia",
         notebook_id="nb123",
-        created_at=datetime(2024, 1, 1),
+        created_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
     )
 
 

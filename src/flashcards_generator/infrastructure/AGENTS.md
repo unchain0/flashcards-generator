@@ -4,7 +4,7 @@ External service implementations and I/O operations.
 
 ## Purpose
 
-Implements technical concerns: PDF parsing, API clients, file system operations, logging. Wraps external dependencies (pypdf, notebooklm, playwright).
+Implements technical concerns: PDF parsing, API clients, file system operations, logging. Wraps external dependencies such as pypdf and the NotebookLM CLI.
 
 ## Structure
 
@@ -18,7 +18,7 @@ infrastructure/
 
 ## Critical Files
 
-- `pdf_utils.py` — PDF chunking with `DEFAULT_THRESHOLD=100`
+- `pdf_utils.py` — PDF chunking with `DEFAULT_THRESHOLD=50`
 - `notebooklm_client.py` — API client with retry logic
 - `paths.py` — Tool discovery (notebooklm executable)
 
@@ -78,8 +78,7 @@ def find_notebooklm() -> str:
 ## Dependencies
 
 - `pypdf` — PDF parsing
-- `notebooklm-py` — NotebookLM API
-- `playwright` — Browser automation
+- `notebooklm-py[browser]==0.7.3` — external CLI installed as a Python 3.14 uv tool
 - `loguru` — Structured logging
 
 ## Parent Reference

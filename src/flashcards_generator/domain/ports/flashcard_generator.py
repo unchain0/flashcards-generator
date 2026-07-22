@@ -1,7 +1,9 @@
 """Port for flashcard generation services."""
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from pydantic import BaseModel, Field
 
@@ -25,7 +27,7 @@ class GenerationResult(BaseModel):
     """Result of flashcard generation."""
 
     deck: Deck
-    artifact_id: str | None = Field(default=None)
+    artifact_id: Optional[str] = Field(default=None)
     completed: bool = Field(default=False)
 
 
@@ -40,49 +42,49 @@ class FlashcardGeneratorPort(ABC):
     @abstractmethod
     def create_notebook(self, title: str) -> str:
         """Create a new notebook and return its ID."""
-        pass  # pragma: no cover
+        # pragma: no cover
 
     @abstractmethod
     def add_source(self, notebook_id: str, pdf_path: Path) -> str:
         """Add a PDF source to a notebook. Returns source ID."""
-        pass  # pragma: no cover
+        # pragma: no cover
 
     @abstractmethod
     def wait_for_source(
         self, notebook_id: str, source_id: str, timeout: int = 600
     ) -> bool:
         """Wait for source processing to complete."""
-        pass  # pragma: no cover
+        # pragma: no cover
 
     @abstractmethod
     def generate_flashcards(
         self,
         notebook_id: str,
         config: GenerationConfig,
-    ) -> str | None:
+    ) -> Optional[str]:
         """Generate flashcards. Returns artifact ID or None."""
-        pass  # pragma: no cover
+        # pragma: no cover
 
     @abstractmethod
     def wait_for_artifact(
         self, notebook_id: str, artifact_id: str, timeout: int = 900
     ) -> bool:
         """Wait for artifact generation to complete."""
-        pass  # pragma: no cover
+        # pragma: no cover
 
     @abstractmethod
     def download_flashcards(
         self, notebook_id: str, artifact_id: str, output_path: Path
     ) -> bool:
         """Download generated flashcards to file."""
-        pass  # pragma: no cover
+        # pragma: no cover
 
     @abstractmethod
     def parse_flashcards(self, json_path: Path) -> list[Flashcard]:
         """Parse flashcards from downloaded JSON."""
-        pass  # pragma: no cover
+        # pragma: no cover
 
     @abstractmethod
     def delete_notebook(self, notebook_id: str) -> bool:
         """Delete a notebook. Returns success status."""
-        pass  # pragma: no cover
+        # pragma: no cover

@@ -2,7 +2,9 @@
 
 import logging
 
-from flashcards_generator.infrastructure.logging_config import configure_logging
+from flashcards_generator.infrastructure.logging_config import (
+    configure_logging,
+)
 
 
 def test_configure_logging_reduces_pypdf_noise():

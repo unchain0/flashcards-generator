@@ -1,7 +1,7 @@
 """Tests for NotebookLM adapter list and delete methods."""
 
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 from flashcards_generator.adapters.notebooklm_adapter import NotebookLMAdapter
@@ -32,7 +32,7 @@ class TestNotebookLMAdapterList:
         """Test listing notebooks with days filter."""
         adapter = NotebookLMAdapter("notebooklm")
 
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         recent = now.replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
         old = (
             (now - timedelta(days=10))
@@ -306,7 +306,9 @@ class TestNotebookLMAdapterDeleteAll:
 
             with patch.object(adapter, "delete_notebook") as mock_delete:
                 mock_delete.return_value = True
-                deleted, failed = adapter.delete_all_notebooks(show_progress=True)
+                deleted, failed = adapter.delete_all_notebooks(
+                    show_progress=True
+                )
 
         assert deleted == 2
         assert failed == 0
@@ -338,7 +340,9 @@ class TestNotebookLMAdapterDeleteAll:
 
             with patch.object(adapter, "delete_notebook") as mock_delete:
                 mock_delete.return_value = True
-                deleted, failed = adapter.delete_all_notebooks(show_progress=True)
+                deleted, failed = adapter.delete_all_notebooks(
+                    show_progress=True
+                )
 
         assert deleted == 2
         assert failed == 0
@@ -354,7 +358,9 @@ class TestNotebookLMAdapterDeleteAll:
             with patch.object(adapter, "delete_notebook") as mock_delete:
                 # First succeeds, second fails
                 mock_delete.side_effect = [True, False]
-                deleted, failed = adapter.delete_all_notebooks(show_progress=True)
+                deleted, failed = adapter.delete_all_notebooks(
+                    show_progress=True
+                )
 
         assert deleted == 1
         assert failed == 1

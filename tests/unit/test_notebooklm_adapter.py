@@ -8,7 +8,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from flashcards_generator.adapters.notebooklm_adapter import NotebookLMAdapter
-from flashcards_generator.domain.ports.flashcard_generator import GenerationConfig
+from flashcards_generator.domain.ports.flashcard_generator import (
+    GenerationConfig,
+)
 
 
 def mock_popen(returncode=0, stdout="", stderr=""):
@@ -91,7 +93,9 @@ class TestNotebookLMAdapter:
 
     @patch("flashcards_generator.adapters.notebooklm_adapter.time.sleep")
     @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
-    def test_generate_flashcards_with_rate_limit(self, mock_popen_class, mock_sleep):
+    def test_generate_flashcards_with_rate_limit(
+        self, mock_popen_class, mock_sleep
+    ):
         """Test rate limit retry."""
         mock_popen_class.side_effect = [
             mock_popen(
@@ -99,7 +103,9 @@ class TestNotebookLMAdapter:
                 stdout='{"task_id": "art789"}',
                 stderr="GENERATION_FAILED due to rate limit",
             ),
-            mock_popen(returncode=0, stdout='{"task_id": "art789"}', stderr=""),
+            mock_popen(
+                returncode=0, stdout='{"task_id": "art789"}', stderr=""
+            ),
         ]
 
         adapter = NotebookLMAdapter("notebooklm")
@@ -143,7 +149,9 @@ class TestNotebookLMAdapter:
         mock_popen_class.return_value = mock_popen(
             returncode=0, stdout='{"other": "data"}', stderr=""
         )
-        from flashcards_generator.domain.exceptions import SourceProcessingError
+        from flashcards_generator.domain.exceptions import (
+            SourceProcessingError,
+        )
 
         adapter = NotebookLMAdapter("notebooklm")
         with pytest.raises(SourceProcessingError):
@@ -153,8 +161,7 @@ class TestNotebookLMAdapter:
         adapter = NotebookLMAdapter("notebooklm")
         config = GenerationConfig(instructions="Custom instructions")
         cmd = adapter._build_generate_command("nb123", config)
-        # shlex.quote may wrap the string in quotes, so check both cases
-        assert any("Custom instructions" in str(arg) for arg in cmd)
+        assert cmd[-1] == "Custom instructions"
 
     @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
     def test_generate_flashcards_json_decode_error(self, mock_popen_class):
@@ -201,7 +208,9 @@ class TestNotebookLMAdapter:
         mock_popen_class.return_value = mock_popen(returncode=0)
 
         adapter = NotebookLMAdapter("notebooklm")
-        result = adapter.download_flashcards("nb123", "art789", Path("/tmp/out.json"))
+        result = adapter.download_flashcards(
+            "nb123", "art789", Path("/tmp/out.json")
+        )
 
         assert result is True
 
@@ -211,7 +220,9 @@ class TestNotebookLMAdapter:
         self, mock_popen_class, mock_sleep
     ):
         """Test download fails after all retries are exhausted."""
-        from flashcards_generator.domain.exceptions import ArtifactDownloadError
+        from flashcards_generator.domain.exceptions import (
+            ArtifactDownloadError,
+        )
 
         mock_popen_class.return_value = mock_popen(
             returncode=1, stdout="", stderr="Error"
@@ -219,7 +230,9 @@ class TestNotebookLMAdapter:
 
         adapter = NotebookLMAdapter("notebooklm")
         with pytest.raises(ArtifactDownloadError):
-            adapter.download_flashcards("nb123", "art789", Path("/tmp/out.json"))
+            adapter.download_flashcards(
+                "nb123", "art789", Path("/tmp/out.json")
+            )
 
         # Should have tried 3 times
         assert mock_popen_class.call_count == 3
@@ -228,7 +241,9 @@ class TestNotebookLMAdapter:
 
     @patch("flashcards_generator.adapters.notebooklm_adapter.time.sleep")
     @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
-    def test_download_flashcards_success_on_retry(self, mock_popen_class, mock_sleep):
+    def test_download_flashcards_success_on_retry(
+        self, mock_popen_class, mock_sleep
+    ):
         """Test download succeeds on second attempt."""
         # First call fails, second succeeds
         mock_popen_class.side_effect = [
@@ -237,7 +252,9 @@ class TestNotebookLMAdapter:
         ]
 
         adapter = NotebookLMAdapter("notebooklm")
-        result = adapter.download_flashcards("nb123", "art789", Path("/tmp/out.json"))
+        result = adapter.download_flashcards(
+            "nb123", "art789", Path("/tmp/out.json")
+        )
 
         assert result is True
         assert mock_popen_class.call_count == 2

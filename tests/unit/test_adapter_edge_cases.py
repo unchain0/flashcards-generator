@@ -18,7 +18,11 @@ class TestNotebookLMAdapterEdgeCases:
 
         with patch.object(adapter, "_run_command") as mock_run:
             # Return a dict where 'notebooks' is not a list
-            mock_run.return_value = (0, json.dumps({"notebooks": "not a list"}), "")
+            mock_run.return_value = (
+                0,
+                json.dumps({"notebooks": "not a list"}),
+                "",
+            )
             result = adapter.list_notebooks()
 
         assert result == []

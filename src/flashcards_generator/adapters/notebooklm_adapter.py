@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import json
-import shlex
 import subprocess
 import time
-from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, ClassVar
+from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING, ClassVar, Optional, Union
 
 from rich.console import Console
 from rich.progress import (
@@ -33,7 +32,6 @@ from flashcards_generator.infrastructure.logging_config import get_logger
 if TYPE_CHECKING:
     from pathlib import Path
 
-    pass
 
 logger = get_logger("notebooklm_adapter")
 
@@ -55,11 +53,15 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
         "RPC CREATE_ARTIFACT failed",
     ]
 
-    def __init__(self, notebooklm_path: str, timeout: int = DEFAULT_COMMAND_TIMEOUT):
+    def __init__(
+        self, notebooklm_path: str, timeout: int = DEFAULT_COMMAND_TIMEOUT
+    ):
         self.notebooklm_path = notebooklm_path
         self.timeout = timeout
 
-    def _run_command(self, args: list[str], check: bool = True) -> tuple[int, str, str]:
+    def _run_command(
+        self, args: list[str], check: bool = True
+    ) -> tuple[int, str, str]:
         """Execute notebooklm CLI command."""
         cmd = [self.notebooklm_path, *args]
         process = subprocess.Popen(
@@ -97,16 +99,28 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
 
     def add_source(self, notebook_id: str, pdf_path: Path) -> str:
         """Add PDF source to notebook."""
-        cmd = ["source", "add", str(pdf_path), "--notebook", notebook_id, "--json"]
+        cmd = [
+            "source",
+            "add",
+            str(pdf_path),
+            "--notebook",
+            notebook_id,
+            "--json",
+        ]
         _, stdout, _ = self._run_command(cmd)
         data: dict = json.loads(stdout)
         source_id = data.get("source_id") or data.get("source", {}).get("id")
         if not source_id:
-            raise SourceProcessingError(pdf_path, f"Failed to add source: {data}")
+            raise SourceProcessingError(
+                pdf_path, f"Failed to add source: {data}"
+            )
         return str(source_id)
 
     def wait_for_source(
-        self, notebook_id: str, source_id: str, timeout: int = DEFAULT_SOURCE_TIMEOUT
+        self,
+        notebook_id: str,
+        source_id: str,
+        timeout: int = DEFAULT_SOURCE_TIMEOUT,
     ) -> bool:
         """Wait for source processing."""
         cmd = [
@@ -137,26 +151,35 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
             "--json",
         ]
         if config.instructions:
-            sanitized_instructions = config.instructions.replace("\n", " ").strip()
-            cmd.append(shlex.quote(sanitized_instructions))
+            sanitized_instructions = config.instructions.replace(
+                "\n", " "
+            ).strip()
+            cmd.append(sanitized_instructions)
         return cmd
 
     def _needs_retry(self, stderr: str) -> bool:
         """Check if error indicates rate limiting."""
         stderr_lower = stderr.lower()
         return any(
-            pattern.lower() in stderr_lower for pattern in self.RATE_LIMIT_PATTERNS
+            pattern.lower() in stderr_lower
+            for pattern in self.RATE_LIMIT_PATTERNS
         )
 
-    def _extract_artifact_id(self, data: dict) -> str | None:
+    def _extract_artifact_id(self, data: dict) -> Optional[str]:
         """Extract artifact ID from response."""
         return data.get("task_id") or data.get("artifact_id") or data.get("id")
 
-    def _log_command_output(self, stdout: str, stderr: str, prefix: str = "") -> None:
+    def _log_command_output(
+        self, stdout: str, stderr: str, prefix: str = ""
+    ) -> None:
         """Log command output (truncated)."""
         label = f"{prefix} " if prefix else ""
-        truncated_stdout = stdout[:MAX_LOG_OUTPUT_LENGTH] if stdout else "empty"
-        truncated_stderr = stderr[:MAX_LOG_OUTPUT_LENGTH] if stderr else "empty"
+        truncated_stdout = (
+            stdout[:MAX_LOG_OUTPUT_LENGTH] if stdout else "empty"
+        )
+        truncated_stderr = (
+            stderr[:MAX_LOG_OUTPUT_LENGTH] if stderr else "empty"
+        )
         logger.debug(f"{label}stdout: {truncated_stdout}")
         logger.debug(f"{label}stderr: {truncated_stderr}")
 
@@ -180,26 +203,36 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
             return self._perform_retry(cmd)
 
         if returncode != 0:
-            logger.error(f"Command failed with exit code {returncode}: {stderr}")
+            logger.error(
+                f"Command failed with exit code {returncode}: {stderr}"
+            )
 
         return stdout, stderr
 
     def generate_flashcards(
         self, notebook_id: str, config: GenerationConfig
-    ) -> str | None:
+    ) -> Optional[str]:
         """Generate flashcards with retry logic."""
         cmd = self._build_generate_command(notebook_id, config)
         cmd_str = " ".join(cmd)
         logger.debug(f"Generate command: {cmd_str[:200]}...")
-        instructions_len = len(config.instructions) if config.instructions else 0
+        instructions_len = (
+            len(config.instructions) if config.instructions else 0
+        )
         logger.debug(f"Instructions length: {instructions_len}")
 
         try:
             stdout, stderr = self._execute_with_retry(cmd)
-            logger.debug(f"Command stdout: {stdout[:500] if stdout else 'empty'}")
-            logger.debug(f"Command stderr: {stderr[:500] if stderr else 'empty'}")
+            logger.debug(
+                f"Command stdout: {stdout[:500] if stdout else 'empty'}"
+            )
+            logger.debug(
+                f"Command stderr: {stderr[:500] if stderr else 'empty'}"
+            )
             if not stdout or stdout.strip() == "":
-                logger.error(f"Generation returned empty output. stderr: {stderr}")
+                logger.error(
+                    f"Generation returned empty output. stderr: {stderr}"
+                )
                 return None
             data = json.loads(stdout)
             artifact_id = self._extract_artifact_id(data)
@@ -280,14 +313,14 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
             "Unreachable code in download_flashcards"
         )  # pragma: no cover
 
-    def _extract_cards_data(self, data: dict | list) -> list:
+    def _extract_cards_data(self, data: Union[dict, list]) -> list:
         """Extract cards list from various JSON structures."""
         if isinstance(data, list):
             return data
         cards: list = data.get("cards", data.get("flashcards", []))
         return cards
 
-    def _create_flashcard(self, item: dict) -> Flashcard | None:
+    def _create_flashcard(self, item: dict) -> Optional[Flashcard]:
         """Create Flashcard from JSON item."""
         front = item.get("front", item.get("question", item.get("q", "")))
         back = item.get("back", item.get("answer", item.get("a", "")))
@@ -320,16 +353,20 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
             )
             if returncode == 0:
                 if not silent:
-                    logger.info(f"Successfully deleted notebook: {notebook_id[:8]}...")
+                    logger.info(
+                        f"Successfully deleted notebook: {notebook_id[:8]}..."
+                    )
                 return True
             else:
-                logger.warning(f"Failed to delete notebook {notebook_id[:8]}...")
+                logger.warning(
+                    f"Failed to delete notebook {notebook_id[:8]}..."
+                )
                 return False
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
             logger.error(f"Failed to delete notebook {notebook_id}: {e}")
             return False
 
-    def list_notebooks(self, days: int | None = None) -> list[dict]:
+    def list_notebooks(self, days: Optional[int] = None) -> list[dict]:
         """List all notebooks, optionally filtered by creation date."""
         try:
             returncode, stdout, stderr = self._run_command(
@@ -339,14 +376,16 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
                 logger.error(f"Failed to list notebooks: {stderr}")
                 return []
             data = json.loads(stdout)
-            notebooks = data.get("notebooks", []) if isinstance(data, dict) else data
+            notebooks = (
+                data.get("notebooks", []) if isinstance(data, dict) else data
+            )
             if not isinstance(notebooks, list):
                 return []
 
             if days is None:
                 return notebooks
 
-            cutoff = datetime.now(UTC) - timedelta(days=days)
+            cutoff = datetime.now(timezone.utc) - timedelta(days=days)
             filtered = []
             for nb in notebooks:
                 if not isinstance(nb, dict):
@@ -363,7 +402,7 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
             logger.error(f"Failed to list notebooks: {e}")
             return []
 
-    def _parse_datetime(self, dt_str: str) -> datetime | None:
+    def _parse_datetime(self, dt_str: str) -> Optional[datetime]:
         formats = [
             "%Y-%m-%dT%H:%M:%S.%fZ",
             "%Y-%m-%dT%H:%M:%SZ",
@@ -373,13 +412,15 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
         ]
         for fmt in formats:
             try:
-                return datetime.strptime(dt_str, fmt).replace(tzinfo=UTC)
+                return datetime.strptime(dt_str, fmt).replace(
+                    tzinfo=timezone.utc
+                )
             except ValueError:
                 continue
         return None
 
     def delete_all_notebooks(
-        self, days: int | None = None, show_progress: bool = False
+        self, days: Optional[int] = None, show_progress: bool = False
     ) -> tuple[int, int]:
         """Delete all notebooks. Returns (deleted_count, failed_count)."""
         notebooks = self.list_notebooks(days=days)
@@ -400,11 +441,15 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
                 TaskProgressColumn(),
                 console=console,
             ) as progress:
-                task = progress.add_task(f"Deleting {total} notebooks...", total=total)
+                task = progress.add_task(
+                    f"Deleting {total} notebooks...", total=total
+                )
 
                 for notebook in notebooks:
                     notebook_id = (
-                        notebook.get("id") if isinstance(notebook, dict) else notebook
+                        notebook.get("id")
+                        if isinstance(notebook, dict)
+                        else notebook
                     )
                     if not notebook_id:
                         progress.update(task, advance=1)
@@ -420,11 +465,15 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
 
             for i, notebook in enumerate(notebooks, 1):
                 notebook_id = (
-                    notebook.get("id") if isinstance(notebook, dict) else notebook
+                    notebook.get("id")
+                    if isinstance(notebook, dict)
+                    else notebook
                 )
                 if not notebook_id:
                     continue
-                logger.info(f"[{i}/{total}] Deleting {str(notebook_id)[:8]}...")
+                logger.info(
+                    f"[{i}/{total}] Deleting {str(notebook_id)[:8]}..."
+                )
                 if self.delete_notebook(str(notebook_id)):
                     deleted += 1
                 else:

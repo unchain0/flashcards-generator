@@ -1,6 +1,8 @@
 """Fixtures for adapter testing."""
 
-from typing import TYPE_CHECKING
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Optional
 
 import pytest
 
@@ -23,7 +25,7 @@ class MockFlashcardGenerator(FlashcardGeneratorPort):
         should_fail_source: bool = False,
         should_fail_generation: bool = False,
         should_timeout: bool = False,
-        flashcards: list | None = None,
+        flashcards: Optional[list] = None,
     ):
         self.should_fail_source = should_fail_source
         self.should_fail_generation = should_fail_generation
@@ -54,7 +56,7 @@ class MockFlashcardGenerator(FlashcardGeneratorPort):
 
     def generate_flashcards(
         self, notebook_id: str, config: GenerationConfig
-    ) -> str | None:
+    ) -> Optional[str]:
         if self.should_fail_generation:
             return None
         self._artifact_counter += 1
@@ -84,7 +86,9 @@ class MockFlashcardGenerator(FlashcardGeneratorPort):
         import json
 
         data = json.loads(json_path.read_text())
-        return [Flashcard(front=item["front"], back=item["back"]) for item in data]
+        return [
+            Flashcard(front=item["front"], back=item["back"]) for item in data
+        ]
 
     def delete_notebook(self, notebook_id: str) -> bool:
         self._notebooks.pop(notebook_id, None)

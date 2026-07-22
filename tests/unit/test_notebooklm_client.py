@@ -5,7 +5,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from flashcards_generator.domain.entities import Flashcard
-from flashcards_generator.infrastructure.notebooklm_client import NotebookLMClient
+from flashcards_generator.infrastructure.notebooklm_client import (
+    NotebookLMClient,
+)
 
 
 class TestNotebookLMClient:
@@ -14,7 +16,9 @@ class TestNotebookLMClient:
         assert client.notebooklm_path == "/path/to/notebooklm"
         assert client.timeout == 120
 
-    @patch("flashcards_generator.infrastructure.notebooklm_client.subprocess.run")
+    @patch(
+        "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"
+    )
     def test_create_notebook(self, mock_run):
         mock_run.return_value = MagicMock(
             returncode=0, stdout='{"id": "nb123"}', stderr=""
@@ -29,15 +33,21 @@ class TestNotebookLMClient:
         assert args[0] == "notebooklm"
         assert "create" in args
 
-    @patch("flashcards_generator.infrastructure.notebooklm_client.subprocess.run")
+    @patch(
+        "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"
+    )
     def test_create_notebook_failure(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="Error")
+        mock_run.return_value = MagicMock(
+            returncode=1, stdout="", stderr="Error"
+        )
 
         client = NotebookLMClient("notebooklm")
         with pytest.raises(RuntimeError):
             client.create_notebook("Test")
 
-    @patch("flashcards_generator.infrastructure.notebooklm_client.subprocess.run")
+    @patch(
+        "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"
+    )
     def test_add_source(self, mock_run):
         mock_run.return_value = MagicMock(
             returncode=0, stdout='{"source_id": "src456"}', stderr=""
@@ -48,7 +58,9 @@ class TestNotebookLMClient:
 
         assert result == "src456"
 
-    @patch("flashcards_generator.infrastructure.notebooklm_client.subprocess.run")
+    @patch(
+        "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"
+    )
     def test_wait_for_source_success(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0)
 
@@ -57,7 +69,9 @@ class TestNotebookLMClient:
 
         assert result is True
 
-    @patch("flashcards_generator.infrastructure.notebooklm_client.subprocess.run")
+    @patch(
+        "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"
+    )
     def test_wait_for_source_failure(self, mock_run):
         mock_run.return_value = MagicMock(returncode=1)
 
@@ -66,7 +80,9 @@ class TestNotebookLMClient:
 
         assert result is False
 
-    @patch("flashcards_generator.infrastructure.notebooklm_client.subprocess.run")
+    @patch(
+        "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"
+    )
     def test_generate_flashcards_success(self, mock_run):
         mock_run.return_value = MagicMock(
             returncode=0, stdout='{"artifact_id": "art789"}', stderr=""
@@ -77,7 +93,9 @@ class TestNotebookLMClient:
 
         assert result == "art789"
 
-    @patch("flashcards_generator.infrastructure.notebooklm_client.subprocess.run")
+    @patch(
+        "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"
+    )
     def test_generate_flashcards_failure(self, mock_run):
         mock_run.side_effect = Exception("Connection error")
 
@@ -86,7 +104,9 @@ class TestNotebookLMClient:
 
         assert result is None
 
-    @patch("flashcards_generator.infrastructure.notebooklm_client.subprocess.run")
+    @patch(
+        "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"
+    )
     def test_wait_for_artifact_success(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0)
 
@@ -95,7 +115,9 @@ class TestNotebookLMClient:
 
         assert result is True
 
-    @patch("flashcards_generator.infrastructure.notebooklm_client.subprocess.run")
+    @patch(
+        "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"
+    )
     def test_wait_for_artifact_failure(self, mock_run):
         mock_run.return_value = MagicMock(returncode=1)
 
@@ -104,7 +126,9 @@ class TestNotebookLMClient:
 
         assert result is False
 
-    @patch("flashcards_generator.infrastructure.notebooklm_client.subprocess.run")
+    @patch(
+        "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"
+    )
     def test_download_flashcards_success(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0)
 
@@ -114,7 +138,9 @@ class TestNotebookLMClient:
 
         assert result is True
 
-    @patch("flashcards_generator.infrastructure.notebooklm_client.subprocess.run")
+    @patch(
+        "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"
+    )
     def test_download_flashcards_failure(self, mock_run):
         mock_run.side_effect = RuntimeError("Download error")
 
@@ -184,7 +210,9 @@ class TestNotebookLMClient:
 
         assert len(result) == 0
 
-    @patch("flashcards_generator.infrastructure.notebooklm_client.subprocess.run")
+    @patch(
+        "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"
+    )
     def test_create_notebook_no_id_in_response(self, mock_run):
         mock_run.return_value = MagicMock(
             returncode=0, stdout='{"other": "data"}', stderr=""
@@ -194,7 +222,9 @@ class TestNotebookLMClient:
         with pytest.raises(RuntimeError):
             client.create_notebook("Test")
 
-    @patch("flashcards_generator.infrastructure.notebooklm_client.subprocess.run")
+    @patch(
+        "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"
+    )
     def test_parse_flashcards_empty_cards_key(self, mock_run, tmp_path):
         json_data = {"cards": []}
         json_file = tmp_path / "flashcards.json"
@@ -226,7 +256,9 @@ class TestNotebookLMClient:
         result = client._create_flashcard({"front": "", "back": ""})
         assert result is None
 
-    @patch("flashcards_generator.infrastructure.notebooklm_client.subprocess.run")
+    @patch(
+        "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"
+    )
     def test_delete_notebook_called_process_error(self, mock_run):
         from subprocess import CalledProcessError
 
@@ -237,7 +269,9 @@ class TestNotebookLMClient:
 
         assert result is False
 
-    @patch("flashcards_generator.infrastructure.notebooklm_client.subprocess.run")
+    @patch(
+        "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"
+    )
     def test_delete_notebook_timeout_expired(self, mock_run):
         from subprocess import TimeoutExpired
 

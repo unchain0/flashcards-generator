@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from flashcards_generator.domain.entities import Flashcard
 from flashcards_generator.infrastructure.logging_config import get_logger
@@ -23,11 +23,18 @@ class NotebookLMClient:
         self.notebooklm_path = notebooklm_path
         self.timeout = timeout
 
-    def _run(self, args: list[str], check: bool = True) -> tuple[int, str, str]:
+    def _run(
+        self, args: list[str], check: bool = True
+    ) -> tuple[int, str, str]:
         """Execute notebooklm CLI command."""
         cmd = [self.notebooklm_path, *args]
         result = subprocess.run(
-            cmd, capture_output=True, text=True, encoding="utf-8", timeout=self.timeout
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=self.timeout,
+            check=False,
         )
         if check and result.returncode != 0:
             raise RuntimeError(f"Command failed: {result.stderr}")
@@ -44,7 +51,14 @@ class NotebookLMClient:
 
     def add_source(self, notebook_id: str, file_path: Path) -> str:
         """Add a source file to a notebook."""
-        cmd = ["source", "add", str(file_path), "--notebook", notebook_id, "--json"]
+        cmd = [
+            "source",
+            "add",
+            str(file_path),
+            "--notebook",
+            notebook_id,
+            "--json",
+        ]
         _, stdout, _ = self._run(cmd)
         data: dict = json.loads(stdout)
         source_id = data.get("source_id") or data.get("source", {}).get("id")
@@ -72,7 +86,7 @@ class NotebookLMClient:
         prompt: str,
         difficulty: str = "medium",
         quantity: str = "standard",
-    ) -> str | None:
+    ) -> Optional[str]:
         """Generate flashcards artifact from notebook."""
         cmd = [
             "generate",
@@ -92,12 +106,8 @@ class NotebookLMClient:
             data: dict = json.loads(stdout)
             artifact_id = data.get("artifact_id") or data.get("id")
             return str(artifact_id) if artifact_id else None
-        except (
-            json.JSONDecodeError,
-            subprocess.CalledProcessError,
-            RuntimeError,
-            Exception,
-        ):
+        # Generation is best-effort; callers use None to trigger retry handling.
+        except Exception:  # noqa: BLE001
             return None
 
     def wait_for_artifact(
@@ -157,7 +167,7 @@ class NotebookLMClient:
             logger.error(f"Failed to parse flashcards from {json_path}: {e}")
         return flashcards
 
-    def _create_flashcard(self, item: dict) -> Flashcard | None:
+    def _create_flashcard(self, item: dict) -> Optional[Flashcard]:
         """Create Flashcard from JSON item."""
         front = item.get("front", item.get("question", item.get("q", "")))
         back = item.get("back", item.get("answer", item.get("a", "")))
@@ -168,7 +178,9 @@ class NotebookLMClient:
     def delete_notebook(self, notebook_id: str) -> bool:
         """Delete notebook (best effort)."""
         try:
-            self._run(["notebook", "delete", notebook_id, "--force"], check=False)
+            self._run(
+                ["notebook", "delete", notebook_id, "--force"], check=False
+            )
             return True
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
             logger.warning(f"Failed to delete notebook {notebook_id}: {e}")

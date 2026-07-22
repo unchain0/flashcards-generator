@@ -46,7 +46,7 @@ class GenerateFlashcardsUseCase:
 ```python
 MAX_FILENAME_LEN = 50
 SOURCE_WAIT_TIMEOUT = 600  # seconds
-PDF_CHUNKING_THRESHOLD = 100
+PDF_CHUNKING_THRESHOLD = 50
 ```
 - SCREAMING_SNAKE_CASE at module level
 - Include units in comments

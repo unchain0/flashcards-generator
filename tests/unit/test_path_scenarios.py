@@ -1,8 +1,12 @@
-from flashcards_generator.application.use_cases import GenerateFlashcardsUseCase
+from flashcards_generator.application.use_cases import (
+    GenerateFlashcardsUseCase,
+)
 
 
 class TestPathScenarios:
-    def test_nested_source_preserves_full_relative_path(self, tmp_path, mock_generator):
+    def test_nested_source_preserves_full_relative_path(
+        self, tmp_path, mock_generator
+    ):
         input_dir = tmp_path / "input"
         input_dir.mkdir()
         output_dir = tmp_path / "output"
@@ -21,13 +25,17 @@ class TestPathScenarios:
         assert result == expected
         assert result.exists()
 
-    def test_deep_nesting_keeps_all_parent_levels(self, tmp_path, mock_generator):
+    def test_deep_nesting_keeps_all_parent_levels(
+        self, tmp_path, mock_generator
+    ):
         input_dir = tmp_path / "input"
         input_dir.mkdir()
         output_dir = tmp_path / "output"
         output_dir.mkdir()
 
-        pdf_dir = input_dir / "pasta1" / "pasta2" / "pasta3" / "pasta4" / "pasta5"
+        pdf_dir = (
+            input_dir / "pasta1" / "pasta2" / "pasta3" / "pasta4" / "pasta5"
+        )
         pdf_dir.mkdir(parents=True)
         pdf_file = pdf_dir / "file.pdf"
         pdf_file.write_text("PDF content")
@@ -37,7 +45,13 @@ class TestPathScenarios:
         result = use_case._get_output_subdir(pdf_file, input_dir, output_dir)
 
         assert (
-            result == output_dir / "pasta1" / "pasta2" / "pasta3" / "pasta4" / "pasta5"
+            result
+            == output_dir
+            / "pasta1"
+            / "pasta2"
+            / "pasta3"
+            / "pasta4"
+            / "pasta5"
         )
 
     def test_single_level_structure_uses_matching_output_subdir(
@@ -124,7 +138,9 @@ class TestPathScenarios:
 
         result = use_case._get_output_subdir(pdf_file, input_dir, output_dir)
 
-        assert result == output_dir / long_name / "subfolder" / "another" / "deep"
+        assert (
+            result == output_dir / long_name / "subfolder" / "another" / "deep"
+        )
 
     def test_mixed_case_paths(self, tmp_path, mock_generator):
         input_dir = tmp_path / "input"

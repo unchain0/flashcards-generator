@@ -5,9 +5,9 @@ from __future__ import annotations
 import hashlib
 import time
 from contextlib import suppress
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, Optional
 
 from flashcards_generator.application.converter import ClozeConverter
 from flashcards_generator.application.dto.generate_request import (
@@ -134,10 +134,10 @@ class GenerateFlashcardsUseCase:
     def __init__(
         self,
         generator: FlashcardGeneratorPort,
-        converter: ClozeConverter | None = None,
-        exporter: DeckExporter | None = None,
-        pdf_chunker: PDFChunker | None = None,
-        chunk_state_repository: ChunkStatePort | None = None,
+        converter: Optional[ClozeConverter] = None,
+        exporter: Optional[DeckExporter] = None,
+        pdf_chunker: Optional[PDFChunker] = None,
+        chunk_state_repository: Optional[ChunkStatePort] = None,
     ):
         self.generator = generator
         self.converter = converter or ClozeConverter()
@@ -145,7 +145,7 @@ class GenerateFlashcardsUseCase:
         self.pdf_chunker = pdf_chunker or PDFChunker()
         self._chunk_state_repository = chunk_state_repository
         self._created_notebooks: list[str] = []
-        self._last_chunk_error_message: str | None = None
+        self._last_chunk_error_message: Optional[str] = None
 
     def execute(self, request: GenerateFlashcardsRequest) -> list[Deck]:
         """Execute flashcard generation for all PDFs in input directory.
@@ -221,7 +221,7 @@ class GenerateFlashcardsUseCase:
         source_signature: str,
     ) -> ChunkResumeManifest:
         """Create a fresh manifest for resume-enabled chunk processing."""
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         return ChunkResumeManifest(
             source_pdf=str(pdf_path),
             source_signature=source_signature,
@@ -239,11 +239,11 @@ class GenerateFlashcardsUseCase:
         status: ChunkStatus,
         *,
         card_count: int = 0,
-        result_path: Path | None = None,
-        error_message: str | None = None,
+        result_path: Optional[Path] = None,
+        error_message: Optional[str] = None,
     ) -> None:
         """Upsert manifest state for a single chunk."""
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         state = ChunkState(
             chunk_index=chunk_index,
             status=status,
@@ -421,7 +421,9 @@ class GenerateFlashcardsUseCase:
         self._created_notebooks.append(notebook_id)
         return notebook_id
 
-    def _add_pdf_source(self, notebook_id: str, pdf_path: Path) -> str | None:
+    def _add_pdf_source(
+        self, notebook_id: str, pdf_path: Path
+    ) -> Optional[str]:
         """Add PDF source to notebook."""
         try:
             source_id = self.generator.add_source(notebook_id, pdf_path)
@@ -438,7 +440,7 @@ class GenerateFlashcardsUseCase:
         deck_name: str,
         pdf_output_path: Path,
         request: GenerateFlashcardsRequest,
-    ) -> Deck | None:
+    ) -> Optional[Deck]:
         """Process large PDF by splitting into chunks.
 
         Each chunk is processed independently in its own notebook, then all
@@ -454,10 +456,10 @@ class GenerateFlashcardsUseCase:
             total_chunks = len(chunks)
             logger.info(f"Processing {total_chunks} chunks independently...")
 
-            manifest: ChunkResumeManifest | None = None
+            manifest: Optional[ChunkResumeManifest] = None
             completed_chunk_indexes: set[int] = set()
-            resume_dir: Path | None = None
-            state_path: Path | None = None
+            resume_dir: Optional[Path] = None
+            state_path: Optional[Path] = None
 
             if request.resume and self._chunk_state_repository:
                 resume_dir = self._get_resume_dir(
@@ -511,6 +513,7 @@ class GenerateFlashcardsUseCase:
                     )
 
             for chunk_index, chunk_path in enumerate(chunks, 1):
+                chunk_deck: Optional[Deck]
                 if chunk_index in completed_chunk_indexes:
                     logger.info(
                         f"Skipping chunk {chunk_index}/{total_chunks} - already done"
@@ -672,7 +675,7 @@ class GenerateFlashcardsUseCase:
         request: GenerateFlashcardsRequest,
         chunk_index: int,
         total_chunks: int,
-    ) -> Deck | None:
+    ) -> Optional[Deck]:
         """Process a single chunk independently with retry logic."""
         return self._process_chunk_with_retry(
             chunk_path,
@@ -691,9 +694,9 @@ class GenerateFlashcardsUseCase:
         request: GenerateFlashcardsRequest,
         chunk_index: int,
         total_chunks: int,
-    ) -> Deck | None:
+    ) -> Optional[Deck]:
         """Process chunk with exponential backoff retry on rate limit errors."""
-        delay = CHUNK_RETRY_INITIAL_DELAY
+        delay = float(CHUNK_RETRY_INITIAL_DELAY)
         self._last_chunk_error_message = None
 
         for attempt in range(1, CHUNK_RETRY_MAX_ATTEMPTS + 1):
@@ -762,7 +765,7 @@ class GenerateFlashcardsUseCase:
         request: GenerateFlashcardsRequest,
         chunk_index: int,
         total_chunks: int,
-    ) -> Deck | None:
+    ) -> Optional[Deck]:
         chunk_notebook_id = None
         try:
             chunk_deck_name = f"{deck_name}_chunk{chunk_index}"
@@ -872,7 +875,7 @@ class GenerateFlashcardsUseCase:
         input_path: Path,
         output_path: Path,
         request: GenerateFlashcardsRequest,
-    ) -> Deck | None:
+    ) -> Optional[Deck]:
         """Process single PDF file."""
         deck_name = self._get_deck_name(pdf_path, input_path)
         pdf_output_path = self._get_output_subdir(
@@ -936,7 +939,7 @@ class GenerateFlashcardsUseCase:
         pdf_output_path: Path,
         request: GenerateFlashcardsRequest,
         pdf_stem: str = "",
-    ) -> Deck | None:
+    ) -> Optional[Deck]:
         """Generate flashcards for notebook."""
         instructions = request.instructions or self.DEFAULT_INSTRUCTIONS
         gen_config = GenerationConfig(

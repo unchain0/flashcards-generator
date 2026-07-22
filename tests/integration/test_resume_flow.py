@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import csv
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional, Union
 from unittest.mock import MagicMock
 
 import pytest
@@ -40,7 +41,7 @@ class ScriptedChunkGenerator(FlashcardGeneratorPort):
 
     def __init__(
         self,
-        chunk_outcomes: dict[str, list[Flashcard] | Exception],
+        chunk_outcomes: dict[str, Union[list[Flashcard], Exception]],
     ) -> None:
         self._chunk_outcomes = chunk_outcomes
         self._notebook_sources: dict[str, str] = {}
@@ -67,7 +68,7 @@ class ScriptedChunkGenerator(FlashcardGeneratorPort):
 
     def generate_flashcards(
         self, notebook_id: str, config: GenerationConfig
-    ) -> str | None:
+    ) -> Optional[str]:
         source_name = self._notebook_sources[notebook_id]
         outcome = self._chunk_outcomes[source_name]
 
@@ -203,7 +204,7 @@ def _build_manifest(
     source_signature: str,
     chunks: list[ChunkState],
 ) -> ChunkResumeManifest:
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     return ChunkResumeManifest(
         source_pdf=str(pdf_path),
         source_signature=source_signature,
@@ -227,7 +228,7 @@ def _save_chunk_result(
             name=name,
             description=name,
             flashcards=cards,
-            created_at=datetime.now(UTC),
+            created_at=datetime.now(timezone.utc),
         ),
     )
 
@@ -361,7 +362,7 @@ def test_resume_restarts_from_scratch_when_source_signature_changes(
                 status=ChunkStatus.COMPLETED,
                 card_count=1,
                 result_path=str(saved_chunk_path),
-                updated_at=datetime.now(UTC),
+                updated_at=datetime.now(timezone.utc),
             )
         ],
     )
@@ -503,14 +504,14 @@ def test_resume_cleans_up_when_all_chunks_are_already_complete(
                     status=ChunkStatus.COMPLETED,
                     card_count=1,
                     result_path=str(chunk_one_result),
-                    updated_at=datetime.now(UTC),
+                    updated_at=datetime.now(timezone.utc),
                 ),
                 ChunkState(
                     chunk_index=2,
                     status=ChunkStatus.COMPLETED,
                     card_count=1,
                     result_path=str(chunk_two_result),
-                    updated_at=datetime.now(UTC),
+                    updated_at=datetime.now(timezone.utc),
                 ),
             ],
         ),

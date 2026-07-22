@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, call
 
@@ -37,7 +37,7 @@ def _make_chunk_deck(name: str, front: str) -> Deck:
                 back=f"Detailed explanation for {front} with enough words.",
             )
         ],
-        created_at=datetime.now(UTC),
+        created_at=datetime.now(timezone.utc),
     )
 
 
@@ -72,7 +72,7 @@ def _build_manifest(
     signature: str,
     chunks: list[ChunkState],
 ) -> ChunkResumeManifest:
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     return ChunkResumeManifest(
         source_pdf=str(pdf_path),
         source_signature=signature,
@@ -160,7 +160,7 @@ class TestGenerateFlashcardsUseCaseResume:
                     status=ChunkStatus.COMPLETED,
                     card_count=1,
                     result_path=str(chunk_one_result),
-                    updated_at=datetime.now(UTC),
+                    updated_at=datetime.now(timezone.utc),
                 )
             ],
         )
@@ -242,7 +242,7 @@ class TestGenerateFlashcardsUseCaseResume:
                     status=ChunkStatus.COMPLETED,
                     card_count=1,
                     result_path=str(chunk_one_result),
-                    updated_at=datetime.now(UTC),
+                    updated_at=datetime.now(timezone.utc),
                 )
             ],
         )
@@ -358,7 +358,7 @@ class TestGenerateFlashcardsUseCaseResume:
                     status=ChunkStatus.COMPLETED,
                     card_count=1,
                     result_path=str(stale_chunk_result),
-                    updated_at=datetime.now(UTC),
+                    updated_at=datetime.now(timezone.utc),
                 )
             ],
         )

@@ -3,6 +3,8 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
+from pypdf import PdfWriter
+
 from flashcards_generator.application.dto.generate_request import (
     GenerateFlashcardsRequest,
 )
@@ -10,7 +12,17 @@ from flashcards_generator.application.use_cases import (
     GenerateFlashcardsUseCase,
     _safe_filename,
 )
-from flashcards_generator.domain.exceptions import GenerationError, NotebookCleanupError
+from flashcards_generator.domain.exceptions import (
+    GenerationError,
+    NotebookCleanupError,
+)
+
+
+def write_valid_pdf(path: Path) -> None:
+    writer = PdfWriter()
+    writer.add_blank_page(width=72, height=72)
+    with path.open("wb") as pdf_file:
+        writer.write(pdf_file)
 
 
 class TestGenerateFlashcardsUseCase:
@@ -57,7 +69,7 @@ class TestGenerateFlashcardsUseCase:
 
         tema_dir = input_dir / "Historia"
         tema_dir.mkdir()
-        (tema_dir / "aula1.pdf").write_text("PDF content")
+        write_valid_pdf(tema_dir / "aula1.pdf")
 
         generator = mock_generator(flashcards=sample_flashcards)
         use_case = GenerateFlashcardsUseCase(generator=generator)
@@ -83,7 +95,7 @@ class TestGenerateFlashcardsUseCase:
 
         tema_dir = input_dir / "Tema1"
         tema_dir.mkdir()
-        (tema_dir / "file.pdf").write_text("PDF content")
+        write_valid_pdf(tema_dir / "file.pdf")
 
         generator = mock_generator(should_fail_source=True)
         use_case = GenerateFlashcardsUseCase(generator=generator)
@@ -97,13 +109,15 @@ class TestGenerateFlashcardsUseCase:
 
         assert len(result) == 0
 
-    def test_execute_generate_flashcards_failure(self, temp_dirs, mock_generator):
+    def test_execute_generate_flashcards_failure(
+        self, temp_dirs, mock_generator
+    ):
         """Test handling of generation failure."""
         input_dir, output_dir = temp_dirs
 
         tema_dir = input_dir / "Tema1"
         tema_dir.mkdir()
-        (tema_dir / "file.pdf").write_text("PDF content")
+        write_valid_pdf(tema_dir / "file.pdf")
 
         generator = mock_generator(should_fail_generation=True)
         use_case = GenerateFlashcardsUseCase(generator=generator)
@@ -117,13 +131,15 @@ class TestGenerateFlashcardsUseCase:
 
         assert len(result) == 0
 
-    def test_execute_no_wait_mode(self, temp_dirs, mock_generator, sample_flashcards):
+    def test_execute_no_wait_mode(
+        self, temp_dirs, mock_generator, sample_flashcards
+    ):
         """Test no-wait mode."""
         input_dir, output_dir = temp_dirs
 
         tema_dir = input_dir / "Tema1"
         tema_dir.mkdir()
-        (tema_dir / "file.pdf").write_text("PDF content")
+        write_valid_pdf(tema_dir / "file.pdf")
 
         generator = mock_generator(flashcards=sample_flashcards)
         use_case = GenerateFlashcardsUseCase(generator=generator)
@@ -143,15 +159,19 @@ class TestGenerateFlashcardsUseCase:
         assert (output_dir / "Tema1" / "file.csv").exists()
         assert result[0].flashcards == []  # Empty in no-wait mode
 
-    def test_execute_wait_timeout(self, temp_dirs, mock_generator, sample_flashcards):
+    def test_execute_wait_timeout(
+        self, temp_dirs, mock_generator, sample_flashcards
+    ):
         """Test timeout handling."""
         input_dir, output_dir = temp_dirs
 
         tema_dir = input_dir / "Tema1"
         tema_dir.mkdir()
-        (tema_dir / "file.pdf").write_text("PDF content")
+        write_valid_pdf(tema_dir / "file.pdf")
 
-        generator = mock_generator(flashcards=sample_flashcards, should_timeout=True)
+        generator = mock_generator(
+            flashcards=sample_flashcards, should_timeout=True
+        )
         use_case = GenerateFlashcardsUseCase(generator=generator)
 
         # Mock pdf_chunker to avoid reading invalid PDF content
@@ -175,7 +195,7 @@ class TestGenerateFlashcardsUseCase:
 
         tema_dir = input_dir / "Tema1"
         tema_dir.mkdir()
-        (tema_dir / "file.pdf").write_text("PDF content")
+        write_valid_pdf(tema_dir / "file.pdf")
 
         generator = mock_generator(flashcards=sample_flashcards)
         use_case = GenerateFlashcardsUseCase(generator=generator)
@@ -200,7 +220,7 @@ class TestGenerateFlashcardsUseCase:
         # Create nested structure
         tema_dir = input_dir / "Subject" / "Tema1"
         tema_dir.mkdir(parents=True)
-        (tema_dir / "file.pdf").write_text("PDF content")
+        write_valid_pdf(tema_dir / "file.pdf")
 
         generator = mock_generator(flashcards=sample_flashcards)
         use_case = GenerateFlashcardsUseCase(generator=generator)
@@ -222,7 +242,7 @@ class TestGenerateFlashcardsUseCase:
 
         tema_dir = input_dir / "Tema1"
         tema_dir.mkdir()
-        (tema_dir / "file.pdf").write_text("PDF content")
+        write_valid_pdf(tema_dir / "file.pdf")
 
         # Create existing CSV file
         output_tema = output_dir / "Tema1"
@@ -250,17 +270,21 @@ class TestGenerateFlashcardsUseCase:
         tema_dir = input_dir / "Tema1"
         tema_dir.mkdir()
         pdf_file = tema_dir / "large.pdf"
-        pdf_file.write_text("PDF content")  # Write content so not empty
+        write_valid_pdf(pdf_file)
 
         generator = mock_generator(flashcards=sample_flashcards)
         use_case = GenerateFlashcardsUseCase(generator=generator)
 
-        chunk_file = output_dir / "Tema1" / ".temp_chunks" / "large_chunk_001.pdf"
+        chunk_file = (
+            output_dir / "Tema1" / ".temp_chunks" / "large_chunk_001.pdf"
+        )
         chunk_file.parent.mkdir(parents=True, exist_ok=True)
         chunk_file.touch()
 
         use_case.pdf_chunker.needs_chunking = MagicMock(return_value=True)
-        use_case.pdf_chunker.chunk_pdf = MagicMock(return_value=iter([chunk_file]))
+        use_case.pdf_chunker.chunk_pdf = MagicMock(
+            return_value=iter([chunk_file])
+        )
 
         request = GenerateFlashcardsRequest(
             input_dir=input_dir,
@@ -278,7 +302,7 @@ class TestGenerateFlashcardsUseCase:
         tema_dir = input_dir / "Tema1"
         tema_dir.mkdir()
         pdf_file = tema_dir / "large.pdf"
-        pdf_file.write_text("PDF content")  # Write content so not empty
+        write_valid_pdf(pdf_file)
 
         generator = mock_generator(should_fail_source=True)
         use_case = GenerateFlashcardsUseCase(generator=generator)
@@ -296,23 +320,29 @@ class TestGenerateFlashcardsUseCase:
         # Should return empty when chunk processing fails
         assert len(result) == 0
 
-    def test_execute_large_pdf_generate_failure(self, temp_dirs, mock_generator):
+    def test_execute_large_pdf_generate_failure(
+        self, temp_dirs, mock_generator
+    ):
         input_dir, output_dir = temp_dirs
 
         tema_dir = input_dir / "Tema1"
         tema_dir.mkdir()
         pdf_file = tema_dir / "large.pdf"
-        pdf_file.write_text("PDF content")  # Write content so not empty
+        write_valid_pdf(pdf_file)
 
         generator = mock_generator(should_fail_generation=True)
         use_case = GenerateFlashcardsUseCase(generator=generator)
 
-        chunk_file = output_dir / "Tema1" / ".temp_chunks" / "large_chunk_001.pdf"
+        chunk_file = (
+            output_dir / "Tema1" / ".temp_chunks" / "large_chunk_001.pdf"
+        )
         chunk_file.parent.mkdir(parents=True, exist_ok=True)
         chunk_file.touch()
 
         use_case.pdf_chunker.needs_chunking = MagicMock(return_value=True)
-        use_case.pdf_chunker.chunk_pdf = MagicMock(return_value=iter([chunk_file]))
+        use_case.pdf_chunker.chunk_pdf = MagicMock(
+            return_value=iter([chunk_file])
+        )
 
         request = GenerateFlashcardsRequest(
             input_dir=input_dir,
@@ -323,23 +353,29 @@ class TestGenerateFlashcardsUseCase:
 
         assert len(result) == 0
 
-    def test_execute_large_pdf_no_flashcards_generated(self, temp_dirs, mock_generator):
+    def test_execute_large_pdf_no_flashcards_generated(
+        self, temp_dirs, mock_generator
+    ):
         input_dir, output_dir = temp_dirs
 
         tema_dir = input_dir / "Tema1"
         tema_dir.mkdir()
         pdf_file = tema_dir / "large.pdf"
-        pdf_file.write_text("PDF content")  # Write content so not empty
+        write_valid_pdf(pdf_file)
 
         generator = mock_generator(flashcards=[])
         use_case = GenerateFlashcardsUseCase(generator=generator)
 
-        chunk_file = output_dir / "Tema1" / ".temp_chunks" / "large_chunk_001.pdf"
+        chunk_file = (
+            output_dir / "Tema1" / ".temp_chunks" / "large_chunk_001.pdf"
+        )
         chunk_file.parent.mkdir(parents=True, exist_ok=True)
         chunk_file.touch()
 
         use_case.pdf_chunker.needs_chunking = MagicMock(return_value=True)
-        use_case.pdf_chunker.chunk_pdf = MagicMock(return_value=iter([chunk_file]))
+        use_case.pdf_chunker.chunk_pdf = MagicMock(
+            return_value=iter([chunk_file])
+        )
 
         request = GenerateFlashcardsRequest(
             input_dir=input_dir,
@@ -359,17 +395,21 @@ class TestGenerateFlashcardsUseCase:
         tema_dir = input_dir / "Tema1"
         tema_dir.mkdir()
         pdf_file = tema_dir / "large.pdf"
-        pdf_file.write_text("PDF content")  # Write content so not empty
+        write_valid_pdf(pdf_file)
 
         generator = mock_generator(flashcards=sample_flashcards)
         use_case = GenerateFlashcardsUseCase(generator=generator)
 
-        chunk_file = output_dir / "Tema1" / ".temp_chunks" / "large_chunk_001.pdf"
+        chunk_file = (
+            output_dir / "Tema1" / ".temp_chunks" / "large_chunk_001.pdf"
+        )
         chunk_file.parent.mkdir(parents=True, exist_ok=True)
         chunk_file.touch()
 
         use_case.pdf_chunker.needs_chunking = MagicMock(return_value=True)
-        use_case.pdf_chunker.chunk_pdf = MagicMock(return_value=iter([chunk_file]))
+        use_case.pdf_chunker.chunk_pdf = MagicMock(
+            return_value=iter([chunk_file])
+        )
 
         request = GenerateFlashcardsRequest(
             input_dir=input_dir,
@@ -389,7 +429,7 @@ class TestGenerateFlashcardsUseCase:
 
         tema_dir = input_dir / "Tema1"
         tema_dir.mkdir()
-        (tema_dir / "file.pdf").write_text("PDF content")
+        write_valid_pdf(tema_dir / "file.pdf")
 
         generator = mock_generator()
         use_case = GenerateFlashcardsUseCase(generator=generator)
@@ -404,7 +444,7 @@ class TestGenerateFlashcardsUseCase:
 
         tema_dir = input_dir / "Tema1"
         tema_dir.mkdir()
-        (tema_dir / "file.pdf").write_text("PDF content")
+        write_valid_pdf(tema_dir / "file.pdf")
 
         generator = mock_generator()
         generator.delete_notebook = MagicMock(
@@ -434,7 +474,7 @@ class TestGenerateFlashcardsUseCase:
 
         tema_dir = input_dir / "Tema1"
         tema_dir.mkdir()
-        (tema_dir / "file.pdf").write_text("PDF content")
+        write_valid_pdf(tema_dir / "file.pdf")
 
         generator = mock_generator()
         generator.create_notebook = MagicMock(
@@ -459,10 +499,12 @@ class TestGenerateFlashcardsUseCase:
 
         tema_dir = input_dir / "Tema1"
         tema_dir.mkdir()
-        (tema_dir / "file.pdf").write_text("PDF content")
+        write_valid_pdf(tema_dir / "file.pdf")
 
         generator = mock_generator()
-        generator.create_notebook = MagicMock(side_effect=ValueError("unexpected"))
+        generator.create_notebook = MagicMock(
+            side_effect=ValueError("unexpected")
+        )
         use_case = GenerateFlashcardsUseCase(generator=generator)
 
         request = GenerateFlashcardsRequest(
@@ -523,18 +565,22 @@ class TestGenerateFlashcardsUseCase:
         tema_dir = input_dir / "Tema1"
         tema_dir.mkdir()
         pdf_file = tema_dir / "large.pdf"
-        pdf_file.write_text("PDF content")
+        write_valid_pdf(pdf_file)
 
         generator = mock_generator(flashcards=sample_flashcards)
         generator.wait_for_artifact = lambda n, a, timeout: False
         use_case = GenerateFlashcardsUseCase(generator=generator)
 
-        chunk_file = output_dir / "Tema1" / ".temp_chunks" / "large_chunk_001.pdf"
+        chunk_file = (
+            output_dir / "Tema1" / ".temp_chunks" / "large_chunk_001.pdf"
+        )
         chunk_file.parent.mkdir(parents=True, exist_ok=True)
         chunk_file.touch()
 
         use_case.pdf_chunker.needs_chunking = MagicMock(return_value=True)
-        use_case.pdf_chunker.chunk_pdf = MagicMock(return_value=iter([chunk_file]))
+        use_case.pdf_chunker.chunk_pdf = MagicMock(
+            return_value=iter([chunk_file])
+        )
 
         request = GenerateFlashcardsRequest(
             input_dir=input_dir,
@@ -553,7 +599,7 @@ class TestGenerateFlashcardsUseCase:
         tema_dir = input_dir / "Tema1"
         tema_dir.mkdir()
         pdf_file = tema_dir / "large.pdf"
-        pdf_file.write_text("PDF content")  # Write content so not empty
+        write_valid_pdf(pdf_file)
 
         generator = mock_generator(flashcards=sample_flashcards)
         generator.delete_notebook = MagicMock(
@@ -561,12 +607,16 @@ class TestGenerateFlashcardsUseCase:
         )
         use_case = GenerateFlashcardsUseCase(generator=generator)
 
-        chunk_file = output_dir / "Tema1" / ".temp_chunks" / "large_chunk_001.pdf"
+        chunk_file = (
+            output_dir / "Tema1" / ".temp_chunks" / "large_chunk_001.pdf"
+        )
         chunk_file.parent.mkdir(parents=True, exist_ok=True)
         chunk_file.touch()
 
         use_case.pdf_chunker.needs_chunking = MagicMock(return_value=True)
-        use_case.pdf_chunker.chunk_pdf = MagicMock(return_value=iter([chunk_file]))
+        use_case.pdf_chunker.chunk_pdf = MagicMock(
+            return_value=iter([chunk_file])
+        )
         use_case._created_notebooks = ["notebook123"]
 
         request = GenerateFlashcardsRequest(
@@ -578,7 +628,9 @@ class TestGenerateFlashcardsUseCase:
 
         assert len(result) == 1
 
-    def test_get_output_subdir_no_parent_direct(self, temp_dirs, mock_generator):
+    def test_get_output_subdir_no_parent_direct(
+        self, temp_dirs, mock_generator
+    ):
         """Test _get_output_subdir when PDF is directly in input dir."""
         input_dir, output_dir = temp_dirs
 
@@ -608,7 +660,7 @@ class TestGenerateFlashcardsUseCase:
     ):
         input_dir, output_dir = temp_dirs
         pdf_file = input_dir / "root.pdf"
-        pdf_file.write_text("PDF content")
+        write_valid_pdf(pdf_file)
 
         generator = mock_generator(flashcards=sample_flashcards)
         use_case = GenerateFlashcardsUseCase(generator=generator)
@@ -632,7 +684,7 @@ class TestGenerateFlashcardsUseCase:
         tema_dir.mkdir()
         long_stem = "A" * 80
         pdf_file = tema_dir / f"{long_stem}.pdf"
-        pdf_file.write_text("PDF content")
+        write_valid_pdf(pdf_file)
 
         output_tema = output_dir / "Tema1"
         output_tema.mkdir(parents=True)
@@ -652,29 +704,41 @@ class TestGenerateFlashcardsUseCase:
 
     def test_add_pdf_source_error(self, temp_dirs, mock_generator):
         """Test _add_pdf_source handles SourceProcessingError."""
-        from flashcards_generator.domain.exceptions import SourceProcessingError
+        from flashcards_generator.domain.exceptions import (
+            SourceProcessingError,
+        )
 
         input_dir, _output_dir = temp_dirs
 
         generator = mock_generator()
         generator.add_source = MagicMock(
-            side_effect=SourceProcessingError(Path("test.pdf"), "Upload failed")
+            side_effect=SourceProcessingError(
+                Path("test.pdf"), "Upload failed"
+            )
         )
         use_case = GenerateFlashcardsUseCase(generator=generator)
 
-        result = use_case._add_pdf_source("notebook123", input_dir / "test.pdf")
+        result = use_case._add_pdf_source(
+            "notebook123", input_dir / "test.pdf"
+        )
 
         assert result is None
 
-    def test_process_large_pdf_chunk_add_failure(self, temp_dirs, mock_generator):
+    def test_process_large_pdf_chunk_add_failure(
+        self, temp_dirs, mock_generator
+    ):
         """Test _process_large_pdf when chunk fails to add."""
-        from flashcards_generator.domain.exceptions import SourceProcessingError
+        from flashcards_generator.domain.exceptions import (
+            SourceProcessingError,
+        )
 
         input_dir, output_dir = temp_dirs
 
         generator = mock_generator()
         generator.add_source = MagicMock(
-            side_effect=SourceProcessingError(Path("chunk.pdf"), "Upload failed")
+            side_effect=SourceProcessingError(
+                Path("chunk.pdf"), "Upload failed"
+            )
         )
         use_case = GenerateFlashcardsUseCase(generator=generator)
 
@@ -682,7 +746,9 @@ class TestGenerateFlashcardsUseCase:
         chunk_file.parent.mkdir(parents=True, exist_ok=True)
         chunk_file.touch()
 
-        use_case.pdf_chunker.chunk_pdf = MagicMock(return_value=iter([chunk_file]))
+        use_case.pdf_chunker.chunk_pdf = MagicMock(
+            return_value=iter([chunk_file])
+        )
 
         request = GenerateFlashcardsRequest(
             input_dir=input_dir,
@@ -695,7 +761,9 @@ class TestGenerateFlashcardsUseCase:
 
         assert result is None
 
-    def test_is_safe_file_path_outside_directory(self, temp_dirs, mock_generator):
+    def test_is_safe_file_path_outside_directory(
+        self, temp_dirs, mock_generator
+    ):
         """Test _is_safe_file_path returns False for PDF outside input dir."""
         input_dir, _output_dir = temp_dirs
 
@@ -724,7 +792,9 @@ class TestGenerateFlashcardsUseCase:
 
         assert result is False
 
-    def test_is_safe_file_path_exception(self, temp_dirs, mock_generator, monkeypatch):
+    def test_is_safe_file_path_exception(
+        self, temp_dirs, mock_generator, monkeypatch
+    ):
         """Test _is_safe_file_path handles exceptions."""
         input_dir, _output_dir = temp_dirs
 
@@ -750,7 +820,9 @@ class TestQualityFilter:
         from flashcards_generator.domain.entities import Deck
 
         use_case = GenerateFlashcardsUseCase(generator=mock_generator())
-        deck = Deck(name="Test", description="Test", flashcards=[], notebook_id="123")
+        deck = Deck(
+            name="Test", description="Test", flashcards=[], notebook_id="123"
+        )
         use_case._apply_quality_filter(deck)
         assert deck.flashcards == []
 
@@ -764,7 +836,9 @@ class TestQualityFilter:
             front="FastAPI {{c1::dependency injection}} uses constructor.",
             back="Dependencies are injected through constructor parameters",
         )
-        trivial_card = Flashcard(front="The {{c1::the}} is a word.", back="Article")
+        trivial_card = Flashcard(
+            front="The {{c1::the}} is a word.", back="Article"
+        )
         deck = Deck(
             name="Test",
             description="Test",
@@ -786,7 +860,10 @@ class TestQualityFilter:
             back="Dependencies are injected through constructor",
         )
         deck = Deck(
-            name="Test", description="Test", flashcards=[valid_card], notebook_id="123"
+            name="Test",
+            description="Test",
+            flashcards=[valid_card],
+            notebook_id="123",
         )
         use_case._apply_quality_filter(deck)
         assert len(deck.flashcards) == 1
@@ -802,7 +879,10 @@ class TestQualityFilter:
             back="Decorators wrap functions to extend behavior",
         )
         deck = Deck(
-            name="Test", description="Test", flashcards=[valid_card], notebook_id="123"
+            name="Test",
+            description="Test",
+            flashcards=[valid_card],
+            notebook_id="123",
         )
         use_case._apply_quality_filter(deck)
         assert len(deck.flashcards) == 1

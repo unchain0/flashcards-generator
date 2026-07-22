@@ -5,7 +5,9 @@ from unittest.mock import MagicMock
 from flashcards_generator.application.dto.generate_request import (
     GenerateFlashcardsRequest,
 )
-from flashcards_generator.application.use_cases import GenerateFlashcardsUseCase
+from flashcards_generator.application.use_cases import (
+    GenerateFlashcardsUseCase,
+)
 
 
 class TestSafePdfPathEdgeCases:
@@ -45,7 +47,9 @@ class TestSafePdfPathEdgeCases:
         result = use_case._is_safe_file_path(text_file, input_dir)
         assert result is False
 
-    def test_is_safe_file_path_outside_directory(self, tmp_path, mock_generator):
+    def test_is_safe_file_path_outside_directory(
+        self, tmp_path, mock_generator
+    ):
         """Test that paths outside input directory are rejected (lines 205-207)."""
         input_dir = tmp_path / "input"
         input_dir.mkdir()
@@ -93,14 +97,18 @@ class TestProcessPdfRuntimeError:
         generator = mock_generator()
         use_case = GenerateFlashcardsUseCase(generator=generator)
         use_case.pdf_chunker.needs_chunking = MagicMock(return_value=False)
-        use_case._create_notebook = MagicMock(side_effect=RuntimeError("Test error"))
+        use_case._create_notebook = MagicMock(
+            side_effect=RuntimeError("Test error")
+        )
 
         request = GenerateFlashcardsRequest(
             input_dir=input_dir,
             output_dir=output_dir,
         )
 
-        result = use_case._process_pdf(pdf_file, input_dir, output_dir, request)
+        result = use_case._process_pdf(
+            pdf_file, input_dir, output_dir, request
+        )
         assert result is None
 
     def test_process_pdf_unexpected_error(self, tmp_path, mock_generator):
@@ -115,12 +123,16 @@ class TestProcessPdfRuntimeError:
         generator = mock_generator()
         use_case = GenerateFlashcardsUseCase(generator=generator)
         use_case.pdf_chunker.needs_chunking = MagicMock(return_value=False)
-        use_case._create_notebook = MagicMock(side_effect=TypeError("Unexpected error"))
+        use_case._create_notebook = MagicMock(
+            side_effect=TypeError("Unexpected error")
+        )
 
         request = GenerateFlashcardsRequest(
             input_dir=input_dir,
             output_dir=output_dir,
         )
 
-        result = use_case._process_pdf(pdf_file, input_dir, output_dir, request)
+        result = use_case._process_pdf(
+            pdf_file, input_dir, output_dir, request
+        )
         assert result is None

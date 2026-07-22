@@ -32,7 +32,9 @@ class TestDeck:
     def test_deduplicate_no_duplicates(self, sample_deck):
         from flashcards_generator.domain.entities import Flashcard
 
-        card1 = Flashcard(front="What is Python?", back="A programming language")
+        card1 = Flashcard(
+            front="What is Python?", back="A programming language"
+        )
         card2 = Flashcard(front="What is Java?", back="Another language")
         sample_deck.add_flashcard(card1)
         sample_deck.add_flashcard(card2)
@@ -45,7 +47,9 @@ class TestDeck:
         from flashcards_generator.domain.entities import Flashcard
 
         card1 = Flashcard(front="What is Python?", back="A language")
-        card2 = Flashcard(front="What is Python?", back="Different description")
+        card2 = Flashcard(
+            front="What is Python?", back="Different description"
+        )
         sample_deck.add_flashcard(card1)
         sample_deck.add_flashcard(card2)
 

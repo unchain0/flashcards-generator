@@ -1,0 +1,68 @@
+# Todo 4 evidence: unify Python runtime guidance
+
+Date: 2026-07-22
+Repository: /home/avell/Projects/unchain0/flashcards-generator
+
+## Scope and dirty-worktree control
+
+- Initial `GIT_MASTER=1 git status --short` showed the known Todo 1-3 changes:
+  `.python-version`, `README.md`, `pyproject.toml`,
+  `src/flashcards_generator/infrastructure/paths.py`,
+  `tests/unit/test_paths.py`, `uv.lock`, and untracked `.omo/`.
+- Todo 4 changed only `.github/workflows/ci.yml`,
+  `.pre-commit-config.yaml`, `README.md`, `AGENTS.md`, and
+  `src/flashcards_generator/infrastructure/AGENTS.md`, plus this evidence
+  file.
+- `.github/workflows/pre-commit.yml` was inspected and left unchanged because
+  it already uses `python-version-file: '.python-version'` and has no path
+  filter that needs adjustment.
+- No files were staged, committed, or pushed.
+
+## Implemented alignment
+
+- CI now watches `.python-version`; all four CI `setup-python` steps use
+  `python-version-file: '.python-version'`; the Python 3.9 test matrix was
+  removed.
+- The local `check-python-version` hook now requires exactly `(3, 10)` and
+  emits `Expected Python 3.10, got X.Y` on mismatch.
+- README setup uses Python 3.10, `uv sync`,
+  `uv run playwright install chromium`, and `uv run notebooklm login`.
+  Troubleshooting uses only the project environment.
+- Root and infrastructure guidance now names Python 3.10, project
+  dependencies `notebooklm-py[browser]==0.7.3` and `playwright==1.61.0`, and
+  PATH-only NotebookLM discovery.
+
+## Validation
+
+- `uv sync` -> passed (`Resolved 69 packages`; `Checked 67 packages`).
+- YAML parse of both workflows and `.pre-commit-config.yaml` -> passed.
+- `uv run pre-commit run check-yaml --files .github/workflows/ci.yml .github/workflows/pre-commit.yml .pre-commit-config.yaml` -> passed.
+- `uv run pre-commit run check-toml --files pyproject.toml` -> passed.
+- TOML parse with `uv run --with tomli` -> passed.
+- `uv run pre-commit run check-python-version --all-files` -> passed.
+- `uv run python` assertion -> passed; project Python reported `3.10.20`.
+- Exact wrong-interpreter assertion:
+  `uv run --no-project --python 3.9 python -c 'import sys; expected=(3, 10); actual=sys.version_info[:2]; raise SystemExit(0 if actual == expected else f"Expected Python 3.10, got {actual[0]}.{actual[1]}")'`
+  -> exit 1 with `Expected Python 3.10, got 3.9`.
+- A subprocess wrapper independently asserted that same command returned exit
+  1 and contained the expected message.
+- Package/version check -> `flashcards-generator` version `1.0.0`.
+- `uv run flashcards --help`, `uv run python -m flashcards_generator --help`,
+  `uv run main.py --help`, and `uv run notebooklm --help` -> passed.
+- Chromium installation was not run; it is explicitly Todo 5.
+- `GIT_MASTER=1 git diff --check` on all Todo 4 files -> passed.
+
+## Adversarial probes
+
+- Malformed YAML and TOML subprocess probes were both rejected with exit 1;
+  no temporary files were created.
+- A `timeout 10s uv run python -c 'print("Bounded command completed")'` probe
+  completed normally, ruling out a hung command.
+- Stale-reference searches with `.git`, `.venv`, and `.omo` excluded found no
+  active matches for Python 3.9, isolated Python 3.14 NotebookLM,
+  `uv tool install.*notebooklm`, or legacy uv-tool path guidance.
+- A filesystem scan found 0 active stale-reference matches. The 1,200 matches
+  it classified were confined to ignored generated `__pycache__`,
+  `.mypy_cache`, or `.egg-info` state; none is active project guidance.
+- Positive checks assert the interpreter/version/output rather than treating
+  process completion alone as success.

@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "active_work_id": "unify-python-runtime-mise-b5fdbe3d",
+  "works": {
+    "unify-python-runtime-mise-b5fdbe3d": {
+      "work_id": "unify-python-runtime-mise-b5fdbe3d",
+      "active_plan": "/home/avell/Projects/unchain0/flashcards-generator/.omo/plans/unify-python-runtime-mise.md",
+      "plan_name": "unify-python-runtime-mise",
+      "status": "active",
+      "started_at": "2026-07-22T11:40:55.921Z",
+      "updated_at": "2026-07-22T11:40:55.921Z",
+      "session_ids": [
+        "codex:ses_078d16f7bffeCXihhVb6QMMUQt"
+      ],
+      "session_origins": {
+        "codex:ses_078d16f7bffeCXihhVb6QMMUQt": "direct"
+      },
+      "agent": "sisyphus",
+      "task_sessions": {}
+    }
+  },
+  "active_plan": "/home/avell/Projects/unchain0/flashcards-generator/.omo/plans/unify-python-runtime-mise.md",
+  "started_at": "2026-07-22T11:40:55.921Z",
+  "status": "active",
+  "updated_at": "2026-07-22T11:40:55.921Z",
+  "session_ids": [
+    "codex:ses_078d16f7bffeCXihhVb6QMMUQt"
+  ],
+  "session_origins": {
+    "codex:ses_078d16f7bffeCXihhVb6QMMUQt": "direct"
+  },
+  "plan_name": "unify-python-runtime-mise",
+  "task_sessions": {},
+  "agent": "sisyphus"
+}

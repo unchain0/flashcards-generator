@@ -1,0 +1,44 @@
+DoneClaim
+
+Change:
+- Updated only `/home/avell/.zshrc` line 35:
+  `eval "$(~/.local/bin/mise activate bash)"` -> `eval "$(~/.local/bin/mise activate zsh)"`
+
+Exact checks:
+- Pre-change checksums captured:
+  - `.zshrc`: `3659094c81f41e7c6426b641032dbb723e41a10edc836dc7608e7c146e648d22`
+  - `.bashrc`: `06c37d8ea7273dd4d9b3c607b2a01c3f43c76504067280300b6f0c06820f2ebc`
+- Post-change checksums:
+  - `.zshrc`: `5f681a9e0acd98b4a0909295d3d4a7d2714041d4db858283475a868df803bb49`
+  - `.bashrc`: `06c37d8ea7273dd4d9b3c607b2a01c3f43c76504067280300b6f0c06820f2ebc`
+- Comparison result: exactly 1 line changed in `.zshrc`, at line 35.
+- `zsh -f -c 'eval "$('/home/avell/.local/bin/mise' activate zsh)"'` exited 0.
+- `zsh -lic 'mise --version >/dev/null; python --version'` exited 0.
+- Combined shell output did not contain `(eval):unset`.
+
+Manual QA:
+- Spawned temporary tmux session: `omo-task3-1784720672-567854`
+- Captured pane output from fresh `zsh -lic` run:
+  - `mise WARN  mise version 2026.7.11 available`
+  - `mise WARN  To update, run mise self-update`
+  - `Python 3.14.6`
+  - `__TMUX_DONE__`
+- Session cleanup verified: session removed after capture.
+
+Cleanup:
+- No changes made to `/home/avell/.bashrc`.
+- No repo files, plan files, Boulder, or ledger files were modified.
+- No git stage/commit/push performed.
+- Temporary tmux session was killed and verified absent.
+
+UltraQA classes not applicable:
+- `stale_state`: checked via fresh `zsh -f` and `zsh -lic`, not current shell state.
+- `dirty_worktree`: only external dotfile changed; repository worktree untouched.
+- `hung_commands`: both shell checks and tmux QA ran with bounded time and completed.
+- `misleading_success_output`: validated both exit codes and literal absence of `(eval):unset`.
+- `cleanup`: tmux session removal was explicitly verified.
+- Other ultraqa classes: not applicable because this task only changed one shell-init line and did not touch UI, network, or application logic.
+
+Risks:
+- The fix depends on `mise activate zsh` remaining the documented shell-init form.
+- Fresh-shell output still emits mise update warnings; they do not indicate failure.

@@ -1,0 +1,132 @@
+Task 5a: Python 3.10 annotation modernization
+Status: PASS
+Scope: Remediate only Ruff's PEP 604 Optional/Union annotation findings.
+Runtime: Python 3.10.20
+Ruff: 0.15.22
+
+Baseline (before edits)
+=======================
+Dirty-worktree probe:
+- The worktree already contained runtime-migration edits, prior path changes,
+  and .omo orchestration artifacts.
+- Those changes were preserved. No non-task files were reverted or staged.
+
+Command: uv run pytest
+Result: 361 passed in 77.21s (0:01:17)
+
+Command: uv run mypy src/flashcards_generator
+Result: Success: no issues found in 30 source files
+
+Command: uv run ruff check --select UP007 .
+Result: 2 errors, both Union annotations.
+Note: Ruff 0.15.22 assigns Optional modernization to UP045, not UP007.
+The equivalent combined migration check reported the expected 43 findings:
+
+Command: uv run ruff check --select UP007,UP045 .
+Result: 43 errors, all fixable.
+
+Narrow remediation
+===================
+Command: uv run ruff check --select UP007,UP045 --fix .
+Result: Fixed 43 errors, 0 remaining.
+- UP007 Union fixes: 2
+- UP045 Optional fixes: 41
+- No other Ruff rule was selected for auto-fix.
+
+Changed files (complete task list: 12)
+=======================================
+Source (10):
+- src/flashcards_generator/adapters/notebooklm_adapter.py
+- src/flashcards_generator/application/converter.py
+- src/flashcards_generator/application/dto/generate_request.py
+- src/flashcards_generator/application/use_cases.py
+- src/flashcards_generator/domain/entities.py
+- src/flashcards_generator/domain/ports/chunk_state.py
+- src/flashcards_generator/domain/ports/flashcard_generator.py
+- src/flashcards_generator/infrastructure/chunk_state_repository.py
+- src/flashcards_generator/infrastructure/notebooklm_client.py
+- src/flashcards_generator/infrastructure/pdf_utils.py
+
+Tests (2; annotation syntax only):
+- tests/fixtures/adapter_fixtures.py
+- tests/integration/test_resume_flow.py
+
+Evidence artifact (created by this task):
+- .omo/evidence/task-5a-python310-annotations.txt
+
+Diff audit
+==========
+- Task diff: 12 files, 52 insertions, 57 deletions.
+- All 43 annotation substitutions were one-for-one Optional/Union to PEP 604
+  replacements.
+- Removed only the 14 typing.Optional/typing.Union imports made obsolete by
+  those replacements.
+- Added only the two directly required import separators and one formatter-
+  required reflow of the shortened _add_pdf_source signature.
+- No function bodies, behavior, architecture, tests beyond annotation syntax,
+  configs, docs, lockfiles, shell files, future imports, suppressions,
+  staging, commits, or pushes were changed by this task.
+- Command: GIT_MASTER=1 git diff --check -- <12 task files>
+  Result: no output; exit 0.
+
+Post-change verification
+========================
+Command: uv run ruff check --select UP007 .
+Result: All checks passed; exit 0.
+
+Command: uv run ruff check --select UP007,UP045 .
+Result: All checks passed; exit 0.
+
+Command: uv run ruff check .
+Result: All checks passed; exit 0.
+
+Command: uv run ruff format --check .
+Result: 71 files already formatted; exit 0.
+
+Command: uv run mypy src/flashcards_generator
+Result: Success: no issues found in 30 source files; exit 0.
+
+Focused tests:
+Command: uv run pytest tests/unit/test_notebooklm_adapter.py
+  tests/unit/test_converter.py tests/unit/test_use_cases.py
+  tests/unit/test_use_cases_edge_cases.py tests/unit/test_use_cases_resume.py
+  tests/unit/test_entities.py tests/unit/test_chunk_state_repository.py
+  tests/unit/test_notebooklm_client.py tests/unit/test_pdf_utils.py
+  tests/integration/test_resume_flow.py
+Result: 175 passed in 61.52s (0:01:01); exit 0.
+
+Full tests:
+Command: uv run pytest
+Result: 361 passed in 77.16s (0:01:17); exit 0.
+
+Manual QA
+=========
+- `uv run main.py --help`: help rendered; exit 0.
+- `uv run python -m flashcards_generator --help`: help rendered; exit 0.
+- Representative import of all 10 changed source modules: imported 10;
+  exit 0.
+- Stale-state probe: combined UP007/UP045 check passed. A repository search
+  found no remaining Optional/Union annotation usage; the only remaining text
+  match was the documentation word "Optional" in use_cases.py.
+- Misleading-success probe: Ruff reported 43 fixed findings, the narrow checks
+  and full Ruff both passed, git diff --check passed, and all test/QA commands
+  exited 0.
+- Runtime-annotation probe: Python 3.10 imports and the full Pydantic/test
+  suite passed; no malformed runtime annotation was observed.
+- No temporary files or long-running processes were created by this task.
+
+Risks
+=====
+- PEP 604 syntax requires Python 3.10+, which matches the project declaration
+  `requires-python = ">=3.10,<3.11"`.
+- Runtime consumers must remain on the declared Python 3.10 runtime; Python
+  3.9 compatibility is intentionally not preserved by this migration.
+- Existing unrelated dirty-worktree changes remain present for orchestration
+  to reconcile; they are not part of this task's 12-file change list.
+
+DoneClaim
+=========
+Remediated the 43 migration-caused Optional/Union annotation findings with
+Ruff's narrow UP007/UP045 safe fixer, inspected every resulting hunk, preserved
+the pre-existing dirty worktree, and verified lint, formatting, mypy, focused
+tests, the full 361-test suite, CLI help, and all changed source imports.

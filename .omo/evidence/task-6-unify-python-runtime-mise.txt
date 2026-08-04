@@ -1,0 +1,127 @@
+Task 6 cleanup and scope-preservation evidence
+===============================================
+
+Repository root:
+  /home/avell/Projects/unchain0/flashcards-generator
+
+Scope rule:
+  This lane did not edit any product, configuration, or documentation file.
+  The only repository file created by this lane is this evidence file under
+  the explicitly allowed untracked .omo/ path. Concurrent Todo 4 changes were
+  preserved and not modified by this lane; only required status/diff receipts
+  were captured for scope auditing.
+
+Exact allowed paths:
+  README.md
+  pyproject.toml
+  .python-version
+  uv.lock
+  .github/workflows/ci.yml
+  .github/workflows/pre-commit.yml
+  .pre-commit-config.yaml
+  AGENTS.md
+  src/flashcards_generator/infrastructure/AGENTS.md
+  src/flashcards_generator/infrastructure/paths.py
+  tests/unit/test_paths.py
+  .omo/
+
+Cleanup receipt 1:
+  Sequence: remove .debug-journal.md if present; close only tmux session
+  notebooklm-login if present.
+  Result: exit 0
+  Output: journal=absent; tmux=absent
+
+Cleanup receipt 2:
+  Sequence: same idempotent cleanup sequence, run sequentially a second time.
+  Result: exit 0
+  Output: journal=absent; tmux=absent
+
+Resource and metadata baseline:
+  .debug-journal.md: absent; no deletion was necessary.
+  tmux list-sessions: no server running; notebooklm-login was absent and no
+    tmux session was touched.
+  ~/.cache/ms-playwright: directory, mode 755, size 236, mtime
+    2026-07-22 08:14:08.926692637 -0300; not mutated.
+  Candidate auth/profile paths checked by metadata only and absent:
+    ~/.config/notebooklm
+    ~/.config/notebooklm-py
+    ~/.cache/notebooklm
+    ~/.cache/notebooklm-py
+    ~/.local/share/notebooklm
+  No credentials, auth state, browser profile, or browser cache contents were
+  read. No Playwright cache changes were made.
+
+Temporary whitelist parser receipt:
+  Path: /tmp/task-6-whitelist.py (never added to the repository)
+  Allowed exact paths: the list above, with .omo/ and its descendants allowed.
+  Live command:
+    GIT_MASTER=1 git status --porcelain=v1 | uv run --script
+    /tmp/task-6-whitelist.py
+  Live result: scope=allowed checked_paths=11 (exit 0)
+  Synthetic command injected unexpected-scope-probe.txt.
+  Synthetic output: unexpected path: unexpected-scope-probe.txt
+  Synthetic result: synthetic_parser_exit=1
+  Parser lint: ruff check --isolated /tmp/task-6-whitelist.py -> All checks
+    passed!
+  Parser size: 54 pure lines.
+  Temporary verifier removal: rm -f /tmp/task-6-whitelist.py -> exit 0;
+    absence probe passed.
+
+Required Git receipts observed before this evidence file was created:
+  Command: GIT_MASTER=1 git status --porcelain
+  Output:
+    M .github/workflows/ci.yml
+    M .pre-commit-config.yaml
+    M .python-version
+    M AGENTS.md
+    M README.md
+    M pyproject.toml
+    M src/flashcards_generator/infrastructure/AGENTS.md
+    M src/flashcards_generator/infrastructure/paths.py
+    M tests/unit/test_paths.py
+    M uv.lock
+    ?? .omo/
+  Command: GIT_MASTER=1 git diff --cached --quiet
+  Result: exit 0, no output; nothing was staged.
+  Command: GIT_MASTER=1 git diff --name-status
+  Output:
+    M .github/workflows/ci.yml
+    M .pre-commit-config.yaml
+    M .python-version
+    M AGENTS.md
+    M README.md
+    M pyproject.toml
+    M src/flashcards_generator/infrastructure/AGENTS.md
+    M src/flashcards_generator/infrastructure/paths.py
+    M tests/unit/test_paths.py
+    M uv.lock
+  Command: GIT_MASTER=1 git diff --stat
+  Result: 10 files changed, 292 insertions(+), 192 deletions(-).
+
+Probe dispositions:
+  dirty_worktree: PASS; concurrent Todo 4 modifications were detected and
+    remained within the exact allowlist; this lane did not alter them.
+  stale_state: NOT_APPLICABLE; the named journal and named tmux session were
+    absent, and no stale cleanup state was found.
+  misleading_success: PASS; cleanup returned exit 0 twice, the live parser
+    returned exit 0, and the synthetic unexpected path returned exit 1.
+  repeated_cleanup: PASS; the identical cleanup sequence was run twice.
+  interruptions: NOT_APPLICABLE; no long-running operation or interruption
+    was introduced by this short cleanup lane.
+
+Forbidden actions receipt:
+  No product/config/docs file was edited or deleted by this lane. No unrelated
+  tmux session, auth state, browser cache/profile, build artifact, or dotfile
+  was mutated; the required evidence file is the sole .omo creation. No stage,
+  commit, or push operation was performed.
+
+Final audit after evidence creation:
+  GIT_MASTER=1 git status --porcelain: the same 10 allowlisted modified files
+  plus ?? .omo/.
+  GIT_MASTER=1 git diff --cached --quiet: exit 0, no output.
+  GIT_MASTER=1 git diff --name-status: the same 10 allowlisted modified files.
+  GIT_MASTER=1 git diff --stat: 10 files changed, 292 insertions(+), 192
+  deletions(-).
+  GIT_MASTER=1 git diff --check: exit 0, no output.
+  GIT_MASTER=1 git diff: executed; full output was captured by the tool.
+  .debug-journal.md and /tmp/task-6-whitelist.py remained absent.

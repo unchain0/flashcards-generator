@@ -1,0 +1,156 @@
+DoneClaim
+
+Todo 5 resumed integrated verification evidence
+===============================================
+
+Date: 2026-07-22
+Repository: /home/avell/Projects/unchain0/flashcards-generator
+
+Disposition
+-----------
+
+The amended Todo 5 criteria pass. The strict Radon gate was executed and
+returned exit 1 as required; its `QUALITY GATE FAILED` result is an explicit
+pre-existing exception, never a pass. The B(6) task configuration was not
+changed. The 12-file Ruff UP007/UP045 remediation is independently reflected
+by clean full Ruff and full pre-commit runs. This QA lane changed only the two
+evidence artifacts below; it did not edit product/config/docs/tests,
+plan/Boulder/ledger, credentials, or browser cache contents.
+
+Updated artifacts:
+
+- `.omo/evidence/task-5-unify-python-runtime-mise.txt`
+- `.omo/evidence/task-5-unify-python-runtime-mise-auth-status.json`
+
+Baseline and scope
+------------------
+
+- Baseline `GIT_MASTER=1 git status --short --branch` was `main...origin/main`
+  with the known Todo 1-4 changes plus the 12 enumerated Ruff remediation
+  files and untracked `.omo/`.
+- `GIT_MASTER=1 git diff --cached --name-only` was empty before and after.
+- Full pre-commit made no worktree changes. Final status remained the same
+  expected tracked paths plus untracked `.omo/`.
+- `GIT_MASTER=1 git diff --check` exited 0.
+- `pyproject.toml`'s `quality-gate` task remained unchanged: Radon B(6)
+  maximum followed by the existing `radon mi` command.
+- `dist/` existed before `uv build` and was retained. `build/`, `.eggs/`, and
+  `dist/.tmp-*` were absent after the build.
+
+Required gates
+--------------
+
+| Exact command | Result | Receipt |
+|---|---:|---|
+| `uv lock --check` | PASS (0) | `Resolved 69 packages in 1ms` |
+| `uv run ruff check .` | PASS (0) | `All checks passed!` |
+| `uv run ruff format --check .` | PASS (0) | `71 files already formatted` |
+| `uv run mypy src/flashcards_generator` | PASS (0) | `Success: no issues found in 30 source files` |
+| `uv run pytest` | PASS (0) | `361 passed in 78.48s (0:01:18)` |
+| `uv build` | PASS (0) | Successfully built the expected sdist and wheel |
+| `uv run pre-commit run --all-files` | PASS (0) | Every configured hook passed, including Ruff linter, Ruff formatter, secrets scan, Python compatibility, and TOML/YAML checks |
+
+Strict Radon exception
+----------------------
+
+Exact command: `uv run task quality-gate`
+
+- Required result: exit 1.
+- Required output present: `QUALITY GATE FAILED`.
+- Required known finding present: `GenerateFlashcardsUseCase._process_large_pdf
+  - D (27)`.
+- Other unchanged pre-existing findings included `test_resume_after_interruption_processes_only_missing_chunks - C (19)`, `PDFChunker._chunk_by_chapters - C (16)`, and the existing B(7+) findings.
+- This is explicitly recorded as a pre-existing exception, not a pass, and no
+  Radon configuration or product remediation was attempted in this lane.
+
+Migration-owned complexity check
+---------------------------------
+
+Exact command: `uv run radon cc
+src/flashcards_generator/infrastructure/paths.py
+tests/unit/test_paths.py --min B -s`
+
+- Result: exit 0 with no output.
+- Therefore migration-owned `paths.py` and `test_paths.py` introduce no B(7+)
+  or C-F findings.
+
+Playwright installation and cache confinement
+---------------------------------------------
+
+Exact command: `timeout 300s uv run playwright install chromium`
+
+- Result: PASS (0).
+- Only output: three unsupported-OS warnings selecting Playwright's
+  `ubuntu24.04-x64` fallback build.
+- Browser/profile contents were not read.
+
+Before and after top-level `~/.cache/ms-playwright/` inventories were exactly
+identical. Each entry is `name|type|directory-size|mtime|du-size`:
+
+```text
+b|directory|720|1781982654|36K
+chromium-1223|directory|114|1780405152|377M
+chromium-1228|directory|114|1784718645|379M
+chromium_headless_shell-1223|directory|144|1780405152|260M
+chromium_headless_shell-1228|directory|144|1784718645|262M
+ffmpeg-1011|directory|142|1780405152|4.9M
+mcp-chrome-7022bea|directory|574|1780418208|19M
+```
+
+`GIT_MASTER=1 git status --short` and `GIT_MASTER=1 git diff --name-only`
+were unchanged across the install. No entry was added, removed, resized, or
+had its mtime changed; the install produced no observed delta outside the
+allowed Playwright cache.
+
+Real smoke tests
+----------------
+
+- Project-only browser smoke: `uv run python -c '...playwright.sync_api...'
+  ` exited 0 and printed `PLAYWRIGHT_HEADLESS_SMOKE_OK`. It launched
+  Chromium headlessly, created a blank page, asserted title `""`, URL
+  `about:blank`, and `document.readyState == "complete"`, then closed the
+  browser in `finally`.
+- `uv run python -m flashcards_generator --help`: PASS (0), usage and all
+  `generate`, `cleanup`, and `merge` commands printed.
+- `uv run flashcards --help`: PASS (0), usage printed.
+- `uv run notebooklm --help`: PASS (0), `Usage: notebooklm` printed.
+- `uv run notebooklm auth check --json`: PASS (0). Raw output was piped
+  directly through a redactor; only `status` and a JSON-shape boolean were
+  retained. The artifact has `status == "ok"`.
+- `uv run which notebooklm`: PASS (0), resolved to
+  `/home/avell/Projects/unchain0/flashcards-generator/.venv/bin/notebooklm`.
+- With `PATH=/usr/bin:/bin` and an absolute `uv` executable, the repeated
+  `uv run which notebooklm` also resolved to the same `.venv` path.
+- Fresh no-unset zsh: PASS (0), output included `FRESH_ZSH_NO_UNSET_OK`; only
+  the known mise update warning appeared.
+- Focused flake rerun: two `uv run pytest tests/unit/test_paths.py` runs
+  passed 3 tests each in 0.05s and 0.06s.
+
+Cleanup and adversarial probes
+------------------------------
+
+- `build/`, `.eggs/`, and `dist/.tmp-*`: absent after build.
+- `.debug-journal.md`: absent after idempotent cleanup.
+- `tmux` session `notebooklm-login`: absent; no unrelated session was touched.
+- Project-created browser and NotebookLM processes: absent after smoke.
+- An OpenCode-supervised global Playwright MCP server was present in the tool
+  environment and respawned its own `~/.cache/ms-playwright-mcp/mcp-chrome-*`
+  browser after child termination. It was not used for this QA (the smoke ran
+  through project `uv run python`) and its cache/profile was not read or
+  deleted; it is environment-owned rather than a project process.
+- `stale_state`: PASS for project cache and sanitized environment checks.
+- `dirty_worktree`: PASS; no unexpected product/config/docs/test path changed.
+- `hung_commands`: PASS; install and fresh zsh were bounded and completed.
+- `flaky_tests`: PASS; focused path tests passed on both runs.
+- `misleading_success`: PASS; exit codes were combined with output markers,
+  browser assertions, path assertions, and test counts.
+- `repeated interruptions`: NOT_APPLICABLE; no long-running generation,
+  login, notebook mutation, or interruptible application job was run.
+
+Final claim
+-----------
+
+DoneClaim: all amended Todo 5 acceptance criteria pass, with the strict Radon
+exit 1 retained as the explicitly documented pre-existing exception. No
+product/config/docs/plan/Boulder/ledger/credential/cache remediation was
+performed by this QA lane.

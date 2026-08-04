@@ -1,0 +1,123 @@
+Task 1 evidence: Lock NotebookLM executable resolution
+Repository: /home/avell/Projects/unchain0/flashcards-generator
+Date: 2026-07-22
+
+Scope
+-----
+Changed by this task:
+- src/flashcards_generator/infrastructure/paths.py
+- tests/unit/test_paths.py
+- .omo/evidence/task-1-unify-python-runtime-mise.txt
+
+No files were staged, committed, pushed, or otherwise written through Git.
+
+Required dirty baseline captured before edits
+----------------------------------------------
+Command:
+  GIT_MASTER=1 git status --short
+Result:
+  M README.md
+  M pyproject.toml
+  ?? .omo/
+
+Command:
+  GIT_MASTER=1 git diff -- pyproject.toml README.md
+Result:
+  Captured before editing. It contained only the pre-existing README task-install
+  wording changes and the pyproject install-notebooklm task change. Those hunks
+  were not edited by this task.
+
+Red-green TDD
+-------------
+1. Edited tests/unit/test_paths.py first. Replaced separate uv-tool and
+   ~/.local/bin expectations with one test that creates both files under a
+   temporary HOME and expects the literal command name when shutil.which()
+   returns None. Kept the PATH-hit characterization and command-name fallback.
+
+2. Red command, before the production edit:
+  uv run pytest tests/unit/test_paths.py::TestFindNotebooklm::test_ignore_legacy_fallbacks_when_not_on_path -v
+Result: FAIL (expected). Assertion showed the old resolver returned:
+  /tmp/pytest-of-avell/pytest-18/test_ignore_legacy_fallbacks_w0/.local/share/uv/tools/notebooklm-py/bin/notebooklm
+instead of:
+  notebooklm
+
+3. Production edit:
+  find_notebooklm() now returns shutil.which("notebooklm") or "notebooklm".
+  Removed the pathlib.Path import and both explicit home-directory probes.
+
+Verification commands and results
+----------------------------------
+Required exact command attempted after the edit:
+  uv run pytest tests/unit/test_paths.py -v
+Result: BLOCKED before pytest. First run reported no Python 3.10 interpreter;
+after the already-available managed Python 3.10 was selected, uv reported the
+other lane's locked greenlet==3.5.4 has no wheel/source for this Linux platform.
+
+Equivalent isolated no-project command (avoids the unrelated project sync):
+  PYTHONPATH=src uv run --no-project --python 3.10 --with pytest --with pydantic pytest tests/unit/test_paths.py -v
+Result: PASS, 3 passed in 0.04s.
+
+Focused flakiness repetitions:
+  PYTHONPATH=src uv run --no-project --python 3.10 --with pytest --with pydantic pytest tests/unit/test_paths.py -q
+  PYTHONPATH=src uv run --no-project --python 3.10 --with pytest --with pydantic pytest tests/unit/test_paths.py -vv
+Results: PASS, 3 passed in 0.02s; PASS, 3 passed in 0.04s.
+
+Ruff:
+  uv run --no-project --python 3.10 --with ruff ruff check src/flashcards_generator/infrastructure/paths.py tests/unit/test_paths.py
+Result: PASS, All checks passed!
+
+Mypy on the changed source:
+  PYTHONPATH=src uv run --no-project --python 3.10 --with mypy mypy --ignore-missing-imports src/flashcards_generator/infrastructure/paths.py
+Result: PASS, Success: no issues found in 1 source file.
+
+Full source mypy probe:
+  PYTHONPATH=src uv run --no-project --python 3.10 --with mypy mypy --ignore-missing-imports src/flashcards_generator
+Result: BLOCKED by two pre-existing errors in
+src/flashcards_generator/infrastructure/chunk_state_repository.py lines 28
+and 51 (returning Any). No error was reported in paths.py.
+
+Manual QA
+---------
+Command:
+  PYTHONPATH=src uv run --no-project --python 3.10 python -c '<unittest.mock.patch PATH-hit and no-hit assertions>'
+Result: exit 0; assertions passed; exact output:
+  PATH hit='/opt/mise/shims/notebooklm'; no hit='notebooklm'
+
+Probe results
+-------------
+- dirty_worktree: required pre-edit status and diff were captured. The final
+  worktree also contains .python-version and uv.lock changes from the other
+  runtime lane; this task did not edit them. The two protected baseline files
+  were not touched by this task.
+- stale_state: fake legacy uv-tool and ~/.local/bin files were created while
+  shutil.which() returned None; the test passed with notebooklm.
+- flaky_tests: two focused repetitions both passed 3/3.
+- misleading_success_output: pytest and manual assertions returned exit 0 in
+  the passing isolated runs; the intentional red assertion and blocked exact
+  project-sync result are recorded above rather than reported as success.
+- malformed input: not applicable; no input parser or untrusted data boundary.
+- prompt injection: not applicable; no prompt or LLM content is handled.
+- cancel/resume: not applicable; no durable workflow or resumable operation.
+- hung commands: not applicable to the changed synchronous lookup; no
+  subprocess or network call was added.
+- repeated interruptions: not applicable; no stateful retry or interruption
+  handling exists in this task.
+
+Static and cleanup receipts
+---------------------------
+- Grep for Path.home, uv/tools/notebooklm-py, .local/bin/notebooklm, and the
+  pathlib import in paths.py: no matches.
+- Pure LOC counts: paths.py 11; test_paths.py 36.
+- LSP diagnostics for both changed files were attempted in parallel but the
+  diagnostics MCP connection closed; no diagnostics result is available.
+- No temporary scripts or persistent temporary directories were created by
+  this task. pytest tmp_path fixtures cleaned their temporary files. The
+  isolated uv commands used uv's cache, not a repository temp artifact.
+- No cleanup deletion was necessary; the final status/diff checks were used
+  to confirm task scope and preserve other-lane work.
+
+Risk
+----
+The exact project pytest command and full-source mypy command remain affected
+by unrelated concurrent runtime/dependency changes. Todo 1 behavior itself is
+covered by passing isolated tests, Ruff, targeted mypy, grep, and manual QA.

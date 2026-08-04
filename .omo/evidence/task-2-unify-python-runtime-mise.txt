@@ -1,0 +1,117 @@
+DoneClaim: PASS
+Task: Todo 2 - move the complete dependency graph to one Python 3.10 environment.
+
+Lane-owned files changed:
+- .python-version
+- pyproject.toml
+- uv.lock
+- .omo/evidence/task-2-unify-python-runtime-mise.txt
+
+Manifest result:
+- .python-version is exactly 3.10.
+- pyproject.toml requires-python is ">=3.10,<3.11".
+- Ruff target-version is py310.
+- mypy python_version is 3.10.
+- Runtime dependencies include exactly notebooklm-py[browser]==0.7.3 and
+  playwright==1.61.0.
+- The isolated install-notebooklm task, including its Python 3.14 and uv tool
+  commands, is removed. Chromium remains a project Playwright capability for
+  the later lane command: uv run playwright install chromium.
+- Existing declared dependency constraints were not upgraded.
+
+Commands and results (all from the repository root, bounded with timeout):
+1. timeout 180s uv lock --python 3.10
+   Initial result: failed because uv had no Python 3.10 interpreter installed.
+2. timeout 180s uv python install 3.10
+   PASS: installed uv-managed CPython 3.10.20. This was not an isolated uv
+   tool installation.
+3. timeout 180s uv lock --python 3.10
+   PASS: resolved 69 packages; lock requires-python became ==3.10.* and the
+   exact NotebookLM/Playwright packages were added.
+4. timeout 300s uv sync --python 3.10
+   First result: failed because newly selected greenlet==3.5.4 had no Linux
+   wheel or source distribution. No declared project constraint was changed.
+5. timeout 180s uv lock --python 3.10 --exclude-newer-package
+   greenlet=2026-07-22T00:00:00Z
+   PASS: selected Linux-installable greenlet==3.5.3, leaving all direct
+   project constraints unchanged.
+6. timeout 180s uv lock --python 3.10
+   PASS: exact required lock command completed and retained the compatible
+   greenlet lock choice.
+7. timeout 300s uv sync --python 3.10
+   PASS: recreated/synchronized .venv with CPython 3.10.20 and installed 67
+   packages, including notebooklm-py==0.7.3 and playwright==1.61.0.
+8. timeout 60s uv run python -c 'import importlib.metadata as metadata; ...'
+   PASS: python=3.10.20, notebooklm-py=0.7.3, playwright=1.61.0.
+   Note: the first equivalent probe had only a diagnostic f-string quoting
+   SyntaxError; the corrected assertion probe above passed.
+9. timeout 60s uv lock --check --python 3.10
+   PASS: lockfile is current.
+10. timeout 60s uv sync --python 3.10 --check
+    PASS: lockfile and environment are current; would make no changes.
+11. timeout 300s uv run pytest
+    PASS: 361 passed in 80.43s under .venv/bin/python3 (Python 3.10.20).
+12. timeout 300s uv build --out-dir /tmp/opencode/task-2-uv-build-20260722
+     First result: output directory already existed; no build assertion ran.
+     Retry with a fresh worker directory: PASS; sdist and wheel built.
+13. timeout 120s uv run python -c '... tomli ...'
+    PASS: parsed pyproject.toml under Python 3.10 and asserted all requested
+    authorities and installed package metadata.
+14. timeout 60s uv run playwright --version
+    PASS: Version 1.61.0.
+15. timeout 180s uv run ruff check .
+    FAIL: 43 pre-existing PEP 604 style findings across source/tests. This
+    lane did not touch source/tests or opportunistically refactor them.
+
+Grep/assertion results:
+- Grep uv.lock for ==3.9.*: no matches.
+- Grep pyproject.toml for uv tool install|3.14: no matches.
+- Grep uv.lock found notebooklm-py specifier ==0.7.3, playwright specifier
+  ==1.61.0, and package versions 0.7.3 and 1.61.0.
+- Grep uv.lock found requires-python ==3.10.*.
+- uv run Python stale-state assertion passed for .python-version, lockfile,
+  manifest command removal, and exact Python minor.
+- Final tomli-based manifest parse and importlib.metadata assertions passed.
+
+Manual QA:
+- stale_state: PASS. Old ==3.9.* lock authority is absent; the synchronized
+  environment reports Python 3.10.20; no isolated 3.14 command remains in the
+  manifest.
+- dirty_worktree: PASS. README.md was not edited by this lane; its pre-existing
+  Chromium-install hunk remains unchanged. The unified setup preserves the
+  intent through direct project NotebookLM/Playwright dependencies, with the
+  explicit Chromium command deferred to the later documentation/QA lane.
+  Existing src/flashcards_generator/infrastructure/paths.py and
+  tests/unit/test_paths.py changes were observed and left untouched.
+- hung_commands: PASS. Every lock, sync, test, build, and metadata command was
+  bounded with timeout and returned completion output. The only nonzero
+  commands had the recorded missing-interpreter, incompatible-wheel, quoting,
+  or pre-existing-output-directory causes.
+- misleading_success_output: PASS. Final claims use importlib.metadata and
+  sys.version_info assertions, uv lock/sync checks, Grep, pytest, and uv build;
+  resolver/install logs were not trusted alone.
+- Chromium/browser launch, authentication, NotebookLM network calls, cache
+  inventory, visual QA, and source behavior changes: N/A for this dependency
+  graph lane; later lanes own those operations and no browser cache was touched.
+- LSP diagnostics: unavailable in the provided tool surface; uv lock/sync
+  checks, TOML parsing, metadata assertions, tests, and build were used instead.
+
+Cleanup:
+- Removed only the worker-created /tmp/opencode/task-2-uv-build-20260722
+  directory after the successful build.
+- Did not manually delete .venv, the Playwright browser cache, credentials, or
+  user changes. uv sync itself recreated .venv as part of the required sync;
+  existing ignored dist/ and egg-info artifacts were preserved.
+- No files were staged, committed, or pushed. Tracked source/test changes and
+  existing .omo/ artifacts were preserved.
+
+Risks/deferred work:
+- README.md intentionally still references the removed task and old split
+  runtime until Wave 2 updates it; changing it here would violate ownership.
+- Chromium is not installed by this lane; later QA must run
+  uv run playwright install chromium and validate browser startup.
+- The lock keeps greenlet==3.5.3 because the newer 3.5.4 release had no Linux
+  distribution; this is a transitive lock choice required for this platform,
+  not a new direct dependency constraint.
+- Ruff remains red on 43 pre-existing source/test findings; fixing those would
+  violate this lane's file scope and belongs to a separate cleanup lane.

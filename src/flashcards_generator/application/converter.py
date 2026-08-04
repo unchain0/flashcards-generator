@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import ClassVar, Optional
+from typing import ClassVar
 
 from flashcards_generator.application.math_processor import (
     convert_to_anki_math_format,
@@ -222,7 +222,7 @@ class ClozeConverter:
         "left",
     }
 
-    def convert(self, flashcard: Flashcard) -> Optional[Flashcard]:
+    def convert(self, flashcard: Flashcard) -> Flashcard | None:
         """Convert a flashcard to cloze deletion format."""
         question = self._clean(flashcard.front)
         answer = self._clean(flashcard.back)

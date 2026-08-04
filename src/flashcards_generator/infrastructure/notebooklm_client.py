@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from flashcards_generator.domain.entities import Flashcard
 from flashcards_generator.infrastructure.logging_config import get_logger
@@ -86,7 +86,7 @@ class NotebookLMClient:
         prompt: str,
         difficulty: str = "medium",
         quantity: str = "standard",
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate flashcards artifact from notebook."""
         cmd = [
             "generate",
@@ -167,7 +167,7 @@ class NotebookLMClient:
             logger.error(f"Failed to parse flashcards from {json_path}: {e}")
         return flashcards
 
-    def _create_flashcard(self, item: dict) -> Optional[Flashcard]:
+    def _create_flashcard(self, item: dict) -> Flashcard | None:
         """Create Flashcard from JSON item."""
         front = item.get("front", item.get("question", item.get("q", "")))
         back = item.get("back", item.get("answer", item.get("a", "")))

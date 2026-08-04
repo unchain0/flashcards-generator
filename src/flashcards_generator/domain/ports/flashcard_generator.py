@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
@@ -27,7 +27,7 @@ class GenerationResult(BaseModel):
     """Result of flashcard generation."""
 
     deck: Deck
-    artifact_id: Optional[str] = Field(default=None)
+    artifact_id: str | None = Field(default=None)
     completed: bool = Field(default=False)
 
 
@@ -61,7 +61,7 @@ class FlashcardGeneratorPort(ABC):
         self,
         notebook_id: str,
         config: GenerationConfig,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate flashcards. Returns artifact ID or None."""
         # pragma: no cover
 

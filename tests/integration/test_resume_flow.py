@@ -6,7 +6,6 @@ import csv
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, Union
 from unittest.mock import MagicMock
 
 import pytest
@@ -41,7 +40,7 @@ class ScriptedChunkGenerator(FlashcardGeneratorPort):
 
     def __init__(
         self,
-        chunk_outcomes: dict[str, Union[list[Flashcard], Exception]],
+        chunk_outcomes: dict[str, list[Flashcard] | Exception],
     ) -> None:
         self._chunk_outcomes = chunk_outcomes
         self._notebook_sources: dict[str, str] = {}
@@ -68,7 +67,7 @@ class ScriptedChunkGenerator(FlashcardGeneratorPort):
 
     def generate_flashcards(
         self, notebook_id: str, config: GenerationConfig
-    ) -> Optional[str]:
+    ) -> str | None:
         source_name = self._notebook_sources[notebook_id]
         outcome = self._chunk_outcomes[source_name]
 

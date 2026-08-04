@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import shutil
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from flashcards_generator.domain.entities import ChunkResumeManifest, Deck
 from flashcards_generator.domain.ports import ChunkStatePort
@@ -18,7 +18,7 @@ logger = get_logger("chunk_state_repository")
 class FileSystemChunkStateRepository(ChunkStatePort):
     """Persist chunk manifests and result decks as JSON files."""
 
-    def load_manifest(self, state_path: Path) -> Optional[ChunkResumeManifest]:
+    def load_manifest(self, state_path: Path) -> ChunkResumeManifest | None:
         """Load a chunk resume manifest from disk if present."""
         if not state_path.exists():
             logger.debug(f"Manifest not found: {state_path}")

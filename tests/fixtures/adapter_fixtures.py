@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -25,7 +25,7 @@ class MockFlashcardGenerator(FlashcardGeneratorPort):
         should_fail_source: bool = False,
         should_fail_generation: bool = False,
         should_timeout: bool = False,
-        flashcards: Optional[list] = None,
+        flashcards: list | None = None,
     ):
         self.should_fail_source = should_fail_source
         self.should_fail_generation = should_fail_generation
@@ -56,7 +56,7 @@ class MockFlashcardGenerator(FlashcardGeneratorPort):
 
     def generate_flashcards(
         self, notebook_id: str, config: GenerationConfig
-    ) -> Optional[str]:
+    ) -> str | None:
         if self.should_fail_generation:
             return None
         self._artifact_counter += 1

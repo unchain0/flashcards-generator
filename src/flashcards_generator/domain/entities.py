@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import datetime
 from difflib import SequenceMatcher
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -23,12 +22,12 @@ class ChunkState(BaseModel):
 
     chunk_index: int
     status: ChunkStatus
-    page_start: Optional[int] = None
-    page_end: Optional[int] = None
+    page_start: int | None = None
+    page_end: int | None = None
     card_count: int = 0
-    result_path: Optional[str] = None
+    result_path: str | None = None
     updated_at: datetime
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
 
 class ChunkResumeManifest(BaseModel):

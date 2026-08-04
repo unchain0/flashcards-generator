@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import subprocess
-from typing import TYPE_CHECKING, ClassVar, Optional
+from typing import TYPE_CHECKING, ClassVar
 
 from flashcards_generator.infrastructure.logging_config import get_logger
 
@@ -37,7 +37,7 @@ class PPTXConverter:
             logger.warning("LibreOffice not found. PPTX conversion disabled.")
             return False
 
-    def convert(self, pptx_path: Path, output_dir: Path) -> Optional[Path]:
+    def convert(self, pptx_path: Path, output_dir: Path) -> Path | None:
         """Convert PPTX to PDF using LibreOffice."""
         if not self._has_libreoffice:
             logger.error(

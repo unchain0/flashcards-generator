@@ -6,7 +6,7 @@ import json
 import subprocess
 import time
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, ClassVar, Optional, Union
+from typing import TYPE_CHECKING, ClassVar
 
 from rich.console import Console
 from rich.progress import (
@@ -165,7 +165,7 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
             for pattern in self.RATE_LIMIT_PATTERNS
         )
 
-    def _extract_artifact_id(self, data: dict) -> Optional[str]:
+    def _extract_artifact_id(self, data: dict) -> str | None:
         """Extract artifact ID from response."""
         return data.get("task_id") or data.get("artifact_id") or data.get("id")
 
@@ -211,7 +211,7 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
 
     def generate_flashcards(
         self, notebook_id: str, config: GenerationConfig
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate flashcards with retry logic."""
         cmd = self._build_generate_command(notebook_id, config)
         cmd_str = " ".join(cmd)
@@ -313,14 +313,14 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
             "Unreachable code in download_flashcards"
         )  # pragma: no cover
 
-    def _extract_cards_data(self, data: Union[dict, list]) -> list:
+    def _extract_cards_data(self, data: dict | list) -> list:
         """Extract cards list from various JSON structures."""
         if isinstance(data, list):
             return data
         cards: list = data.get("cards", data.get("flashcards", []))
         return cards
 
-    def _create_flashcard(self, item: dict) -> Optional[Flashcard]:
+    def _create_flashcard(self, item: dict) -> Flashcard | None:
         """Create Flashcard from JSON item."""
         front = item.get("front", item.get("question", item.get("q", "")))
         back = item.get("back", item.get("answer", item.get("a", "")))
@@ -366,7 +366,7 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
             logger.error(f"Failed to delete notebook {notebook_id}: {e}")
             return False
 
-    def list_notebooks(self, days: Optional[int] = None) -> list[dict]:
+    def list_notebooks(self, days: int | None = None) -> list[dict]:
         """List all notebooks, optionally filtered by creation date."""
         try:
             returncode, stdout, stderr = self._run_command(
@@ -402,7 +402,7 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
             logger.error(f"Failed to list notebooks: {e}")
             return []
 
-    def _parse_datetime(self, dt_str: str) -> Optional[datetime]:
+    def _parse_datetime(self, dt_str: str) -> datetime | None:
         formats = [
             "%Y-%m-%dT%H:%M:%S.%fZ",
             "%Y-%m-%dT%H:%M:%SZ",
@@ -420,7 +420,7 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
         return None
 
     def delete_all_notebooks(
-        self, days: Optional[int] = None, show_progress: bool = False
+        self, days: int | None = None, show_progress: bool = False
     ) -> tuple[int, int]:
         """Delete all notebooks. Returns (deleted_count, failed_count)."""
         notebooks = self.list_notebooks(days=days)

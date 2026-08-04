@@ -18,14 +18,14 @@ Gera flashcards Anki em formato Cloze Deletion a partir de PDFs e PPTX usando o 
 git clone <repo-url>
 cd flashcards-generator
 
-# Instale a aplicação em Python 3.9
+# Instale a aplicação no ambiente Python 3.10
 uv sync
 
-# Instale o CLI do NotebookLM em um ambiente isolado Python 3.14
-uv run task install-notebooklm
+# Instale o Chromium do Playwright
+uv run playwright install chromium
 
-# O primeiro login instala o Chromium necessário
-notebooklm login
+# Faça login no NotebookLM
+uv run notebooklm login
 ```
 
 ## Uso
@@ -146,9 +146,10 @@ export FLASHCARDS_OUTPUT_DIR=./output
 ### Erro: "No such file or directory: 'notebooklm'"
 
 ```bash
-# Reinstale o CLI isolado (notebooklm-py requer Python 3.10+)
-uv tool install --force --python 3.14 "notebooklm-py[browser]==0.7.3"
-notebooklm login
+# Sincronize o ambiente do projeto e reinstale o Chromium
+uv sync
+uv run playwright install chromium
+uv run notebooklm login
 ```
 
 ### Erro: "Timeout ao gerar flashcards"

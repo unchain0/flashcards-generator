@@ -85,7 +85,7 @@ repos:
     hooks:
       - id: check-python-version
         name: Check Python version compatibility
-        entry: python --version
+        entry: python -c 'import sys; expected=(3, 10); actual=sys.version_info[:2]; raise SystemExit(0 if actual == expected else f"Expected Python 3.10, got {actual[0]}.{actual[1]}")'
         language: system
         pass_filenames: false
         always_run: true

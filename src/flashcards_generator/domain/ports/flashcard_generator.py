@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from contextlib import AbstractContextManager, nullcontext
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
@@ -13,6 +14,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from flashcards_generator.domain.entities import Flashcard
+
+from flashcards_generator.domain.ports.cancellation import CancellationPort
 
 
 class GenerationConfig(BaseModel):
@@ -40,6 +43,12 @@ class FlashcardGeneratorPort(ABC):
         - NotebookLMAdapter: Uses Google NotebookLM API
         - MockGenerator: For testing
     """
+
+    def cancellation_scope(
+        self, token: CancellationPort | None
+    ) -> AbstractContextManager[None]:
+        """Bind cancellation for one workflow when the adapter supports it."""
+        return nullcontext()
 
     @abstractmethod
     def create_notebook(self, title: str) -> str:

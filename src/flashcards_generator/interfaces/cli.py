@@ -10,14 +10,21 @@ from typing import TYPE_CHECKING
 
 from flashcards_generator.adapters.anki_connect_adapter import (
     DEFAULT_ANKI_CONNECT_URL,
-    AnkiConnectAdapter,
 )
 from flashcards_generator.adapters.notebooklm_adapter import NotebookLMAdapter
+from flashcards_generator.application.contracts import (
+    CancellationToken,
+    NullProgressReporter,
+)
 from flashcards_generator.application.csv_merger import CsvMerger
 from flashcards_generator.application.dto.generate_request import (
     GenerateFlashcardsRequest,
 )
 from flashcards_generator.application.dto.merge_request import MergeCsvRequest
+from flashcards_generator.application.dto.workflow import (
+    AnkiExportOptions,
+    CleanupRequest,
+)
 from flashcards_generator.application.use_cases import (
     GenerateFlashcardsUseCase,
 )
@@ -25,7 +32,6 @@ from flashcards_generator.domain.exceptions import (
     AnkiConnectError,
     CSVMergeError,
 )
-from flashcards_generator.domain.ports.anki_exporter import AnkiExporterPort
 from flashcards_generator.infrastructure.chunk_state_repository import (
     FileSystemChunkStateRepository,
 )
@@ -34,8 +40,11 @@ from flashcards_generator.infrastructure.logging_config import (
     get_logger,
 )
 from flashcards_generator.infrastructure.paths import find_notebooklm
+from flashcards_generator.interfaces.composition import create_workflows
 
 if TYPE_CHECKING:
+    from flashcards_generator.application.contracts import GenerationOutcome
+    from flashcards_generator.application.workflows import ApplicationWorkflows
     from flashcards_generator.domain.entities import Deck
 
 logger = get_logger("cli")
@@ -55,6 +64,8 @@ class CLI:
     def __init__(self) -> None:
         """Initialize CLI with argument parser."""
         self.parser = self._create_parser()
+        self._workflows: ApplicationWorkflows | None = None
+        self._last_use_case: GenerateFlashcardsUseCase | None = None
 
     def _create_parser(self) -> argparse.ArgumentParser:
         """Create argument parser with subcommands."""
@@ -296,17 +307,36 @@ class CLI:
         self, args: argparse.Namespace
     ) -> GenerateFlashcardsUseCase:
         """Create use case with dependencies wired."""
-        generator = self._create_adapter(args.timeout)
-        return GenerateFlashcardsUseCase(
-            generator=generator,
+        return self._create_use_case_for_timeout(args.timeout)
+
+    def _create_use_case_for_timeout(
+        self, timeout: int
+    ) -> GenerateFlashcardsUseCase:
+        """Build and retain the use case adapted by the shared workflow."""
+        use_case = GenerateFlashcardsUseCase(
+            generator=self._create_adapter(timeout),
             chunk_state_repository=FileSystemChunkStateRepository(),
         )
+        self._last_use_case = use_case
+        return use_case
+
+    def _get_workflows(self) -> ApplicationWorkflows:
+        """Lazily compose the shared facade with CLI-compatible adapters."""
+        if self._workflows is None:
+            self._workflows = create_workflows(
+                notebooklm_path=find_notebooklm(),
+                use_case_factory=self._create_use_case_for_timeout,
+                adapter_factory=self._create_adapter,
+                merge_operation=CsvMerger.merge,
+                cleanup_show_progress=True,
+            )
+        return self._workflows
 
     @staticmethod
-    def _create_anki_exporter(
+    def _create_anki_options(
         args: argparse.Namespace,
-    ) -> AnkiExporterPort | None:
-        """Create the opt-in AnkiConnect exporter."""
+    ) -> AnkiExportOptions | None:
+        """Translate argparse values to shared Anki workflow options."""
         if (
             args.anki_deck is None
             and args.anki_connect_url is None
@@ -317,21 +347,11 @@ class CLI:
             raise ValueError(
                 "--anki-deck é obrigatório ao configurar o AnkiConnect"
             )
-        return AnkiConnectAdapter(
+        return AnkiExportOptions(
             deck_name=args.anki_deck,
             url=args.anki_connect_url or DEFAULT_ANKI_CONNECT_URL,
             api_key=args.anki_api_key,
         )
-
-    @staticmethod
-    def _export_to_anki(
-        decks: list[Deck],
-        exporter: AnkiExporterPort,
-    ) -> int:
-        """Export generated decks and return the imported card count."""
-        imported = sum(exporter.export(deck) for deck in decks)
-        logger.info(f"✅ {imported} card(s) importado(s) no Anki")
-        return imported
 
     def _create_request(
         self, args: argparse.Namespace
@@ -393,62 +413,70 @@ class CLI:
         if context is None:
             return 1
 
-        use_case, request, anki_exporter = context
-        decks = self._execute_generation(use_case, request)
-        if decks is None:
+        request, anki_options = context
+        try:
+            outcome = self._get_workflows().generate(
+                request,
+                NullProgressReporter(),
+                CancellationToken(),
+            )
+        except KeyboardInterrupt:
+            logger.info("\n⚠️  Operation cancelled by user")
             return 130
 
-        if not self._export_generation(decks, anki_exporter):
+        return self._complete_generation(outcome, anki_options)
+
+    def _complete_generation(
+        self,
+        outcome: GenerationOutcome,
+        anki_options: AnkiExportOptions | None,
+    ) -> int:
+        """Export, summarize, and resolve the generation exit status."""
+        decks = list(outcome.decks)
+        if not self._export_generation(decks, anki_options):
             return 1
 
         self._print_summary(decks)
-        return 1 if use_case.last_run_had_errors is True else 0
+        return 1 if self._generation_failed(outcome) else 0
+
+    def _generation_failed(self, outcome: GenerationOutcome) -> bool:
+        """Preserve legacy use-case failures alongside workflow outcomes."""
+        use_case_failed = (
+            self._last_use_case is not None
+            and self._last_use_case.last_run_had_errors is True
+        )
+        return use_case_failed or not outcome.succeeded
 
     def _create_generation_context(
         self, args: argparse.Namespace
-    ) -> (
-        tuple[
-            GenerateFlashcardsUseCase,
-            GenerateFlashcardsRequest,
-            AnkiExporterPort | None,
-        ]
-        | None
-    ):
-        """Create the collaborators needed for one generation."""
+    ) -> tuple[GenerateFlashcardsRequest, AnkiExportOptions | None] | None:
+        """Create the request and optional export settings for a generation."""
         try:
-            anki_exporter = self._create_anki_exporter(args)
+            anki_options = self._create_anki_options(args)
         except ValueError as error:
             logger.error(f"Opções do AnkiConnect inválidas: {error}")
             return None
 
-        use_case = self._create_use_case(args)
         request = self._create_request(args)
         self._log_config(request)
-        return use_case, request, anki_exporter
-
-    @staticmethod
-    def _execute_generation(
-        use_case: GenerateFlashcardsUseCase,
-        request: GenerateFlashcardsRequest,
-    ) -> list[Deck] | None:
-        """Execute generation and preserve the CLI cancellation status."""
-        try:
-            decks = use_case.execute(request)
-        except KeyboardInterrupt:
-            logger.info("\n⚠️  Operation cancelled by user")
-            return None
-        return decks
+        return request, anki_options
 
     def _export_generation(
         self,
         decks: list[Deck],
-        anki_exporter: AnkiExporterPort | None,
+        anki_options: AnkiExportOptions | None,
     ) -> bool:
         """Export generated decks when direct Anki import is enabled."""
-        if anki_exporter is None:
+        if anki_options is None:
             return True
         try:
-            self._export_to_anki(decks, anki_exporter)
+            imported = self._get_workflows().export_to_anki(
+                decks, anki_options
+            )
+            logger.info(f"✅ {imported} card(s) importado(s) no Anki")
+        except ValueError as error:
+            logger.error(f"Opções do AnkiConnect inválidas: {error}")
+            return False
         except AnkiConnectError as error:
             logger.error(f"Falha na importação via AnkiConnect: {error}")
             return False
@@ -459,33 +487,29 @@ class CLI:
         if not self._authenticate(args.skip_auth_check):
             return 1
 
+        if args.days:
+            logger.info(
+                f"Deletando notebooks dos últimos {args.days} dia(s)..."
+            )
+        else:
+            logger.info("Deletando todos os notebooks...")
+
         try:
-            adapter = self._create_adapter()
-            deleted, failed = self._delete_selected_notebooks(adapter, args)
+            outcome = self._get_workflows().cleanup(
+                CleanupRequest(days=args.days, check_auth=False),
+                confirmed=args.all,
+            )
         except OSError as error:
             logger.error(f"Não foi possível limpar notebooks: {error}")
             return 1
 
+        deleted, failed = outcome.deleted, outcome.failed
         if failed > 0:
             logger.warning(f"{failed} notebook(s) não puderam ser deletados")
             return 0 if deleted > 0 else 1
 
         logger.info(f"✅ {deleted} notebook(s) deletado(s) com sucesso")
         return 0
-
-    @staticmethod
-    def _delete_selected_notebooks(
-        adapter: NotebookLMAdapter, args: argparse.Namespace
-    ) -> tuple[int, int]:
-        if args.days:
-            logger.info(
-                f"Deletando notebooks dos últimos {args.days} dia(s)..."
-            )
-            return adapter.delete_all_notebooks(
-                days=args.days, show_progress=True
-            )
-        logger.info("Deletando todos os notebooks...")
-        return adapter.delete_all_notebooks(show_progress=True)
 
     def _run_merge(self, args: argparse.Namespace) -> int:
         """Run merge command."""
@@ -505,9 +529,11 @@ class CLI:
             return 1
 
         try:
-            rows = CsvMerger.merge(request)
-            output_path = args.folder / args.output
-            logger.info(f"✅ {rows} flashcards mesclados em: {output_path}")
+            outcome = self._get_workflows().merge(request)
+            logger.info(
+                f"✅ {outcome.rows_written} flashcards mesclados em: "
+                f"{outcome.output_path}"
+            )
             return 0
         except CSVMergeError as e:
             logger.error(f"Erro ao mesclar: {e.reason}")

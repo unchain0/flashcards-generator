@@ -1,0 +1,14 @@
+FINAL PTY TRANSCRIPT — 2026-09-04
+
+command: uv run flashcards
+size: 52x24
+observed:
+  Flashcards Generator
+  Generate  Results  Merge  NotebookLM  Settings
+  Generate controls arranged as two rows
+  q Q  g G  r R  m M  n N  s S  ^r R  esc E  ? H
+actions: n -> NotebookLM; s -> Settings; ? -> Help; Esc -> shell;
+         q -> process exit 0
+traceback: none
+horizontal-overflow: none in the measured action controls or footer
+orphan processes: none

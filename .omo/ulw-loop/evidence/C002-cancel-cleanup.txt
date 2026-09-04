@@ -1,0 +1,14 @@
+GREEN cancellation receipt — 2026-09-04
+
+Failing-first:
+The focused cancellation-cleanup regression was RED before the adapter fix:
+the expected five NotebookLM subprocess communications observed only four
+because deletion was skipped after cancellation.
+
+GREEN:
+- Focused cancellation-cleanup regression: 1 passed.
+- Cancellation and adapter suites: 76 passed.
+- Use-case and resume suites: 62 passed.
+- Cancellation terminated active work, reaped the process, and still invoked
+  NotebookLM deletion from the final cleanup path.
+- Final process audit found no live NotebookLM process.

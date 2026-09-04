@@ -1,0 +1,13 @@
+GREEN receipt — 2026-09-04
+
+Command:
+uv run pytest tests/tui/test_app.py tests/integration/test_entrypoints.py -q
+
+Output:
+tests/tui/test_app.py ...                                                [ 60%]
+tests/integration/test_entrypoints.py ..                                 [100%]
+============================== 5 passed in 5.35s ===============================
+
+The tests cover both `uv run flashcards --help` and
+`uv run python -m flashcards_generator --help`, plus direct Textual help
+mounting and keyboard tab navigation.

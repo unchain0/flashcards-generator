@@ -14,13 +14,14 @@ TabbedContent {
 }
 
 TabPane {
-    padding: 2 4;
+    padding: 1 2;
     height: 1fr;
     overflow-y: auto;
 }
 
 .workflow-panel {
-    width: 100%;
+    width: 1fr;
+    max-width: 100%;
     height: auto;
     min-height: 8;
     padding: 2 3;
@@ -55,4 +56,102 @@ TabPane {
 
 #help-shortcuts {
     margin-top: 1;
+}
+
+/* Workflow primitives extend the shell's semantic Textual theme. */
+.field-label {
+    margin-top: 1;
+    color: $text-muted;
+}
+
+.section-title {
+    text-style: bold;
+    color: $accent;
+}
+
+.action-row {
+    layout: grid;
+    grid-size: 2;
+    grid-columns: 1fr 1fr;
+    width: 1fr;
+    height: auto;
+    margin-top: 1;
+}
+
+.action-row Button {
+    width: 1fr;
+    min-width: 8;
+    margin-right: 1;
+}
+
+.action-row Checkbox {
+    width: 1fr;
+    min-width: 12;
+}
+
+#generate-sources {
+    height: 1fr;
+    min-height: 6;
+    margin-top: 1;
+    border: round $primary-darken-2;
+}
+
+#progress-panel {
+    width: 1fr;
+    height: auto;
+    min-height: 5;
+    margin-top: 1;
+    padding: 1 2;
+    border: round $primary-darken-2;
+    background: $surface;
+}
+
+#progress-log {
+    height: 1;
+    min-height: 1;
+}
+
+#progress-bar {
+    height: 1;
+}
+
+#results-cards,
+#results-csv,
+#merge-count,
+#notebooklm-auth-status,
+#settings-status {
+    height: auto;
+    min-height: 2;
+    margin-top: 1;
+    padding: 1 2;
+    background: $surface;
+}
+
+#notebooklm-confirmation-slot,
+#cleanup-confirm {
+    width: 100%;
+    height: auto;
+}
+
+#cleanup-confirm {
+    margin-top: 1;
+    padding: 1 2;
+    border: round $error;
+    background: $surface;
+}
+
+.source-picker {
+    width: 1fr;
+    height: auto;
+}
+
+#source-picker-tree {
+    height: 8;
+    min-height: 3;
+    margin-top: 1;
+    border: round $primary-darken-2;
+}
+
+.is-hidden {
+    display: none;
 }

@@ -1,0 +1,16 @@
+GREEN manual receipt — 2026-09-04
+
+Command:
+uv run python -m flashcards_generator --help
+
+PTY:
+52 columns x 24 rows
+
+Observed:
+- The same Textual shell opened through the module entrypoint.
+- Generate controls were arranged in two rows without horizontal widget
+  overflow.
+- Footer rendered `q Q  g G  r R  m M  n N  s S  ^r R  esc E  ? H`
+  completely.
+- `q` exited the process with code 0.
+- No traceback or sibling log overlay was visible.

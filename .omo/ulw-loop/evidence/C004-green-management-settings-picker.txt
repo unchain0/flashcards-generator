@@ -1,0 +1,14 @@
+GREEN receipt — 2026-09-04
+
+Command:
+uv run pytest tests/tui/test_notebooklm_settings_picker.py tests/unit/test_settings.py -q
+
+Output:
+tests/tui/test_notebooklm_settings_picker.py ....                        [ 57%]
+tests/unit/test_settings.py ...                                          [100%]
+============================== 7 passed in 3.84s ===============================
+
+The Pilot covers auth status, delegated login/language, explicit cleanup-all
+confirmation, Unicode/space/empty-directory source navigation, PDF/PPTX
+filtering, and persisted settings. Unit tests cover malformed/invalid
+fallbacks and XDG path selection.

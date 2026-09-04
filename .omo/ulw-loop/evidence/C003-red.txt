@@ -1,0 +1,13 @@
+C003 RED — 2026-09-04
+
+Command:
+  uv run pytest tests/tui/test_results_merge.py -q
+
+Result:
+  exit=1
+  `TypeError: App.__init__() got an unexpected keyword argument 'services'`
+  The independent card-model smoke passed.
+
+The current Textual shell has no injected merge service, MergeCsvRequest
+workflow, Results surface, CSV count, or preview action. This is the
+failing-first C003 receipt.

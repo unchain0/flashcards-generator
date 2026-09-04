@@ -1,0 +1,18 @@
+GREEN manual receipt — 2026-09-04
+
+Command:
+uv run flashcards --help
+
+PTY:
+120 columns x 40 rows
+
+Observed:
+- The Textual app opened directly instead of argparse help.
+- Header showed Flashcards Generator.
+- Tabs showed Generate, Results, Merge, NotebookLM, and Settings.
+- Footer showed all compact shell shortcuts.
+- `?` opened the Keyboard shortcuts modal.
+- `Esc` closed the modal.
+- `n` and `s` navigated to NotebookLM and Settings.
+- `q` exited the process with code 0.
+- No traceback was printed.

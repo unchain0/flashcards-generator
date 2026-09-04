@@ -1,0 +1,12 @@
+=== invocation: uv run flashcards-cli merge --folder .omo/evidence/st_01a06dce/merge-fixture --output combined.csv --deduplicate ===
+16:08:54 INFO     cli:533 - ✅ 3 flashcards mesclados em: .omo/evidence/st_01a06dce/merge-fixture/combined.csv
+exit_code=0
+=== merged file ===
+exists=True size=38
+"front","back"
+"Q2","A2"
+"Q1","A1"
+
+=== invocation: uv run flashcards-cli merge --folder .omo/evidence/st_01a06dce/does-not-exist --output combined.csv ===
+16:08:55 ERROR    cli:517 - Pasta inválida ou inexistente: .omo/evidence/st_01a06dce/does-not-exist
+exit_code=1

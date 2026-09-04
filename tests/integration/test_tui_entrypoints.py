@@ -29,7 +29,9 @@ def test_module_entrypoint_starts_textual_shell() -> None:
     completed = _run_entrypoint()
 
     assert completed.returncode == 0
-    assert "Flashcards Generator" in completed.stdout + completed.stderr
+    output = completed.stdout + completed.stderr
+    assert "\x1b[?1049h" in output
+    assert "Traceback" not in output
 
 
 def test_secondary_cli_entrypoint_remains_noninteractive() -> None:

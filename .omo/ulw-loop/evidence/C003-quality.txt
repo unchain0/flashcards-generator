@@ -1,0 +1,11 @@
+GREEN quality receipt — 2026-09-04
+
+Final commands and results:
+- `uv run pytest`: 496 passed in 144.57s.
+- `uv run ruff check .`: exit 0.
+- `uv run ruff format --check .`: exit 0, 147 files already formatted.
+- `uv run mypy src/flashcards_generator`: exit 0, no issues in 53 files.
+- `uv lock --check`: exit 0.
+- `uv build`: exit 0; sdist and wheel built.
+- `uv run task quality-gate`: exit 0; all functions within B(6).
+- `git diff --check`: clean.

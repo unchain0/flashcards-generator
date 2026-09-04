@@ -7,7 +7,12 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from flashcards_generator.adapters.notebooklm_adapter import NotebookLMAdapter
+from flashcards_generator.adapters.notebooklm_adapter import (
+    RATE_LIMIT_RETRY_DELAY_SECONDS,
+    NotebookLMAdapter,
+)
+from flashcards_generator.application.contracts import CancellationToken
+from flashcards_generator.domain.exceptions import OperationCancelled
 from flashcards_generator.domain.ports.flashcard_generator import (
     GenerationConfig,
 )
@@ -376,6 +381,65 @@ class TestNotebookLMAdapter:
         mock_process.terminate.assert_called_once()
         mock_process.kill.assert_called_once()
         assert mock_process.wait.call_args_list == [call(timeout=5), call()]
+
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_cancellation_terminates_and_reaps_active_process(
+        self, mock_popen_class
+    ):
+        token = CancellationToken()
+        process = mock_popen(returncode=0, stdout="", stderr="")
+
+        def cancel_while_communicating(*, timeout):
+            token.cancel()
+            return "", ""
+
+        process.communicate.side_effect = cancel_while_communicating
+        process.wait.return_value = None
+        mock_popen_class.return_value = process
+        adapter = NotebookLMAdapter("notebooklm")
+
+        with (
+            adapter.cancellation_scope(token),
+            pytest.raises(OperationCancelled),
+        ):
+            adapter._run_command(["list", "--json"])
+
+        process.terminate.assert_called_once()
+        process.wait.assert_called_once_with(timeout=5)
+
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_cancelled_delete_starts_then_reaps_process(
+        self, mock_popen_class
+    ):
+        token = CancellationToken()
+        process = mock_popen(returncode=0, stdout="", stderr="")
+        mock_popen_class.return_value = process
+        adapter = NotebookLMAdapter("notebooklm")
+        token.cancel()
+
+        with adapter.cancellation_scope(token):
+            result = adapter.delete_notebook("nb123")
+
+        assert result is True
+        process.terminate.assert_called_once()
+        process.wait.assert_called_once_with(timeout=5)
+
+    def test_generation_retry_wait_is_cancellation_aware(self):
+        token = CancellationToken()
+        adapter = NotebookLMAdapter("notebooklm")
+        adapter._run_command = MagicMock(return_value=(1, "", "rate limit"))
+        token.wait_or_cancel = MagicMock(side_effect=OperationCancelled)
+
+        with (
+            adapter.cancellation_scope(token),
+            pytest.raises(OperationCancelled),
+        ):
+            adapter._execute_with_retry(["generate"], 10)
+
+        token.wait_or_cancel.assert_called_once_with(
+            RATE_LIMIT_RETRY_DELAY_SECONDS
+        )
+        adapter._run_command.assert_called_once()
 
     @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
     def test_generation_timeout_is_the_subprocess_deadline(

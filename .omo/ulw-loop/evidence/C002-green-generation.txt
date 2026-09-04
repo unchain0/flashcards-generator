@@ -1,0 +1,13 @@
+GREEN receipt — 2026-09-04
+
+Command:
+uv run pytest tests/tui/test_generate_progress.py tests/unit/test_generation_progress_cancellation.py -q
+
+Output:
+tests/tui/test_generate_progress.py ...                                  [ 60%]
+tests/unit/test_generation_progress_cancellation.py ..                   [100%]
+============================== 5 passed in 3.92s ===============================
+
+The Pilot covers one worker, real GenerateFlashcardsRequest construction,
+progress reporting, cooperative token cancellation, and terminal worker
+cleanup. Unit coverage covers application event boundaries and cancellation.

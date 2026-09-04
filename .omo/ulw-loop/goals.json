@@ -2,7 +2,7 @@
   "version": 1,
   "evidenceLayoutVersion": 2,
   "createdAt": "2026-09-04T15:16:01.608Z",
-  "updatedAt": "2026-09-04T15:23:48.196Z",
+  "updatedAt": "2026-09-04T20:20:57.172Z",
   "briefPath": ".omo/ulw-loop/brief.md",
   "goalsPath": ".omo/ulw-loop/goals.json",
   "ledgerPath": ".omo/ulw-loop/ledger.jsonl",
@@ -20,10 +20,10 @@
           "userModel": "happy",
           "expectedEvidence": ".omo/ulw-loop/evidence/C001-shell-wide.txt + C001-shell-narrow.txt + C001-entrypoints.txt: PTY action logs/screenshots/transcripts for both primary entrypoints and secondary CLI help, including visible IDs/tabs/footer and zero traceback. Failing-first: `tests/tui/test_app.py::test_primary_shell_mounts_and_navigates` and `tests/integration/test_entrypoints.py::test_flashcards_dispatches_tui` must be RED before implementation and GREEN after.",
           "essential": true,
-          "capturedEvidence": ".omo/ulw-loop/evidence/C001-red-entrypoints.txt: before implementation, the real module entrypoint returned old CLI help/exit 1 and the flashcards-cli script was missing under the exact integration test command.",
-          "status": "fail",
-          "capturedAt": "2026-09-04T15:23:48.196Z",
-          "notes": "RED captured before Textual shell/entrypoint production changes; failure is the intended old-interface contract."
+          "capturedEvidence": ".omo/ulw-loop/evidence/C001-red-entrypoints.txt (RED) + .omo/ulw-loop/evidence/C001-shell-wide.txt + C001-shell-narrow.txt + C001-entrypoints.txt (GREEN).",
+          "status": "pass",
+          "capturedAt": "2026-09-04T20:20:57.172Z",
+          "notes": "RED was captured before the Textual shell/entrypoint changes; both primary PTY surfaces and all three secondary CLI help commands now pass."
         },
         {
           "id": "C002",
@@ -31,8 +31,10 @@
           "userModel": "edge",
           "expectedEvidence": ".omo/ulw-loop/evidence/C002-pilot-generate-results-merge.txt + C002-cancel-cleanup.txt: Textual Pilot logs, typed requests/outcomes, generated CSV, merge output/counts and process/worker cleanup. Failing-first: each named Pilot test is RED before its corresponding production seam and GREEN afterward; mutation proof must show default CSV and cancellation assertions fail when the guard is removed.",
           "essential": true,
-          "capturedEvidence": null,
-          "status": "pending"
+          "capturedEvidence": ".omo/ulw-loop/evidence/C002-red.txt + C002-pilot-generate-results-merge.txt + C002-cancel-cleanup.txt.",
+          "status": "pass",
+          "capturedAt": "2026-09-04T20:20:57.172Z",
+          "notes": "Pilot coverage proves typed request mapping, one worker, progress, cancellation, results, and real CSV merge; cancellation cleanup has a separate RED-to-GREEN receipt."
         },
         {
           "id": "C003",
@@ -40,8 +42,10 @@
           "userModel": "regression",
           "expectedEvidence": ".omo/ulw-loop/evidence/C003-notebook-settings-picker.txt + C003-cli-regression.txt + C003-quality.txt: Pilot state/action logs, XDG files, cleanup confirmation result, Unicode picker selection, CLI exit statuses and final suite/lint/type/build results. Failing-first: named Pilot/settings/picker tests are RED before implementation and GREEN after; documentation is reviewed/read-QA only.",
           "essential": false,
-          "capturedEvidence": null,
-          "status": "pending"
+          "capturedEvidence": ".omo/ulw-loop/evidence/C004-red.txt + C004-green-management-settings-picker.txt + C005-green-pty.txt + C005-pty-wide-screen.txt + C005-pty-narrow-screen.txt + C003-notebook-settings-picker.txt + C003-cli-regression.txt + C003-quality.txt.",
+          "status": "pass",
+          "capturedAt": "2026-09-04T20:20:57.172Z",
+          "notes": "The consolidated regression criterion covers NotebookLM management, XDG settings, picker behavior, PTY usability, CLI compatibility, and all final quality gates."
         }
       ],
       "attempt": 0,

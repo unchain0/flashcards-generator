@@ -1,0 +1,12 @@
+GREEN receipt — 2026-09-04
+
+Command:
+uv run pytest tests/tui/test_results_merge.py tests/unit/test_csv_merger.py -q
+
+Output:
+tests/tui/test_results_merge.py ...                                      [ 20%]
+tests/unit/test_csv_merger.py ............                               [100%]
+============================== 15 passed in 3.05s ==============================
+
+The Pilot delegates a real MergeCsvRequest to CsvMerger, verifies recursive
+deduplication and counts, and renders result preview/actions.

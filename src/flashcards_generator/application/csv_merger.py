@@ -9,6 +9,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from flashcards_generator.application.dto.workflow import MergeDetails
 from flashcards_generator.domain.exceptions import CSVMergeError
 
 if TYPE_CHECKING:
@@ -33,6 +34,11 @@ class CsvMerger:
         Raises:
             CSVMergeError: If folder doesn't exist or merge fails
         """
+        return CsvMerger.merge_detailed(request).rows_written
+
+    @staticmethod
+    def merge_detailed(request: MergeCsvRequest) -> MergeDetails:
+        """Merge CSV files and return before/after deduplication counts."""
         output_path = request.folder_path / request.output_filename
         try:
             csv_files = CsvMerger._source_files(request, output_path)
@@ -70,7 +76,7 @@ class CsvMerger:
         csv_files: list[Path],
         *,
         deduplicate: bool,
-    ) -> int:
+    ) -> MergeDetails:
         temporary_path: Path | None = None
         try:
             with tempfile.NamedTemporaryFile(
@@ -84,18 +90,27 @@ class CsvMerger:
             ) as out_f:
                 temporary_path = Path(out_f.name)
                 writer = csv.writer(out_f, quoting=csv.QUOTE_ALL)
-                rows = CsvMerger._iter_rows(csv_files)
-                if deduplicate:
-                    rows = CsvMerger._deduplicated(rows)
-                total_rows = 0
-                for front, back in rows:
+                rows_before = 0
+                rows_written = 0
+                seen: set[tuple[str, str]] = set()
+                for front, back in CsvMerger._iter_rows(csv_files):
+                    rows_before += 1
+                    if deduplicate:
+                        key = (front.strip(), back.strip())
+                        if key in seen:
+                            continue
+                        seen.add(key)
                     writer.writerow([front, back])
-                    total_rows += 1
+                    rows_written += 1
                 out_f.flush()
                 os.fsync(out_f.fileno())
 
             temporary_path.replace(output_path)
-            return total_rows
+            return MergeDetails(
+                rows_before=rows_before,
+                rows_written=rows_written,
+                duplicates_removed=rows_before - rows_written,
+            )
         except Exception:
             if temporary_path is not None:
                 temporary_path.unlink(missing_ok=True)
@@ -115,14 +130,3 @@ class CsvMerger:
                             f"found {len(row)} columns",
                         )
                     yield row[0], row[1]
-
-    @staticmethod
-    def _deduplicated(
-        rows: Iterator[tuple[str, str]],
-    ) -> Iterator[tuple[str, str]]:
-        seen: set[tuple[str, str]] = set()
-        for row in rows:
-            key = (row[0].strip(), row[1].strip())
-            if key not in seen:
-                seen.add(key)
-                yield row

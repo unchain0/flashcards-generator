@@ -1,0 +1,12 @@
+C005 RED — 2026-09-04
+
+Command:
+  uv run pytest tests/integration/test_tui_pty.py -q
+
+Result:
+  exit=1
+  Both real PTY cases failed at 120x40 and 52x24 because the rendered shell
+  did not contain the required `Input directory` workflow surface.
+
+The PTY harness exercised real `uv run flashcards`, terminal resize, key
+input, and teardown. This is the failing-first C005 receipt.

@@ -1,0 +1,91 @@
+=== invocation: uv run flashcards-cli --help ===
+usage: flashcards-cli [-h] [--log-level {DEBUG,INFO,WARNING,ERROR}]
+                      {generate,cleanup,merge} ...
+
+Gera flashcards com Cloze Deletion a partir de PDFs
+
+positional arguments:
+  {generate,cleanup,merge}
+                        Comandos disponíveis
+    generate            Gerar flashcards de PDFs
+    cleanup             Limpar notebooks do NotebookLM
+    merge               Mesclar arquivos CSV de flashcards
+
+options:
+  -h, --help            show this help message and exit
+  --log-level {DEBUG,INFO,WARNING,ERROR}
+                        Nível de log (padrão: INFO)
+
+exit_code=0
+
+=== invocation: uv run flashcards-cli generate --help ===
+usage: flashcards-cli generate [-h] --input-dir INPUT_DIR
+                               [--output-dir OUTPUT_DIR]
+                               [--difficulty {easy,medium,hard}]
+                               [--quantity {fewer,standard,more}]
+                               [--instructions INSTRUCTIONS]
+                               [--language LANGUAGE] [--no-wait]
+                               [--timeout TIMEOUT] [--skip-auth-check]
+                               [--include INCLUDE] [--exclude EXCLUDE]
+                               [--files FILES] [--anki-deck ANKI_DECK]
+                               [--anki-connect-url ANKI_CONNECT_URL]
+                               [--anki-api-key ANKI_API_KEY]
+
+options:
+  -h, --help            show this help message and exit
+  --input-dir INPUT_DIR, -i INPUT_DIR
+                        Diretório com pastas de temas contendo PDFs
+  --output-dir OUTPUT_DIR, -o OUTPUT_DIR
+                        Diretório raiz de saída; a estrutura relativa do input
+                        é preservada dentro dele
+  --difficulty {easy,medium,hard}, -d {easy,medium,hard}
+  --quantity {fewer,standard,more}, -q {fewer,standard,more}
+  --instructions INSTRUCTIONS
+                        Instruções customizadas
+  --language LANGUAGE, -l LANGUAGE
+                        Idioma dos flashcards (padrão: pt_BR)
+  --no-wait             Não aguarda conclusão
+  --timeout TIMEOUT
+  --skip-auth-check
+  --include INCLUDE     Padrão glob para incluir PDFs (ex: 'capitulo*.pdf')
+  --exclude EXCLUDE     Padrão glob para excluir PDFs (ex: '*_old.pdf')
+  --files FILES         Lista explícita de PDFs separados por vírgula
+  --anki-deck ANKI_DECK
+                        Importar cards diretamente no deck Anki informado
+                        (opcional; suporta `::` para decks hierárquicos)
+  --anki-connect-url ANKI_CONNECT_URL
+                        URL local do AnkiConnect (padrão:
+                        http://127.0.0.1:8765)
+  --anki-api-key ANKI_API_KEY
+                        Chave opcional configurada no AnkiConnect
+
+exit_code=0
+
+=== invocation: uv run flashcards-cli merge --help ===
+usage: flashcards-cli merge [-h] --folder FOLDER [--output OUTPUT]
+                            [--deduplicate] [--no-recursive]
+
+options:
+  -h, --help            show this help message and exit
+  --folder FOLDER, -f FOLDER
+                        Pasta contendo arquivos CSV para mesclar
+  --output OUTPUT, -o OUTPUT
+                        Nome do arquivo de saída (padrão:
+                        merged_flashcards.csv)
+  --deduplicate, -d     Remover flashcards duplicados durante a mescla
+  --no-recursive        Não buscar em subpastas (padrão: busca recursiva)
+
+exit_code=0
+
+=== invocation: uv run flashcards-cli cleanup --help ===
+usage: flashcards-cli cleanup [-h] (--days DAYS | --all) [--skip-auth-check]
+
+options:
+  -h, --help            show this help message and exit
+  --days DAYS, -d DAYS  Deletar apenas notebooks criados nos últimos N dias
+                        (ex: 1=hoje, 2=ontem+hoje)
+  --all, -a             Deletar todos os notebooks
+  --skip-auth-check
+
+exit_code=0
+

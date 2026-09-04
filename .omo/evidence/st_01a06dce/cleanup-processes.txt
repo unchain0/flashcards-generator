@@ -1,0 +1,16 @@
+timestamp=2026-09-04T16:10:08-03:00
+invocation: pgrep -af '/home/avell/Projects/unchain0/flashcards-generator/.venv/bin/(python|python3)|flashcards_generator|flashcards-cli'
+2985805 /bin/bash -c ART=.omo/evidence/st_01a06dce; OUT="$ART/cleanup-processes.txt"; { echo "timestamp=$(date -Iseconds)"; echo "invocation: pgrep -af '/home/avell/Projects/unchain0/flashcards-generator/.venv/bin/(python|python3)|flashcards_generator|flashcards-cli'"; pgrep -af '/home/avell/Projects/unchain0/flashcards-generator/\.venv/bin/(python|python3)|flashcards_generator|flashcards-cli' || true; echo; echo 'detailed_project_python:'; pids=$(pgrep -f '/home/avell/Projects/unchain0/flashcards-generator/\.venv/bin/(python|python3)|flashcards_generator|flashcards-cli' | tr '\n' ' ' || true); if [ -n "$pids" ]; then ps -o pid,ppid,lstart,stat,args -p $pids; else echo none; fi; echo; echo 'invocation: tmux list-sessions'; tmux list-sessions 2>&1 || true; echo; echo 'omoqa_sessions:'; tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^omoqa-' || echo none; echo; echo 'entrypoint_processes:'; pgrep -af '/\.venv/bin/(flashcards|flashcards-cli)( |$)|python(3)? .*flashcards_generator' || echo none; } > "$OUT" 2>&1; cat "$OUT"
+
+detailed_project_python:
+    PID    PPID                  STARTED STAT COMMAND
+2985805 2558517 Fri Sep  4 16:10:08 2026 Ss   /bin/bash -c ART=.omo/evidence/st_01a06dce; OUT="$ART/cleanup-processes.txt"; { echo "timestamp=$(date -Iseconds)"; echo "invocation: pgrep -af '/home/avell/Projects/unchain0/flashcards-generator/.venv/bin/(python|python3)|flashcards_generator|flashcards-cli'"; pgrep -af '/home/avell/Projects/unchain0/flashcards-generator/\.venv/bin/(python|python3)|flashcards_generator|flashcards-cli' || true; echo; echo 'detailed_project_python:'; pids=$(pgrep -f '/home/avell/Projects/unchain0/flashcards-generator/\.venv/bin/(python|python3)|flashcards_generator|flashcards-cli' | tr '\n' ' ' || true); if [ -n "$pids" ]; then ps -o pid,ppid,lstart,stat,args -p $pids; else echo none; fi; echo; echo 'invocation: tmux list-sessions'; tmux list-sessions 2>&1 || true; echo; echo 'omoqa_sessions:'; tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^omoqa-' || echo none; echo; echo 'entrypoint_processes:'; pgrep -af '/\.venv/bin/(flashcards|flashcards-cli)( |$)|python(3)? .*flashcards_generator' || echo none; } > "$OUT" 2>&1; cat "$OUT"
+
+invocation: tmux list-sessions
+no server running on /tmp/tmux-1000/default
+
+omoqa_sessions:
+none
+
+entrypoint_processes:
+none

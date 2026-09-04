@@ -30,34 +30,44 @@ uv run notebooklm login
 
 ## Uso
 
+### Interface interativa
+
+```bash
+# Abrir a TUI principal
+uv run flashcards
+
+# Também é possível iniciar a TUI pelo módulo
+uv run python -m flashcards_generator
+```
+
 ### Gerar flashcards
 
 ```bash
 # Gerar de todos os PDFs na pasta input
-uv run flashcards generate -i ./input -o ./output
+uv run flashcards-cli generate -i ./input -o ./output
 
 # Gerar sem aguardar processamento (modo rápido)
-uv run flashcards generate -i ./input -o ./output --no-wait
+uv run flashcards-cli generate -i ./input -o ./output --no-wait
 
 # Especificar timeout (padrão: 15 minutos)
-uv run flashcards generate -i ./input -o ./output --timeout 900
+uv run flashcards-cli generate -i ./input -o ./output --timeout 900
 ```
 
 ### Mesclar arquivos CSV
 
 ```bash
 # Combinar todos os CSVs em uma pasta
-uv run flashcards merge --folder ./output/Tema1
+uv run flashcards-cli merge --folder ./output/Tema1
 
 # Combinar e remover duplicatas
-uv run flashcards merge --folder ./output/Tema1 --deduplicate
+uv run flashcards-cli merge --folder ./output/Tema1 --deduplicate
 ```
 
 ### Limpar notebooks do NotebookLM
 
 ```bash
 # Limpar todos os notebooks criados
-uv run flashcards cleanup --all
+uv run flashcards-cli cleanup --all
 ```
 
 ## Estrutura de Diretórios
@@ -86,7 +96,7 @@ Com o Anki aberto e o AnkiConnect habilitado, importe os cards diretamente
 para um deck (inclusive decks hierárquicos):
 
 ```bash
-uv run flashcards generate \
+uv run flashcards-cli generate \
   --input-dir ./input \
   --output-dir ./output \
   --anki-deck "Estácio::Disciplina::Unidade 1"
@@ -96,7 +106,7 @@ O endpoint padrão é `http://127.0.0.1:8765`. Para uma instalação
 customizada, informe a URL e, se necessário, a chave da API:
 
 ```bash
-uv run flashcards generate \
+uv run flashcards-cli generate \
   --input-dir ./input \
   --anki-deck "Estácio::Disciplina::Unidade 1" \
   --anki-connect-url "http://127.0.0.1:8765" \
@@ -173,7 +183,7 @@ uv run notebooklm login
 
 ```bash
 # Aumente o timeout
-uv run flashcards generate -i ./input -o ./output --timeout 1800
+uv run flashcards-cli generate -i ./input -o ./output --timeout 1800
 ```
 
 ### Flashcards duplicados

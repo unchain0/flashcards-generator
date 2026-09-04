@@ -1,0 +1,28 @@
+Manual PTY screen receipt — 2026-09-04
+
+Surface:
+uv run flashcards
+PTY size: 52 columns x 24 rows
+
+Observed screen:
+Flashcards Generator
+Generate  Results  Merge  NotebookLM  Settings
+Generate flashcards
+Refresh sources / Select all
+Start / No wait
+Input directory
+Browse directories
+q Q  g G  r R  m M  n N  s S  ^r R  esc E  ? H
+
+Observed navigation:
+- `r` rendered Results with Copy CSV/Open CSV/Merge/New generation.
+- `m` rendered Merge with duplicate and recursive controls.
+- `n` rendered NotebookLM with Refresh/Login/Set language/Cleanup all.
+- `s` rendered Settings with Resume completed chunks/Save settings.
+- `q` exited the real process with exit code 0.
+
+The final CSS grid placed the four Generate controls in two rows; measured
+right edges were 24, 43, 24, and 44, all within the 52-column screen.
+The compact footer displayed every shell shortcut, including Ctrl+R and Esc,
+without truncation, and no sibling log overlay was visible; long form content
+remains vertically scrollable.

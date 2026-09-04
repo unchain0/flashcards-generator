@@ -87,6 +87,8 @@ class GenerationOutcome:
     completed_sources: int
     skipped_sources: int
     failed_sources: tuple[SourceFailure, ...]
+    csv_paths: tuple[Path, ...] = ()
+    elapsed_seconds: float = 0.0
 
     @property
     def succeeded(self) -> bool:

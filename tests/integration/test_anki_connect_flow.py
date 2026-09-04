@@ -6,7 +6,6 @@ import csv
 import json
 import os
 import subprocess
-import sys
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -130,13 +129,12 @@ def _run_real_cli(
     notebooklm_dir.mkdir()
     _create_notebooklm_fake(notebooklm_dir)
 
+    project_root = Path(__file__).resolve().parents[2]
     environment = os.environ.copy()
     environment["PATH"] = f"{notebooklm_dir}{os.pathsep}{environment['PATH']}"
     return subprocess.run(
         [
-            sys.executable,
-            "-m",
-            "flashcards_generator",
+            str(project_root / ".venv/bin/flashcards-cli"),
             "generate",
             "--input-dir",
             str(input_dir),
@@ -147,7 +145,7 @@ def _run_real_cli(
             "--skip-auth-check",
             *arguments,
         ],
-        cwd=Path(__file__).resolve().parents[2],
+        cwd=project_root,
         env=environment,
         capture_output=True,
         text=True,

@@ -1,0 +1,12 @@
+GREEN receipt — 2026-09-04
+
+Command:
+uv run pytest tests/integration/test_tui_pty.py -q
+
+Output:
+tests/integration/test_tui_pty.py ..                                     [100%]
+============================== 2 passed in 2.61s ===============================
+
+The PTY scenarios exercise 120x40 and 52x24 terminals, wait for a visible
+footer readiness marker, send `q`, and bound child teardown without leaving
+the application process alive.

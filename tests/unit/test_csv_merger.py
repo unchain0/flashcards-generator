@@ -66,6 +66,18 @@ class TestCsvMerger:
             ],
         )
 
+    def test_detailed_merge_reports_deduplication_counts(self, tmp_path):
+        (tmp_path / "one.csv").write_text("Q1,A1\nQ2,A2\n", encoding="utf-8")
+        (tmp_path / "two.csv").write_text("Q1,A1\nQ3,A3\n", encoding="utf-8")
+
+        result = CsvMerger.merge_detailed(
+            MergeCsvRequest(folder_path=tmp_path, deduplicate=True)
+        )
+
+        assert result.rows_before == 4
+        assert result.rows_written == 3
+        assert result.duplicates_removed == 1
+
     def test_merge_with_deduplication(self, tmp_path):
         csv_file1 = tmp_path / "flashcards1.csv"
         with open(csv_file1, "w", newline="", encoding="utf-8") as f:

@@ -14,6 +14,7 @@ class GenerateFlashcardsRequest(BaseModel):
     output_dir: Path
     difficulty: str = Field(default="medium")
     quantity: str = Field(default="standard")
+    language: str = Field(default="pt_BR")
     instructions: str = Field(default="")
     wait_for_completion: bool = Field(default=True)
     timeout: int = Field(default=900)

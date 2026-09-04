@@ -1,0 +1,12 @@
+C002 RED — 2026-09-04
+
+Command:
+  uv run pytest tests/tui/test_generate_progress.py -q
+
+Result:
+  exit=1
+  `TypeError: App.__init__() got an unexpected keyword argument 'services'`
+
+The current Textual shell has no injected generation service, real
+GenerateFlashcardsRequest path, worker, progress reporter, or cancellation
+surface. This is the failing-first C002 receipt.

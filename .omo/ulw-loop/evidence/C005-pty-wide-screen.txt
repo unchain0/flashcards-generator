@@ -1,0 +1,25 @@
+Manual PTY screen receipt — 2026-09-04
+
+Surface:
+uv run flashcards
+PTY size: 120 columns x 40 rows
+
+Observed screen:
+Flashcards Generator
+Generate  Results  Merge  NotebookLM  Settings
+Input directory
+Browse directories
+Output directory
+q Q  g G  r R  m M  n N  s S  ^r R  esc E  ? H
+
+Observed actions:
+- `?` opened the Keyboard shortcuts modal.
+- The modal listed q/g/r/m/n/s/Ctrl+R/?/Esc.
+- `n` and `s` navigated successfully from the real terminal.
+- `Esc` closed the modal without exiting the application.
+- `q` exited the real process with exit code 0.
+
+The screen snapshot was captured through the persistent PTY terminal
+`bash_output(view="screen")`; the automated PTY receipt is
+`C005-green-pty.txt`. The footer included Ctrl+R and Esc in the live final
+render.

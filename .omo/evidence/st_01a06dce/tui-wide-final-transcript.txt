@@ -1,0 +1,14 @@
+FINAL PTY TRANSCRIPT — 2026-09-04
+
+command: uv run flashcards --help
+size: 120x40
+observed:
+  Flashcards Generator
+  Generate  Results  Merge  NotebookLM  Settings
+  Keyboard shortcuts
+  q Quit / g Generate / r Results / m Merge / n NotebookLM / s Settings
+  Ctrl+R Refresh sources / ? Help / Esc Close
+actions: ? -> help modal; Esc -> shell; n -> NotebookLM; s -> Settings;
+         q -> process exit 0
+traceback: none
+orphan processes: none

@@ -1,0 +1,13 @@
+GREEN CLI receipt — 2026-09-04
+
+Help commands:
+- `uv run flashcards-cli generate --help`: exit 0.
+- `uv run flashcards-cli merge --help`: exit 0.
+- `uv run flashcards-cli cleanup --help`: exit 0.
+
+Behavior:
+- Existing CLI tests for generate, merge, cleanup, workflows, and Anki
+  integration passed.
+- A real `flashcards-cli merge` run returned exit 0 and wrote two rows.
+- The CLI delegates to the shared application workflow facade rather than
+  duplicating TUI workflow logic.

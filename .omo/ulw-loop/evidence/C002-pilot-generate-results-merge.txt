@@ -1,0 +1,16 @@
+GREEN Pilot receipt — 2026-09-04
+
+Commands:
+- `uv run pytest tests/tui -q`
+- `uv run pytest tests/integration/test_tui_pty.py -q`
+
+Results:
+- Textual Pilot suite: 14 passed.
+- Real PTY suite: 2 passed.
+- Generate Pilot asserts a real GenerateFlashcardsRequest containing selected
+  PDF and PPTX paths, advanced options, one worker, progress updates, and
+  cancellation.
+- Results Pilot renders cards, preview, CSV, counts, and New generation/Merge
+  actions.
+- Merge Pilot invokes the real CsvMerger through MergeCsvRequest and renders
+  the output row count.

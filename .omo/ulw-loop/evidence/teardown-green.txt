@@ -1,0 +1,5 @@
+Teardown receipt — 2026-09-04
+
+After the C001–C005 GREEN run, the project-process scan reported no active
+`flashcards` or `pytest` process. Only the user's existing `foot` terminal
+remained; no NotebookLM child process was present.

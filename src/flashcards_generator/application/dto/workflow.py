@@ -52,11 +52,26 @@ class AuthStatus:
 
 
 @dataclass(frozen=True, slots=True)
+class MergeDetails:
+    """Detailed row counts produced by a CSV merge operation."""
+
+    rows_before: int
+    rows_written: int
+    duplicates_removed: int
+
+
+@dataclass(frozen=True, slots=True)
 class MergeOutcome:
     """Result of merging CSV files."""
 
     output_path: Path
     rows_written: int
+    duplicates_removed: int = 0
+
+    @property
+    def rows_before(self) -> int:
+        """Return the valid input row count before deduplication."""
+        return self.rows_written + self.duplicates_removed
 
 
 @dataclass(frozen=True, slots=True)

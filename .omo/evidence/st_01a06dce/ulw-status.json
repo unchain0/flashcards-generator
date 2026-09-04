@@ -1,0 +1,14 @@
+{
+  "ok": false,
+  "error": {
+    "code": "ULW_LOOP_PLAN_MISSING",
+    "message": "No ulw-loop plan found at .omo/ulw-loop/01a06dcd-f33d-7a51-a54d-22210bb4bd6e/goals.json.\nRecovery: bootstrap the plan with `omo-agent-toolkit ulw-loop create-goals --brief \"<brief>\" --json`.\nExisting ulw-loop session ids under .omo/ulw-loop/: 01a05f5f-031b-748b-a611-c92954a4249a, evidence. Re-run with `--session-id <id>` to target one of them.",
+    "details": {
+      "existingSessionIds": [
+        "01a05f5f-031b-748b-a611-c92954a4249a",
+        "evidence"
+      ]
+    }
+  }
+}
+exit_code=1

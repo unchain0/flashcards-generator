@@ -13,6 +13,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
+from flashcards_generator.application.contracts import (
+    CancellationToken,
+    NullProgressReporter,
+    ProgressEvent,
+    ProgressReporter,
+    ProgressStage,
+    ProgressState,
+)
 from flashcards_generator.application.converter import ClozeConverter
 from flashcards_generator.application.dto.generate_request import (
     GenerateFlashcardsRequest,
@@ -188,47 +196,197 @@ class GenerateFlashcardsUseCase:
         self._last_chunk_error_message: str | None = None
         self._last_pdf_had_error = False
         self._last_run_had_errors = False
+        self._token: CancellationToken | None = None
+        self._reporter: ProgressReporter = NullProgressReporter()
+
+    def _publish(
+        self,
+        stage: ProgressStage,
+        state: ProgressState,
+        message: str,
+        *,
+        current: int | None = None,
+        total: int | None = None,
+        source: Path | None = None,
+        chunk_index: int | None = None,
+        cards: int | None = None,
+    ) -> None:
+        """Publish one framework-neutral workflow update."""
+        self._reporter.publish(
+            ProgressEvent(
+                stage=stage,
+                state=state,
+                message=message,
+                current=current,
+                total=total,
+                source=source,
+                chunk_index=chunk_index,
+                cards=cards,
+            )
+        )
+
+    def _raise_if_cancelled(self) -> None:
+        """Raise when cancellation has been requested for this run."""
+        if self._token is not None:
+            self._token.raise_if_cancelled()
+
+    def _wait_or_cancel(self, timeout: float) -> None:
+        """Wait without making a cancellable run sleep uninterruptibly."""
+        if self._token is None:
+            time.sleep(timeout)
+            return
+        self._token.wait_or_cancel(timeout)
 
     @property
     def last_run_had_errors(self) -> bool:
         """Whether the latest execution failed to process a source."""
         return self._last_run_had_errors
 
-    def execute(self, request: GenerateFlashcardsRequest) -> list[Deck]:
-        """Execute flashcard generation for all PDFs in input directory.
+    def execute(
+        self,
+        request: GenerateFlashcardsRequest,
+        reporter: ProgressReporter | None = None,
+        token: CancellationToken | None = None,
+    ) -> list[Deck]:
+        """Execute generation with optional progress and cancellation."""
+        self._reporter = reporter or NullProgressReporter()
+        self._token = token
+        input_path, output_path = self._prepare_generation_paths(request)
+        self._last_run_had_errors = False
 
-        Args:
-            request: Configuration and paths for generation
+        with self.generator.cancellation_scope(self._token):
+            try:
+                return self._generate_decks(request, input_path, output_path)
+            finally:
+                self._cleanup_generation_resources()
 
-        Returns:
-            List of generated decks
-        """
+    def _prepare_generation_paths(
+        self, request: GenerateFlashcardsRequest
+    ) -> tuple[Path, Path]:
+        """Resolve generation roots and remove stale raw artifacts."""
         input_path = request.input_dir.resolve(strict=True)
         output_path = request.output_dir
         output_path.mkdir(parents=True, exist_ok=True)
-        output_path = output_path.resolve(strict=True)
-        self._cleanup_orphaned_raw_files(output_path)
-        self._last_run_had_errors = False
+        resolved_output_path = output_path.resolve(strict=True)
+        self._cleanup_orphaned_raw_files(resolved_output_path)
+        return input_path, resolved_output_path
 
+    def _generate_decks(
+        self,
+        request: GenerateFlashcardsRequest,
+        input_path: Path,
+        output_path: Path,
+    ) -> list[Deck]:
+        """Discover sources and process each one in deterministic order."""
+        self._raise_if_cancelled()
+        all_pdfs = self._discover_sources(input_path, request)
+        if not all_pdfs:
+            logger.warning(f"No PDFs found in {input_path}")
+            return []
+
+        logger.info(f"{len(all_pdfs)} PDF(s) found")
+        return self._process_sources(
+            sorted(all_pdfs), input_path, output_path, request
+        )
+
+    def _discover_sources(
+        self, input_path: Path, request: GenerateFlashcardsRequest
+    ) -> list[Path]:
+        """Find sources while publishing discovery boundaries."""
+        self._publish(
+            ProgressStage.DISCOVERY,
+            ProgressState.STARTED,
+            "Discovering sources",
+            current=0,
+        )
+        all_pdfs = self._find_all_pdfs(input_path, request)
+        self._publish(
+            ProgressStage.DISCOVERY,
+            ProgressState.COMPLETED,
+            "Source discovery completed",
+            current=len(all_pdfs),
+            total=len(all_pdfs),
+        )
+        return all_pdfs
+
+    def _process_sources(
+        self,
+        pdf_paths: list[Path],
+        input_path: Path,
+        output_path: Path,
+        request: GenerateFlashcardsRequest,
+    ) -> list[Deck]:
+        """Process discovered sources while retaining successful decks."""
         decks: list[Deck] = []
-        try:
-            all_pdfs = self._find_all_pdfs(input_path, request)
-            if not all_pdfs:
-                logger.warning(f"No PDFs found in {input_path}")
-                return decks
+        for current, pdf_path in enumerate(pdf_paths, 1):
+            deck = self._process_source(
+                pdf_path,
+                current,
+                len(pdf_paths),
+                input_path,
+                output_path,
+                request,
+            )
+            if deck:
+                decks.append(deck)
+        return decks
 
-            logger.info(f"{len(all_pdfs)} PDF(s) found")
-            for pdf_path in sorted(all_pdfs):
-                self._last_pdf_had_error = False
-                deck = self._process_pdf_entry(
-                    pdf_path, input_path, output_path, request
-                )
-                self._last_run_had_errors |= self._last_pdf_had_error
-                if deck:
-                    decks.append(deck)
-            return decks
-        finally:
-            self._cleanup_notebooks()
+    def _process_source(
+        self,
+        pdf_path: Path,
+        current: int,
+        total: int,
+        input_path: Path,
+        output_path: Path,
+        request: GenerateFlashcardsRequest,
+    ) -> Deck | None:
+        """Process one source and publish its structured outcome."""
+        self._raise_if_cancelled()
+        self._last_pdf_had_error = False
+        self._publish(
+            ProgressStage.SOURCE,
+            ProgressState.STARTED,
+            "Processing source",
+            current=current,
+            total=total,
+            source=pdf_path,
+        )
+        deck = self._process_pdf_entry(
+            pdf_path, input_path, output_path, request
+        )
+        self._last_run_had_errors |= self._last_pdf_had_error
+        self._publish(
+            ProgressStage.SOURCE,
+            self._source_progress_state(deck),
+            "Source processing finished",
+            current=current,
+            total=total,
+            source=pdf_path,
+            cards=len(deck.flashcards) if deck else None,
+        )
+        return deck
+
+    def _source_progress_state(self, deck: Deck | None) -> ProgressState:
+        """Map the latest source outcome to its progress state."""
+        if self._last_pdf_had_error:
+            return ProgressState.FAILED
+        if deck:
+            return ProgressState.COMPLETED
+        return ProgressState.SKIPPED
+
+    def _cleanup_generation_resources(self) -> None:
+        """Clean tracked notebooks while publishing cleanup boundaries."""
+        self._publish(
+            ProgressStage.CLEANUP,
+            ProgressState.STARTED,
+            "Cleaning up generation resources",
+        )
+        self._cleanup_notebooks()
+        self._publish(
+            ProgressStage.CLEANUP,
+            ProgressState.COMPLETED,
+            "Generation resources cleaned up",
+        )
 
     def _process_pdf_entry(
         self,
@@ -302,7 +460,29 @@ class GenerateFlashcardsUseCase:
         """Persist a completed, wait-mode deck and clear its resume state."""
         if deck is None or not request.wait_for_completion:
             return
-        self._save_deck(deck, pdf_output_path, pdf_stem)
+        self._raise_if_cancelled()
+        self._publish(
+            ProgressStage.EXPORT,
+            ProgressState.STARTED,
+            "Exporting deck",
+            cards=len(deck.flashcards),
+        )
+        try:
+            self._save_deck(deck, pdf_output_path, pdf_stem)
+        except OSError:
+            self._publish(
+                ProgressStage.EXPORT,
+                ProgressState.FAILED,
+                "Deck export failed",
+                cards=len(deck.flashcards),
+            )
+            raise
+        self._publish(
+            ProgressStage.EXPORT,
+            ProgressState.COMPLETED,
+            "Deck exported",
+            cards=len(deck.flashcards),
+        )
         if request.resume and self._chunk_state_repository:
             self._cleanup_resume_state(pdf_output_path, pdf_stem)
 
@@ -989,6 +1169,7 @@ class GenerateFlashcardsUseCase:
     def _process_chunks(self, run: _ChunkRun) -> bool:
         """Process every missing chunk and persist successful results."""
         for chunk_index, chunk_path in enumerate(run.chunks, 1):
+            self._raise_if_cancelled()
             chunk_deck = self._get_or_process_chunk(
                 run, chunk_index, chunk_path
             )
@@ -999,7 +1180,7 @@ class GenerateFlashcardsUseCase:
                 logger.debug(
                     f"Waiting {CHUNK_DELAY_SECONDS}s before next chunk..."
                 )
-                time.sleep(CHUNK_DELAY_SECONDS)
+                self._wait_or_cancel(CHUNK_DELAY_SECONDS)
         return True
 
     def _get_or_process_chunk(
@@ -1010,8 +1191,28 @@ class GenerateFlashcardsUseCase:
             logger.info(
                 f"Skipping chunk {chunk_index}/{len(run.chunks)} - already done"
             )
-            return run.chunk_decks[chunk_index]
+            resumed_deck = run.chunk_decks[chunk_index]
+            self._publish(
+                ProgressStage.CHUNK,
+                ProgressState.SKIPPED,
+                "Using completed chunk",
+                current=chunk_index,
+                total=len(run.chunks),
+                source=run.pdf_path,
+                chunk_index=chunk_index,
+                cards=len(resumed_deck.flashcards),
+            )
+            return resumed_deck
 
+        self._publish(
+            ProgressStage.CHUNK,
+            ProgressState.STARTED,
+            "Processing chunk",
+            current=chunk_index,
+            total=len(run.chunks),
+            source=run.pdf_path,
+            chunk_index=chunk_index,
+        )
         logger.info(f"Processing chunk {chunk_index}/{len(run.chunks)}...")
         self._last_chunk_error_message = None
         chunk_deck = self._process_chunk(
@@ -1024,10 +1225,30 @@ class GenerateFlashcardsUseCase:
         )
         if chunk_deck is None:
             self._mark_chunk_failed(run, chunk_index)
+            self._publish(
+                ProgressStage.CHUNK,
+                ProgressState.FAILED,
+                "Chunk processing failed",
+                current=chunk_index,
+                total=len(run.chunks),
+                source=run.pdf_path,
+                chunk_index=chunk_index,
+            )
             return None
 
         run.chunk_decks[chunk_index] = chunk_deck
+        self._raise_if_cancelled()
         self._save_chunk_completion(run, chunk_index, chunk_deck)
+        self._publish(
+            ProgressStage.CHUNK,
+            ProgressState.COMPLETED,
+            "Chunk processing completed",
+            current=chunk_index,
+            total=len(run.chunks),
+            source=run.pdf_path,
+            chunk_index=chunk_index,
+            cards=len(chunk_deck.flashcards),
+        )
         return chunk_deck
 
     @staticmethod
@@ -1281,8 +1502,8 @@ class GenerateFlashcardsUseCase:
             )
         )
 
-    @staticmethod
     def _wait_for_chunk_retry(
+        self,
         attempt: int,
         delay: float,
         chunk_index: int,
@@ -1296,7 +1517,15 @@ class GenerateFlashcardsUseCase:
             f"Chunk {chunk_index}/{total_chunks}: {reason} "
             f"{attempt}/{CHUNK_RETRY_MAX_ATTEMPTS} in {delay}s..."
         )
-        time.sleep(delay)
+        self._publish(
+            ProgressStage.CHUNK,
+            ProgressState.RETRYING,
+            "Retrying chunk processing",
+            current=attempt,
+            total=CHUNK_RETRY_MAX_ATTEMPTS,
+            chunk_index=chunk_index,
+        )
+        self._wait_or_cancel(delay)
         return min(
             delay * CHUNK_RETRY_BACKOFF_MULTIPLIER,
             CHUNK_RETRY_MAX_DELAY,
@@ -1350,26 +1579,50 @@ class GenerateFlashcardsUseCase:
             f"Chunk {task.chunk_index}/{task.total_chunks}: "
             "source added, waiting..."
         )
+        self._raise_if_cancelled()
         self.generator.wait_for_source(
             notebook_id, source_id, timeout=SOURCE_WAIT_TIMEOUT
         )
+        self._raise_if_cancelled()
         artifact_id = self._generate_chunk_artifact(notebook_id, task)
         if not artifact_id:
             logger.error(
                 f"Chunk {task.chunk_index}/{task.total_chunks}: "
                 "failed to generate"
             )
+            self._publish(
+                ProgressStage.GENERATION,
+                ProgressState.FAILED,
+                "Chunk generation failed",
+                chunk_index=task.chunk_index,
+            )
             return None
 
+        self._raise_if_cancelled()
         completed = self.generator.wait_for_artifact(
             notebook_id, artifact_id, timeout=task.request.timeout
         )
+        self._raise_if_cancelled()
         if not completed:
             logger.warning(
                 f"Chunk {task.chunk_index}/{task.total_chunks}: timeout"
             )
+            self._publish(
+                ProgressStage.GENERATION,
+                ProgressState.FAILED,
+                "Chunk generation timed out",
+                chunk_index=task.chunk_index,
+            )
             return None
-        return self._download_chunk_deck(notebook_id, artifact_id, task)
+        deck = self._download_chunk_deck(notebook_id, artifact_id, task)
+        self._publish(
+            ProgressStage.GENERATION,
+            ProgressState.COMPLETED,
+            "Chunk generation completed",
+            chunk_index=task.chunk_index,
+            cards=len(deck.flashcards),
+        )
+        return deck
 
     def _generate_chunk_artifact(
         self, notebook_id: str, task: _ChunkTask
@@ -1392,7 +1645,18 @@ class GenerateFlashcardsUseCase:
             f"Chunk {task.chunk_index}/{task.total_chunks}: "
             "generating flashcards..."
         )
-        return self.generator.generate_flashcards(notebook_id, gen_config)
+        self._publish(
+            ProgressStage.GENERATION,
+            ProgressState.STARTED,
+            "Generating chunk flashcards",
+            chunk_index=task.chunk_index,
+        )
+        self._raise_if_cancelled()
+        artifact_id = self.generator.generate_flashcards(
+            notebook_id, gen_config
+        )
+        self._raise_if_cancelled()
+        return artifact_id
 
     def _download_chunk_deck(
         self, notebook_id: str, artifact_id: str, task: _ChunkTask
@@ -1547,9 +1811,11 @@ class GenerateFlashcardsUseCase:
             self._last_pdf_had_error = True
             return None
         logger.info("Processing source...")
+        self._raise_if_cancelled()
         self.generator.wait_for_source(
             notebook_id, source_id, timeout=SOURCE_WAIT_TIMEOUT
         )
+        self._raise_if_cancelled()
         deck = self._generate_flashcards(
             notebook_id, deck_name, pdf_output_path, request, pdf_path.stem
         )
@@ -1576,15 +1842,27 @@ class GenerateFlashcardsUseCase:
         )
 
         logger.info("Generating flashcards...")
+        self._publish(
+            ProgressStage.GENERATION,
+            ProgressState.STARTED,
+            "Generating flashcards",
+        )
+        self._raise_if_cancelled()
         artifact_id = self.generator.generate_flashcards(
             notebook_id, gen_config
         )
+        self._raise_if_cancelled()
 
         if not artifact_id:
             logger.error("Failed to generate flashcards")
+            self._publish(
+                ProgressStage.GENERATION,
+                ProgressState.FAILED,
+                "Flashcard generation failed",
+            )
             return None
 
-        return self._handle_artifact_completion(
+        deck = self._handle_artifact_completion(
             notebook_id,
             artifact_id,
             pdf_output_path,
@@ -1592,6 +1870,13 @@ class GenerateFlashcardsUseCase:
             request,
             pdf_stem,
         )
+        self._publish(
+            ProgressStage.GENERATION,
+            ProgressState.COMPLETED,
+            "Flashcard generation completed",
+            cards=len(deck.flashcards),
+        )
+        return deck
 
     def _handle_artifact_completion(
         self,
@@ -1613,9 +1898,11 @@ class GenerateFlashcardsUseCase:
                 notebook_id=notebook_id,
             )
 
+        self._raise_if_cancelled()
         completed = self.generator.wait_for_artifact(
             notebook_id, artifact_id, timeout=request.timeout
         )
+        self._raise_if_cancelled()
 
         if completed:
             return self._download_and_convert(
@@ -1654,9 +1941,11 @@ class GenerateFlashcardsUseCase:
     ) -> list[Flashcard]:
         """Download and parse cards, always removing the raw artifact."""
         try:
+            self._raise_if_cancelled()
             self.generator.download_flashcards(
                 notebook_id, artifact_id, json_path
             )
+            self._raise_if_cancelled()
             return self.generator.parse_flashcards(json_path)
         finally:
             self._cleanup_raw_file(json_path)

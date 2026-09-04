@@ -1,0 +1,15 @@
+GREEN Pilot receipt — 2026-09-04
+
+Command:
+uv run pytest tests/tui/test_notebooklm_settings_picker.py -q
+
+Results:
+- 4 passed.
+- Auth status and login delegated through injected services.
+- Cleanup-all stayed behind an explicit confirmation and then delegated with
+  `confirmed=True`.
+- Settings round-tripped through XDG-backed storage.
+- Invalid settings payloads fell back to deterministic defaults.
+- DirectoryTree navigation handled Backspace (parent) and Home (root), while
+  preserving an empty directory and a Unicode path containing spaces.
+- Source discovery retained only PDF and PPTX files.

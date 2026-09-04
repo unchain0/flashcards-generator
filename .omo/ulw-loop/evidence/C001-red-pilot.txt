@@ -1,0 +1,19 @@
+C001 RED — Pilot/integration — 2026-09-04
+
+Command:
+  uv run pytest tests/tui/test_app.py tests/integration/test_entrypoints.py -q
+
+Result:
+  exit=1
+  collected=3
+  2 failed, 1 passed
+
+Failures:
+  - `test_primary_shell_mounts_real_workflow_surfaces`: the current shell
+    has no `#generate-input-dir` (and therefore no required real workflow
+    surfaces).
+  - `test_flashcards_help_exposes_textual_shell`: `flashcards --help` did not
+    expose the Textual `Flashcards Generator` surface.
+
+The shortcut navigation smoke test passed, proving only the existing tab
+selection shell behavior. This is the failing-first C001 receipt.

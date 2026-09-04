@@ -1,0 +1,19 @@
+FINAL BEHAVIOR TRANSCRIPT — 2026-09-04
+
+Surface: Textual Pilot integration (the same mounted application used by the
+real PTY sessions).
+
+invalid input:
+  timeout="not-a-number" -> "Invalid ..." status; service calls: 0
+
+cancellation:
+  one fake generation worker started -> cancel action -> cancellation token
+  set, worker finished, cancellation status rendered, NotebookLM cleanup
+  still executed and all child processes were reaped
+
+result/merge:
+  Results rendered card preview and CSV actions; Merge rendered rows before,
+  rows written, and duplicates removed.
+
+verification: tests/tui and the final full suite passed; no live product
+process remained.

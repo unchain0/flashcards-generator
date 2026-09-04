@@ -1,0 +1,13 @@
+C004 RED — 2026-09-04
+
+Command:
+  uv run pytest tests/tui/test_notebooklm_settings_picker.py -q
+
+Result:
+  exit=1
+  `TypeError: App.__init__() got an unexpected keyword argument 'services'`
+  The independent Unicode/space/empty-directory filesystem smoke passed.
+
+The current Textual shell has no injected NotebookLM management service,
+settings persistence, confirmation modal, or picker surface. This is the
+failing-first C004 receipt.

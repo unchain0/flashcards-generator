@@ -1,16 +1,12 @@
-"""Primary application entry point."""
+"""Primary Textual entry point."""
 
 from __future__ import annotations
 
 import sys
 
-from flashcards_generator.interfaces.cli import main as cli_main
 from flashcards_generator.interfaces.tui.app import FlashcardsApp
 
 
 def main() -> None:
-    """Launch the TUI without arguments and the CLI otherwise."""
-    if len(sys.argv) > 1:
-        cli_main()
-        return
-    FlashcardsApp().run()
+    """Launch the Textual app for every primary entrypoint invocation."""
+    FlashcardsApp(show_help="--help" in sys.argv[1:]).run()

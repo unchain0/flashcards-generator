@@ -7,7 +7,10 @@ import os
 import signal
 import subprocess
 import time
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
+from threading import Lock
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from rich.console import Console
@@ -26,6 +29,7 @@ from flashcards_generator.domain.exceptions import (
     NotebookLMResponseError,
     SourceProcessingError,
 )
+from flashcards_generator.domain.ports.cancellation import CancellationPort
 from flashcards_generator.domain.ports.flashcard_generator import (
     FlashcardGeneratorPort,
     GenerationConfig,
@@ -71,15 +75,59 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
     ):
         self.notebooklm_path = notebooklm_path
         self.timeout = timeout
+        self._cancellation_token: CancellationPort | None = None
+        self._active_stoppers: set[Callable[[], None]] = set()
+        self._active_stoppers_lock = Lock()
+
+    def cancel_active(self) -> None:
+        """Stop every command currently owned by this adapter."""
+        with self._active_stoppers_lock:
+            stoppers = tuple(self._active_stoppers)
+        for stop_process in stoppers:
+            stop_process()
+
+    def _track_stopper(self, stop_process: Callable[[], None]) -> None:
+        with self._active_stoppers_lock:
+            self._active_stoppers.add(stop_process)
+
+    def _untrack_stopper(self, stop_process: Callable[[], None]) -> None:
+        with self._active_stoppers_lock:
+            self._active_stoppers.discard(stop_process)
+
+    @contextmanager
+    def cancellation_scope(
+        self, token: CancellationPort | None
+    ) -> Iterator[None]:
+        """Bind a cancellation token to commands run by one workflow."""
+        previous_token = self._cancellation_token
+        self._cancellation_token = token
+        try:
+            yield
+        finally:
+            self._cancellation_token = previous_token
+
+    def _wait_before_retry(self, timeout: float) -> None:
+        """Wait for a retry while allowing cooperative cancellation."""
+        if self._cancellation_token is None:
+            time.sleep(timeout)
+            return
+        self._cancellation_token.wait_or_cancel(timeout)
 
     def _run_command(
         self,
         args: list[str],
         check: bool = True,
         timeout: int | None = None,
+        *,
+        cancellable: bool = True,
+        cancel_on_token: bool = False,
+        ignore_pre_cancel: bool = False,
+        raise_on_cancel: bool = True,
     ) -> tuple[int, str, str]:
         """Run one CLI command and reap it on timeout or cancellation."""
         command_timeout = self.timeout if timeout is None else timeout
+        token = self._command_token(cancellable, cancel_on_token)
+        self._check_before_command(token, ignore_pre_cancel)
         process = subprocess.Popen(
             [self.notebooklm_path, *args],
             stdout=subprocess.PIPE,
@@ -89,17 +137,92 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
             shell=False,
             start_new_session=True,
         )
+        stop_process = self._process_stopper(process)
+        self._track_stopper(stop_process)
+        unregister = self._register_process_stopper(token, stop_process)
         try:
-            stdout, stderr = process.communicate(timeout=command_timeout)
-        except (KeyboardInterrupt, subprocess.TimeoutExpired):
-            self._stop_process(process)
-            raise
+            stdout, stderr = self._communicate(
+                process, command_timeout, stop_process
+            )
+        finally:
+            unregister()
+            self._untrack_stopper(stop_process)
 
+        self._check_after_command(token, raise_on_cancel)
         if check and process.returncode != 0:
             raise RuntimeError(
                 self._command_failure(process.returncode, stderr)
             )
         return process.returncode, stdout, stderr
+
+    def _command_token(
+        self, cancellable: bool, cancel_on_token: bool
+    ) -> CancellationPort | None:
+        """Return the token relevant to this command's lifecycle."""
+        if cancellable or cancel_on_token:
+            return self._cancellation_token
+        return None
+
+    @staticmethod
+    def _check_before_command(
+        token: CancellationPort | None, ignore_pre_cancel: bool
+    ) -> None:
+        """Raise before a command unless cleanup must still start."""
+        if not ignore_pre_cancel:
+            NotebookLMAdapter._raise_if_cancelled(token)
+
+    @staticmethod
+    def _check_after_command(
+        token: CancellationPort | None, raise_on_cancel: bool
+    ) -> None:
+        """Propagate cancellation after a command when requested."""
+        if raise_on_cancel:
+            NotebookLMAdapter._raise_if_cancelled(token)
+
+    @staticmethod
+    def _raise_if_cancelled(token: CancellationPort | None) -> None:
+        """Raise when a command's cooperative cancellation was requested."""
+        if token is not None:
+            token.raise_if_cancelled()
+
+    def _process_stopper(
+        self, process: subprocess.Popen[str]
+    ) -> Callable[[], None]:
+        """Build an idempotent, thread-safe process cleanup callback."""
+        stopped = False
+        stop_lock = Lock()
+
+        def stop_process() -> None:
+            nonlocal stopped
+            with stop_lock:
+                if stopped:
+                    return
+                stopped = True
+                self._stop_process(process)
+
+        return stop_process
+
+    @staticmethod
+    def _register_process_stopper(
+        token: CancellationPort | None, stop_process: Callable[[], None]
+    ) -> Callable[[], None]:
+        """Register cancellation cleanup, returning an unregister callback."""
+        if token is None:
+            return lambda: None
+        return token.register(stop_process)
+
+    @staticmethod
+    def _communicate(
+        process: subprocess.Popen[str],
+        timeout: int,
+        stop_process: Callable[[], None],
+    ) -> tuple[str, str]:
+        """Communicate with a process and clean it up if interrupted."""
+        try:
+            return process.communicate(timeout=timeout)
+        except (KeyboardInterrupt, subprocess.TimeoutExpired):
+            stop_process()
+            raise
 
     def _stop_process(self, process: subprocess.Popen[str]) -> None:
         """Stop the command group where possible and always reap its leader."""
@@ -251,7 +374,7 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
         logger.warning(
             "NotebookLM generation transient failure; retrying once"
         )
-        time.sleep(RATE_LIMIT_RETRY_DELAY_SECONDS)
+        self._wait_before_retry(RATE_LIMIT_RETRY_DELAY_SECONDS)
         returncode, stdout, stderr = self._run_command(
             command, check=False, timeout=timeout
         )
@@ -347,7 +470,9 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
                 "NotebookLM download transient failure: "
                 f"attempt={attempt + 1} status={returncode}; retrying"
             )
-            time.sleep(DOWNLOAD_RETRY_DELAY_SECONDS * (attempt + 1))
+            self._wait_before_retry(
+                DOWNLOAD_RETRY_DELAY_SECONDS * (attempt + 1)
+            )
 
         raise AssertionError(
             "unreachable download retry state"
@@ -465,7 +590,12 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
         """Delete a notebook using the selected CLI dialect."""
         try:
             returncode, _, stderr = self._run_command(
-                ["delete", "-n", notebook_id, "-y"], check=False
+                ["delete", "-n", notebook_id, "-y"],
+                check=False,
+                cancellable=False,
+                cancel_on_token=True,
+                ignore_pre_cancel=True,
+                raise_on_cancel=False,
             )
         except (OSError, subprocess.SubprocessError):
             logger.warning("NotebookLM delete failed before completion")

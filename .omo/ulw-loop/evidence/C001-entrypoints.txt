@@ -1,0 +1,15 @@
+GREEN entrypoint receipt — 2026-09-04
+
+Primary PTY commands:
+- `uv run flashcards --help`: exit 0, Textual Help modal visible.
+- `uv run python -m flashcards_generator --help`: exit 0, Textual Help modal
+  visible.
+
+Secondary CLI commands:
+- `uv run flashcards-cli generate --help`: exit 0, argparse usage visible.
+- `uv run flashcards-cli merge --help`: exit 0, argparse usage visible.
+- `uv run flashcards-cli cleanup --help`: exit 0, argparse usage visible.
+
+Regression:
+`uv run pytest tests/integration/test_entrypoints.py -q` passed in the final
+full suite; no traceback was observed on either primary entrypoint.

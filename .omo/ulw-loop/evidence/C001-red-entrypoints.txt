@@ -1,13 +1,19 @@
-Command:
-uv run pytest tests/integration/test_tui_entrypoints.py -vv --tb=short
+C001 RED — 2026-09-04
 
-Result: RED (exit code 1)
+Observed before production changes:
 
-Observed before the migration:
-- `test_module_entrypoint_starts_textual_shell` fails because
-  `python -m flashcards_generator` routes to the old CLI help and exits 1;
-- `test_secondary_cli_entrypoint_remains_noninteractive` fails because the
-  `flashcards-cli` script does not exist.
+`uv run flashcards --help`
+exit=0
+Output begins with argparse usage:
+  usage: flashcards [-h] [--log-level {DEBUG,INFO,WARNING,ERROR}]
+  {generate,cleanup,merge} ...
 
-This is the intended pre-implementation entrypoint/shell failure, not a
-syntax or import failure in the proposed TUI.
+`uv run python -m flashcards_generator --help`
+exit=0
+Output begins with argparse usage:
+  usage: __main__.py [-h] [--log-level {DEBUG,INFO,WARNING,ERROR}]
+  {generate,cleanup,merge} ...
+
+The primary commands do not expose a Textual app surface. This is the
+intentional failing-first baseline for C001. The secondary `flashcards-cli`
+generate, merge, and cleanup help commands remained available and exited 0.

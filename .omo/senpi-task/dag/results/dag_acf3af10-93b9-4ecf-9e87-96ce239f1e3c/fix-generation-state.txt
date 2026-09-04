@@ -1,7 +1,0 @@
-I read this as implementation - completed the L2 input/generation/resume-state lane.
-
-- Added scoped fixes and deterministic regressions for explicit inputs, swap resistance, resume recovery/integrity, durable private atomic state, ownership locks, SHA-256 signatures, no-wait markers, deduplication, and OSError retries.
-- Scoped tests: **35 passed**.
-- Ruff, LSP diagnostics, `git diff --check`, and `uv build` passed.
-- RED/GREEN transcripts and containment/integrity probe are in `.omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/`.
-- Lane report: `L2-generation-state.md`.

@@ -1,8 +1,0 @@
-I read this as implementation - completed the CLI/docs/entry-point lane.
-
-- Implemented B24-B25 fixes and focused regressions.
-- Scoped suite: 69 passed.
-- `python -m flashcards_generator --help` and documented merge parser command pass.
-- LSP diagnostics: no errors; scoped Ruff checks pass.
-- Preserved user-owned `pyproject.toml`/`uv.lock` changes.
-- RED/GREEN transcripts and report: `.omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L6-cli-docs.md`

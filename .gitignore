@@ -22,3 +22,6 @@ output/
 pdfs/
 inputs/
 input/
+
+# OMO runtime task logs (ephemeral local orchestration state)
+.omo/senpi-task/

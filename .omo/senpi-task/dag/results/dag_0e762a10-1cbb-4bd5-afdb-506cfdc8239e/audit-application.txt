@@ -1,0 +1,5 @@
+I read this as an audit delivery - the bounded report is complete and verified.
+
+Written: `.omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a1/audit-application.md`
+
+It contains 8 falsifiable findings and explicitly covers resume, retry, cancellation, empty input, duplicates, CSV correctness, and exception propagation. Report validation confirmed all required fields; it is 2,088 words. No tests were run or code changed.

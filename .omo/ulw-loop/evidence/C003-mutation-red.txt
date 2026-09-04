@@ -1,0 +1,16 @@
+Mutation proof:
+Temporarily replaced the default no-op AnkiConnect branch in
+`CLI._create_anki_exporter` with a ValueError.
+
+Command:
+uv run pytest tests/integration/test_anki_connect_flow.py -k test_existing_csv_export_remains_default -vv -s
+
+Result under mutation: RED (exit code 1)
+
+Observed assertion:
+`assert 1 == 0`
+The subprocess stderr reported:
+`Opções do AnkiConnect inválidas: temporary mutation: default Anki opt-in removed`
+
+The regression test therefore detects accidental activation of the opt-in
+integration. The production branch was restored immediately afterward.

@@ -1,0 +1,11 @@
+I read this as completed L3 conversion/merge/export implementation - I added focused regressions, applied minimal fixes, and verified the lane.
+
+- Invalid/malformed cloze cards are rejected.
+- Extra-column CSV rows now raise contextual `CSVMergeError`; quoted two-column input remains intact.
+- Anki TSV now uses quoted tab-delimited CSV serialization, preserving tabs/newlines as two logical fields.
+- Report with exact RED/GREEN transcripts: `.omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L3-exports.md`.
+
+Verified:
+- `uv run pytest tests/unit/test_converter.py tests/unit/test_csv_merger.py tests/unit/test_exporter.py -q` -> `50 passed`
+- LSP diagnostics: no errors in all three changed production files.
+- `git diff --check` clean for all lane source/test files.

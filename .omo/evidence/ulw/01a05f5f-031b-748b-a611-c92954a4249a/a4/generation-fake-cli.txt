@@ -1,0 +1,78 @@
+working_dir=/home/avell/Projects/unchain0/flashcards-generator
+fixture_root=/tmp/flashcards-qa-generate.AP70Nz
+$ uv run env PATH=/tmp/flashcards-qa-generate.AP70Nz/bin:$PATH python -m flashcards_generator generate --input-dir /tmp/flashcards-qa-generate.AP70Nz/input --output-dir /tmp/flashcards-qa-generate.AP70Nz/output --skip-auth-check --timeout 30
+00:17:56 INFO     cli:253 - Idioma configurado: pt_BR
+00:17:56 INFO     cli:298 - Iniciando...
+00:17:56 INFO     cli:299 - Entrada: /tmp/flashcards-qa-generate.AP70Nz/input
+00:17:56 INFO     cli:300 - Saída: /tmp/flashcards-qa-generate.AP70Nz/output (preservando a estrutura relativa)
+00:17:56 INFO     cli:303 - Dificuldade: medium
+00:17:56 INFO     cli:304 - Quantidade: standard
+00:17:56 INFO     use_cases:212 - 1 PDF(s) found
+00:17:56 INFO     use_cases:1437 - ============================================================
+00:17:56 INFO     use_cases:1438 - PDF: Tema1/sample.pdf
+00:17:56 INFO     use_cases:1439 - Deck: Tema1_sample
+00:17:56 INFO     use_cases:1440 - ============================================================
+00:17:56 INFO     pdf_utils:270 - PDF .sample.5fe7884368cf3334142f544580942ee8.pdf: 1 pages
+00:18:10 INFO     use_cases:833 - Source added: d8d25959...
+00:18:10 INFO     use_cases:1489 - Processing source...
+00:18:15 INFO     use_cases:1515 - Generating flashcards...
+00:18:24 INFO     use_cases:1543 - Waiting for generation...
+00:18:54 INFO     use_cases:802 - Cleaning up 1 notebook(s)...
+00:19:01 INFO     notebooklm_adapter:447 - NotebookLM notebook deleted
+00:19:01 INFO     use_cases:808 - Deleted: 4054f164...
+Traceback (most recent call last):
+  File "/home/avell/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/home/avell/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/home/avell/Projects/unchain0/flashcards-generator/src/flashcards_generator/__main__.py", line 6, in <module>
+    main()
+  File "/home/avell/Projects/unchain0/flashcards-generator/src/flashcards_generator/interfaces/cli.py", line 420, in main
+    sys.exit(cli.run())
+  File "/home/avell/Projects/unchain0/flashcards-generator/src/flashcards_generator/interfaces/cli.py", line 411, in run
+    return self._run_generate(args)
+  File "/home/avell/Projects/unchain0/flashcards-generator/src/flashcards_generator/interfaces/cli.py", line 334, in _run_generate
+    decks = use_case.execute(request)
+  File "/home/avell/Projects/unchain0/flashcards-generator/src/flashcards_generator/application/use_cases.py", line 214, in execute
+    deck = self._process_pdf_entry(
+  File "/home/avell/Projects/unchain0/flashcards-generator/src/flashcards_generator/application/use_cases.py", line 242, in _process_pdf_entry
+    return self._process_pdf_with_lock(
+  File "/home/avell/Projects/unchain0/flashcards-generator/src/flashcards_generator/application/use_cases.py", line 273, in _process_pdf_with_lock
+    deck = self._process_pdf(
+  File "/home/avell/Projects/unchain0/flashcards-generator/src/flashcards_generator/application/use_cases.py", line 1409, in _process_pdf
+    return self._process_pdf_content(
+  File "/home/avell/Projects/unchain0/flashcards-generator/src/flashcards_generator/application/use_cases.py", line 1463, in _process_pdf_content
+    return self._process_regular_pdf(
+  File "/home/avell/Projects/unchain0/flashcards-generator/src/flashcards_generator/application/use_cases.py", line 1493, in _process_regular_pdf
+    return self._generate_flashcards(
+  File "/home/avell/Projects/unchain0/flashcards-generator/src/flashcards_generator/application/use_cases.py", line 1524, in _generate_flashcards
+    return self._handle_artifact_completion(
+  File "/home/avell/Projects/unchain0/flashcards-generator/src/flashcards_generator/application/use_cases.py", line 1553, in _handle_artifact_completion
+    completed = self.generator.wait_for_artifact(
+  File "/home/avell/Projects/unchain0/flashcards-generator/src/flashcards_generator/adapters/notebooklm_adapter.py", line 302, in wait_for_artifact
+    returncode, _, _ = self._run_command(
+  File "/home/avell/Projects/unchain0/flashcards-generator/src/flashcards_generator/adapters/notebooklm_adapter.py", line 84, in _run_command
+    stdout, stderr = process.communicate(timeout=command_timeout)
+  File "/home/avell/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/subprocess.py", line 1154, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+  File "/home/avell/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/subprocess.py", line 2022, in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+  File "/home/avell/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/subprocess.py", line 1198, in _check_timeout
+    raise TimeoutExpired(
+subprocess.TimeoutExpired: Command '['/home/avell/Projects/unchain0/flashcards-generator/.venv/bin/notebooklm', 'artifact', 'wait', 'a7ed9c6a-2f5f-4dce-a686-06e69599e34b', '-n', '4054f164-9984-4579-a100-8c51060f69c4', '--timeout', '30']' timed out after 30 seconds
+[exit=1]
+
+output tree:
+ d 60 bytes
+Tema1 d 60 bytes
+Tema1/.flashcards_resume d 60 bytes
+Tema1/.flashcards_resume/.sample.lock f 0 bytes
+
+CSV parse (/tmp/flashcards-qa-generate.AP70Nz/output/Tema1/sample.csv):
+Traceback (most recent call last):
+  File "<stdin>", line 5, in <module>
+  File "/home/avell/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/pathlib.py", line 1119, in open
+    return self._accessor.open(self, mode, buffering, encoding, errors,
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/flashcards-qa-generate.AP70Nz/output/Tema1/sample.csv'
+
+traceback_present=no

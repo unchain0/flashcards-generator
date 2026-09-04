@@ -1,0 +1,9 @@
+Command:
+uv run flashcards generate --help
+
+Result: PASS (exit code 0)
+
+The real help output listed:
+--anki-deck ANKI_DECK
+--anki-connect-url ANKI_CONNECT_URL
+--anki-api-key ANKI_API_KEY

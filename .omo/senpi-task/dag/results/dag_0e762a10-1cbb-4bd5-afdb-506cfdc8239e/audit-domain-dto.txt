@@ -1,0 +1,5 @@
+I read this as a completed audit task - the requested report was written and re-read for compliance.
+
+Report: `.omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a1/audit-domain-dto.md`
+
+It includes five findings, category coverage including an error-contract no-finding row, exact locations, severities, RED/GREEN plans, fixes, and verification commands. Baseline scoped tests passed: 57 passed.

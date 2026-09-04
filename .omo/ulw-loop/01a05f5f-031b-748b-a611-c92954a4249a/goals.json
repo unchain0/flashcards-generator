@@ -1,0 +1,110 @@
+{
+  "version": 1,
+  "evidenceLayoutVersion": 2,
+  "createdAt": "2026-09-01T23:49:24.076Z",
+  "updatedAt": "2026-09-02T04:16:26.334Z",
+  "briefPath": ".omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/brief.md",
+  "goalsPath": ".omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/goals.json",
+  "ledgerPath": ".omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/ledger.jsonl",
+  "codexGoalMode": "aggregate",
+  "goals": [
+    {
+      "id": "G001-aprimore-e-audite-integralmente-o-pr",
+      "title": "Aprimore e audite integralmente o projeto Python CLI flashcards-gener...",
+      "objective": "Aprimore e audite integralmente o projeto Python CLI flashcards-generator em /home/avell/Projects/unchain0/flashcards-generator. Entregue código mais correto, seguro, robusto, tipado, observável, testável e documentado, preservando Python >=3.10,<3.11 e as superfícies existentes salvo correção comprovada. O trabalho é HEAVY: o usuário exige análise completa, segurança, concorrência, arquitetura, edge cases, performance, auditoria independente e validação rigorosa. Inclua critérios binários e cenários exatos: (C1 baseline/regressão) executar uv run ruff check ., uv run ruff format --check ., uv run mypy src/flashcards_generator e uv run pytest; PASS somente com exit code 0 e logs/artifact guardados; failing-first proof é uma reprodução/teste RED de cada bug comportamental antes da correção, e caracterização GREEN quando aplicável. (C2 happy path) executar a CLI real com uv run python -m flashcards_generator --help e um fluxo mínimo de geração usando fixture local/mock permitido pelo contrato; PASS se help sai 0 com opções válidas e o fluxo produz CSV Anki válido sem traceback; guardar transcript. (C3 edge/security) exercitar entradas inválidas, arquivos ausentes/corrompidos, paths maliciosos, interrupção/resume/retry e estados concorrentes conforme contratos existentes; PASS se erros são controlados/contextuais, não há traversal/execução indevida/corrupção de estado e testes específicos passam; guardar transcript e diffs de estado. (C4 qualidade adjacente) revisar e corrigir tipagem, tratamento de erros, logs, dead code, duplicações, performance e documentação em cada domínio sem alterar contratos sem evidência; PASS se diagnósticos LSP e comandos de qualidade passam e testes de regressão cobrindo funções modificadas ficam verdes; guardar relatório de auditoria. (C5 auditoria independente) depois das correções, executar nova análise independente de segurança, lógica, concorrência, dependências e cobertura e repetir os cenários críticos; PASS se nenhum blocker crítico/alto permanece e o relatório cita cada risco residual com evidência. Para cada critério capture RED antes de produção, GREEN depois, QA por superfície real (CLI/auxiliary data) e cleanup receipt. Use /home/avell/Projects/unchain0/flashcards-generator/.omo/ulw-loop como estado; preserve alterações do usuário já presentes em pyproject.toml e uv.lock, não faça git reset/checkout destrutivo, não crie commit sem autorização explícita nesta solicitação. Fora de escopo: publicar/deployar, autenticar NotebookLM real, alterar dados do usuário, trocar dependências sem necessidade demonstrada. Pare somente quando todos os critérios passarem com evidências vinculadas à árvore atual, a auditoria independente estiver limpa ou tiver apenas riscos residuais documentados, e não houver tarefa/processo/artefato de QA pendente.",
+      "status": "complete",
+      "successCriteria": [
+        {
+          "id": "C001",
+          "scenario": "Happy path and quality gate: run `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy src/flashcards_generator`, `uv run pytest`, then run `uv run python -m flashcards_generator --help`; PASS iff every command exits 0, pytest reports all collected tests passed, help exits 0 and contains both `generate` and `merge`; FAIL iff any command is nonzero, traceback appears, or either subcommand is absent. Failing-first proof: for every behavioral defect found in audit, add its named pytest case and run it RED before the production edit; for pure quality findings capture the baseline command output before the edit. Manual-QA channel is terminal/auxiliary CLI stdout; capture exact transcripts in `.omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C001-quality-and-help.txt`.",
+          "userModel": "happy",
+          "expectedEvidence": ".omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C001-quality-and-help.txt containing exit codes and output for all five commands, plus RED and GREEN pytest excerpts; tree stamp and cleanup receipt are recorded with the evidence.",
+          "essential": true,
+          "capturedEvidence": ".omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C001-quality-and-help.txt",
+          "status": "pass",
+          "capturedAt": "2026-09-02T03:57:58.250Z",
+          "notes": "Final tree: ruff, format, mypy, module help, console help, and 437-test regression are green; mypy covers 31 source files."
+        },
+        {
+          "id": "C002",
+          "scenario": "edge case (boundary/empty/malformed): run `uv run pytest tests/unit/test_path_scenarios.py tests/unit/test_safe_filename.py tests/unit/test_chunk_state_repository.py tests/unit/test_use_cases_edge_cases.py tests/unit/test_adapter_edge_cases.py tests/integration/test_resume_flow.py -q`; PASS iff exit code is 0 and every collected test passes. Then execute `uv run python -m flashcards_generator generate --input-dir /tmp/ulw-missing-input --output-dir /tmp/ulw-output` and `uv run python -m flashcards_generator merge --folder /tmp/ulw-missing-folder --output ../ulw-escape.csv`; each MUST exit 1, print a contextual error without `Traceback`, and leave no file outside the requested root. The failing-first proof is a named regression test or exact temporary seam mutation captured RED before each behavioral, security, or concurrency production edit and the same test captured GREEN afterward. Manual-QA is terminal/auxiliary CLI plus filesystem/state diff; save raw output, exit codes, containment result, tree stamp, and cleanup receipt at `.omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C002-edge-security.txt`.",
+          "userModel": "edge",
+          "expectedEvidence": ".omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C002-edge-security.txt with targeted edge-test output, exact invalid CLI transcripts and exit codes, traceback absence, filesystem containment result, RED/GREEN proof, current tree stamp, and cleanup receipt.",
+          "essential": true,
+          "capturedEvidence": ".omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C002-edge-security.txt",
+          "status": "pass",
+          "capturedAt": "2026-09-02T03:58:06.076Z",
+          "notes": "Final safe CLI QA and focused suite cover fake generation, malformed merge atomicity, provider failure exit 1, lock cleanup, traversal, symlink, resume, retry, and bounded document/artifact processing."
+        },
+        {
+          "id": "C003",
+          "scenario": "regression: adjacent surface still works and an independent final audit finds no critical or high issue. Run `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy src/flashcards_generator`, `uv run pip check`, `uv build`, `uv run pre-commit run --all-files --show-diff-on-failure`, and `git diff --check`; PASS iff every command exits 0, all tests pass, the wheel and sdist are produced, and the audit report lists every residual risk with severity and file evidence. The failing-first proof is a characterization test captured GREEN on the baseline or a named regression test captured RED before each behavioral edit and GREEN after it. Manual-QA is terminal/auxiliary CLI and artifact inspection; save raw validator output, build artifact listing, audit report, tree stamp, and cleanup receipt at `.omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C003-independent-audit.txt`.",
+          "userModel": "regression",
+          "expectedEvidence": ".omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C003-independent-audit.txt containing every validator exit code, pytest summary, package artifact listing, pre-commit output, diff check, independent security/logic/concurrency/dependency audit, regression RED/GREEN proof, residual-risk table, current tree stamp, and cleanup receipt.",
+          "essential": false,
+          "capturedEvidence": ".omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C003-independent-audit.txt",
+          "status": "pass",
+          "capturedAt": "2026-09-02T03:58:13.179Z",
+          "notes": "Final full validators and independent security review are green: 437 tests, quality gate B6, pip check, build, pre-commit, diff check; residual risks are documented."
+        }
+      ],
+      "attempt": 1,
+      "createdAt": "2026-09-01T23:49:24.076Z",
+      "updatedAt": "2026-09-02T04:16:26.334Z",
+      "startedAt": "2026-09-01T23:52:31.226Z",
+      "completedAt": "2026-09-02T04:16:26.334Z",
+      "evidence": ".omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C001-quality-and-help.txt; .omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C002-edge-security.txt; .omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C003-independent-audit.txt; .omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C004-quality-adjacent-audit.md; .omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C005-independent-audit.md; .omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/cleanup-receipt.md"
+    }
+  ],
+  "codexObjective": "Complete the durable ulw-loop plan in .omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/goals.json, including later accepted/appended stories, under the original brief constraints; use .omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/ledger.jsonl as the audit trail.",
+  "aggregateCompletion": {
+    "status": "complete",
+    "completedAt": "2026-09-02T04:16:26.334Z",
+    "evidence": ".omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C001-quality-and-help.txt; .omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C002-edge-security.txt; .omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C003-independent-audit.txt; .omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C004-quality-adjacent-audit.md; .omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C005-independent-audit.md; .omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/cleanup-receipt.md",
+    "codexGoal": {
+      "id": "G001-aprimore-e-audite-integralmente-o-pr",
+      "title": "Aprimore e audite integralmente o projeto Python CLI flashcards-gener...",
+      "objective": "Aprimore e audite integralmente o projeto Python CLI flashcards-generator em /home/avell/Projects/unchain0/flashcards-generator. Entregue código mais correto, seguro, robusto, tipado, observável, testável e documentado, preservando Python >=3.10,<3.11 e as superfícies existentes salvo correção comprovada. O trabalho é HEAVY: o usuário exige análise completa, segurança, concorrência, arquitetura, edge cases, performance, auditoria independente e validação rigorosa. Inclua critérios binários e cenários exatos: (C1 baseline/regressão) executar uv run ruff check ., uv run ruff format --check ., uv run mypy src/flashcards_generator e uv run pytest; PASS somente com exit code 0 e logs/artifact guardados; failing-first proof é uma reprodução/teste RED de cada bug comportamental antes da correção, e caracterização GREEN quando aplicável. (C2 happy path) executar a CLI real com uv run python -m flashcards_generator --help e um fluxo mínimo de geração usando fixture local/mock permitido pelo contrato; PASS se help sai 0 com opções válidas e o fluxo produz CSV Anki válido sem traceback; guardar transcript. (C3 edge/security) exercitar entradas inválidas, arquivos ausentes/corrompidos, paths maliciosos, interrupção/resume/retry e estados concorrentes conforme contratos existentes; PASS se erros são controlados/contextuais, não há traversal/execução indevida/corrupção de estado e testes específicos passam; guardar transcript e diffs de estado. (C4 qualidade adjacente) revisar e corrigir tipagem, tratamento de erros, logs, dead code, duplicações, performance e documentação em cada domínio sem alterar contratos sem evidência; PASS se diagnósticos LSP e comandos de qualidade passam e testes de regressão cobrindo funções modificadas ficam verdes; guardar relatório de auditoria. (C5 auditoria independente) depois das correções, executar nova análise independente de segurança, lógica, concorrência, dependências e cobertura e repetir os cenários críticos; PASS se nenhum blocker crítico/alto permanece e o relatório cita cada risco residual com evidência. Para cada critério capture RED antes de produção, GREEN depois, QA por superfície real (CLI/auxiliary data) e cleanup receipt. Use /home/avell/Projects/unchain0/flashcards-generator/.omo/ulw-loop como estado; preserve alterações do usuário já presentes em pyproject.toml e uv.lock, não faça git reset/checkout destrutivo, não crie commit sem autorização explícita nesta solicitação. Fora de escopo: publicar/deployar, autenticar NotebookLM real, alterar dados do usuário, trocar dependências sem necessidade demonstrada. Pare somente quando todos os critérios passarem com evidências vinculadas à árvore atual, a auditoria independente estiver limpa ou tiver apenas riscos residuais documentados, e não houver tarefa/processo/artefato de QA pendente.",
+      "status": "complete",
+      "successCriteria": [
+        {
+          "id": "C001",
+          "scenario": "Happy path and quality gate: run `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy src/flashcards_generator`, `uv run pytest`, then run `uv run python -m flashcards_generator --help`; PASS iff every command exits 0, pytest reports all collected tests passed, help exits 0 and contains both `generate` and `merge`; FAIL iff any command is nonzero, traceback appears, or either subcommand is absent. Failing-first proof: for every behavioral defect found in audit, add its named pytest case and run it RED before the production edit; for pure quality findings capture the baseline command output before the edit. Manual-QA channel is terminal/auxiliary CLI stdout; capture exact transcripts in `.omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C001-quality-and-help.txt`.",
+          "userModel": "happy",
+          "expectedEvidence": ".omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C001-quality-and-help.txt containing exit codes and output for all five commands, plus RED and GREEN pytest excerpts; tree stamp and cleanup receipt are recorded with the evidence.",
+          "essential": true,
+          "capturedEvidence": ".omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C001-quality-and-help.txt",
+          "status": "pass",
+          "capturedAt": "2026-09-02T03:57:58.250Z",
+          "notes": "Final tree: ruff, format, mypy, module help, console help, and 437-test regression are green; mypy covers 31 source files."
+        },
+        {
+          "id": "C002",
+          "scenario": "edge case (boundary/empty/malformed): run `uv run pytest tests/unit/test_path_scenarios.py tests/unit/test_safe_filename.py tests/unit/test_chunk_state_repository.py tests/unit/test_use_cases_edge_cases.py tests/unit/test_adapter_edge_cases.py tests/integration/test_resume_flow.py -q`; PASS iff exit code is 0 and every collected test passes. Then execute `uv run python -m flashcards_generator generate --input-dir /tmp/ulw-missing-input --output-dir /tmp/ulw-output` and `uv run python -m flashcards_generator merge --folder /tmp/ulw-missing-folder --output ../ulw-escape.csv`; each MUST exit 1, print a contextual error without `Traceback`, and leave no file outside the requested root. The failing-first proof is a named regression test or exact temporary seam mutation captured RED before each behavioral, security, or concurrency production edit and the same test captured GREEN afterward. Manual-QA is terminal/auxiliary CLI plus filesystem/state diff; save raw output, exit codes, containment result, tree stamp, and cleanup receipt at `.omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C002-edge-security.txt`.",
+          "userModel": "edge",
+          "expectedEvidence": ".omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C002-edge-security.txt with targeted edge-test output, exact invalid CLI transcripts and exit codes, traceback absence, filesystem containment result, RED/GREEN proof, current tree stamp, and cleanup receipt.",
+          "essential": true,
+          "capturedEvidence": ".omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C002-edge-security.txt",
+          "status": "pass",
+          "capturedAt": "2026-09-02T03:58:06.076Z",
+          "notes": "Final safe CLI QA and focused suite cover fake generation, malformed merge atomicity, provider failure exit 1, lock cleanup, traversal, symlink, resume, retry, and bounded document/artifact processing."
+        },
+        {
+          "id": "C003",
+          "scenario": "regression: adjacent surface still works and an independent final audit finds no critical or high issue. Run `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy src/flashcards_generator`, `uv run pip check`, `uv build`, `uv run pre-commit run --all-files --show-diff-on-failure`, and `git diff --check`; PASS iff every command exits 0, all tests pass, the wheel and sdist are produced, and the audit report lists every residual risk with severity and file evidence. The failing-first proof is a characterization test captured GREEN on the baseline or a named regression test captured RED before each behavioral edit and GREEN after it. Manual-QA is terminal/auxiliary CLI and artifact inspection; save raw validator output, build artifact listing, audit report, tree stamp, and cleanup receipt at `.omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C003-independent-audit.txt`.",
+          "userModel": "regression",
+          "expectedEvidence": ".omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C003-independent-audit.txt containing every validator exit code, pytest summary, package artifact listing, pre-commit output, diff check, independent security/logic/concurrency/dependency audit, regression RED/GREEN proof, residual-risk table, current tree stamp, and cleanup receipt.",
+          "essential": false,
+          "capturedEvidence": ".omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/evidence/C003-independent-audit.txt",
+          "status": "pass",
+          "capturedAt": "2026-09-02T03:58:13.179Z",
+          "notes": "Final full validators and independent security review are green: 437 tests, quality gate B6, pip check, build, pre-commit, diff check; residual risks are documented."
+        }
+      ],
+      "attempt": 1,
+      "createdAt": "2026-09-01T23:49:24.076Z",
+      "updatedAt": "2026-09-02T03:58:13.179Z",
+      "startedAt": "2026-09-01T23:52:31.226Z"
+    }
+  }
+}

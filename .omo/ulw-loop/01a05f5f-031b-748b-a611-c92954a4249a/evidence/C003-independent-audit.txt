@@ -1,0 +1,71 @@
+C003 - final canonical evidence
+Working directory: /home/avell/Projects/unchain0/flashcards-generator
+Final tree state: 2026-09-02, uncommitted; no commit or destructive git command.
+
+Final validator results:
+
+```console
+$ uv run pytest
+437 passed in 68.93s
+[exit=0]
+
+$ uv run ruff check .
+All checks passed!
+[exit=0]
+
+$ uv run ruff format --check .
+97 files already formatted
+[exit=0]
+
+$ uv run mypy src/flashcards_generator
+Success: no issues found in 31 source files
+[exit=0]
+
+$ uv run pip check
+No broken requirements found.
+[exit=0]
+
+$ uv build
+Successfully built dist/flashcards_generator-1.0.0.tar.gz
+Successfully built dist/flashcards_generator-1.0.0-py3-none-any.whl
+[exit=0]
+
+$ uv run task quality-gate
+All functions within B(6) limit
+[exit=0]
+
+$ uv run pre-commit run --all-files --show-diff-on-failure
+all configured hooks passed
+[exit=0]
+
+$ git diff --check
+no output
+[exit=0]
+```
+
+The wheel and sdist were inspected, then removed with build caches and
+egg-info. The tracked `.coverage` file was restored to HEAD object
+`6a218c7dcdb1b0cee25ac34c553d0126d1093082`, mode 0755.
+
+Independent audit disposition:
+- No critical or high blocker found in current source, tests, CLI probes, or
+  AST security scan.
+- Medium residual: sparse similarity row multiplication can remain quadratic
+  in time on dense adversarial input; retained pair memory is capped at
+  100,000 and semantic boundaries use adjacent products only.
+- Low residual: `logging_config.py` removes global Loguru sinks, which can
+  affect embedding hosts.
+- External residual: live NotebookLM authentication/provider behavior was
+  intentionally not exercised.
+- User-owned residual: `pyproject.toml` and `uv.lock` select NotebookLM 0.8.1;
+  dependency resolution and `pip check` pass, but live provider compatibility
+  remains external and unverified.
+
+Historical evidence reconciliation:
+`.omo/evidence/ulw/.../a3/complexity-refactor.md` records that a second full
+suite was not claimed at that earlier checkpoint. That statement is
+historical and is superseded by the final 437-test run recorded above and in
+the final audit. The supplemental strict complexity gate was later rerun and
+passes after the private-helper refactor.
+
+Result: PASS. Residual risks are documented and are not acceptance blockers.

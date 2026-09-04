@@ -1,0 +1,13 @@
+Command:
+uv run pytest tests/integration/test_tui_entrypoints.py -vv --tb=short
+
+Result: RED (exit code 1)
+
+Observed before the migration:
+- `test_module_entrypoint_starts_textual_shell` fails because
+  `python -m flashcards_generator` routes to the old CLI help and exits 1;
+- `test_secondary_cli_entrypoint_remains_noninteractive` fails because the
+  `flashcards-cli` script does not exist.
+
+This is the intended pre-implementation entrypoint/shell failure, not a
+syntax or import failure in the proposed TUI.

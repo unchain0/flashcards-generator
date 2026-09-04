@@ -1,0 +1,94 @@
+============================= test session starts ==============================
+platform linux -- Python 3.10.21, pytest-8.4.2, pluggy-1.6.0
+rootdir: /home/avell/Projects/unchain0/flashcards-generator
+configfile: pyproject.toml
+plugins: timeout-2.4.0, asyncio-1.2.0, cov-7.1.0, anyio-4.14.2
+asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 68 items
+
+tests/unit/test_cli.py ..................FFFFFF                          [ 35%]
+tests/unit/test_cli_cleanup.py ......F...                                [ 50%]
+tests/unit/test_cli_merge.py ..F....                                     [ 60%]
+tests/unit/test_coverage_edge_cases.py F........................         [ 97%]
+tests/unit/test_main_entry.py ..                                         [100%]
+
+=================================== FAILURES ===================================
+_ TestMain.test_cleanup_selectors_are_mutually_exclusive_and_positive[selector0] _
+tests/unit/test_cli.py:409: in test_cleanup_selectors_are_mutually_exclusive_and_positive
+    with pytest.raises(SystemExit) as exc_info:
+E   Failed: DID NOT RAISE <class 'SystemExit'>
+_ TestMain.test_cleanup_selectors_are_mutually_exclusive_and_positive[selector1] _
+tests/unit/test_cli.py:409: in test_cleanup_selectors_are_mutually_exclusive_and_positive
+    with pytest.raises(SystemExit) as exc_info:
+E   Failed: DID NOT RAISE <class 'SystemExit'>
+_ TestMain.test_cleanup_selectors_are_mutually_exclusive_and_positive[selector2] _
+tests/unit/test_cli.py:409: in test_cleanup_selectors_are_mutually_exclusive_and_positive
+    with pytest.raises(SystemExit) as exc_info:
+E   Failed: DID NOT RAISE <class 'SystemExit'>
+______________ TestMain.test_validate_input_rejects_regular_file _______________
+tests/unit/test_cli.py:418: in test_validate_input_rejects_regular_file
+    assert CLI()._validate_input(input_file) is False
+E   AssertionError: assert True is False
+E    +  where True = _validate_input(PosixPath('/tmp/pytest-of-avell/pytest-525/test_validate_input_rejects_re0/input.pdf'))
+E    +    where _validate_input = <flashcards_generator.interfaces.cli.CLI object at 0x7f894f471d50>._validate_input
+E    +      where <flashcards_generator.interfaces.cli.CLI object at 0x7f894f471d50> = CLI()
+______________ TestMain.test_check_auth_reports_os_error_context _______________
+tests/unit/test_cli.py:429: in test_check_auth_reports_os_error_context
+    assert CLI().check_auth() is False
+src/flashcards_generator/interfaces/cli.py:179: in check_auth
+    result = subprocess.run(
+../../../.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/unittest/mock.py:1114: in __call__
+    return self._mock_call(*args, **kwargs)
+../../../.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/unittest/mock.py:1118: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+../../../.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/unittest/mock.py:1173: in _execute_mock_call
+    raise effect
+E   PermissionError: denied
+_______________ TestMain.test_set_language_reports_nonzero_exit ________________
+tests/unit/test_cli.py:447: in test_set_language_reports_nonzero_exit
+    mock_logger.info.assert_not_called()
+../../../.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/unittest/mock.py:890: in assert_not_called
+    raise AssertionError(msg)
+E   AssertionError: Expected 'info' to not have been called. Called 1 times.
+E   Calls: [call('Idioma configurado: invalid')].
+_____________ TestCLICleanup.test_cleanup_reports_adapter_os_error _____________
+tests/unit/test_cli_cleanup.py:139: in test_cleanup_reports_adapter_os_error
+    result = cli.run()
+src/flashcards_generator/interfaces/cli.py:359: in run
+    return self._run_cleanup(args)
+src/flashcards_generator/interfaces/cli.py:319: in _run_cleanup
+    deleted, failed = adapter.delete_all_notebooks(show_progress=True)
+../../../.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/unittest/mock.py:1114: in __call__
+    return self._mock_call(*args, **kwargs)
+../../../.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/unittest/mock.py:1118: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+../../../.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/unittest/mock.py:1173: in _execute_mock_call
+    raise effect
+E   PermissionError: denied
+_____________ TestCLIMerge.test_merge_command_rejects_regular_file _____________
+tests/unit/test_cli_merge.py:54: in test_merge_command_rejects_regular_file
+    assert result == 1
+E   assert 0 == 1
+----------------------------- Captured stderr call -----------------------------
+22:10:42 INFO     cli:347 - ✅ <MagicMock name='merge()' id='140227717291392'> flashcards mesclados em: /tmp/pytest-of-avell/pytest-525/test_merge_command_rejects_reg0/not-a-folder.csv/merged_flashcards.csv
+_________ TestQualityConfiguration.test_ci_enforces_coverage_baseline __________
+tests/unit/test_coverage_edge_cases.py:30: in test_ci_enforces_coverage_baseline
+    assert "--cov-fail-under=80" in workflow
+E   assert '--cov-fail-under=80' in "name: CI\n\non:\n  push:\n    branches: [main, develop]\n    paths:\n      - 'src/**'\n      - 'tests/**'\n      - 'p... actions/upload-artifact@v4\n        with:\n          name: dist\n          path: dist/\n          retention-days: 7\n"
+=============================== warnings summary ===============================
+tests/unit/test_main_entry.py::TestMainEntryPoint::test_main_execution
+  /home/avell/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/runpy.py:126: RuntimeWarning: 'flashcards_generator.__main__' found in sys.modules after import of package 'flashcards_generator', but prior to execution of 'flashcards_generator.__main__'; this may result in unpredictable behaviour
+    warn(RuntimeWarning(msg))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_cli.py::TestMain::test_cleanup_selectors_are_mutually_exclusive_and_positive[selector0]
+FAILED tests/unit/test_cli.py::TestMain::test_cleanup_selectors_are_mutually_exclusive_and_positive[selector1]
+FAILED tests/unit/test_cli.py::TestMain::test_cleanup_selectors_are_mutually_exclusive_and_positive[selector2]
+FAILED tests/unit/test_cli.py::TestMain::test_validate_input_rejects_regular_file
+FAILED tests/unit/test_cli.py::TestMain::test_check_auth_reports_os_error_context
+FAILED tests/unit/test_cli.py::TestMain::test_set_language_reports_nonzero_exit
+FAILED tests/unit/test_cli_cleanup.py::TestCLICleanup::test_cleanup_reports_adapter_os_error
+FAILED tests/unit/test_cli_merge.py::TestCLIMerge::test_merge_command_rejects_regular_file
+FAILED tests/unit/test_coverage_edge_cases.py::TestQualityConfiguration::test_ci_enforces_coverage_baseline
+=================== 9 failed, 59 passed, 1 warning in 1.11s ====================

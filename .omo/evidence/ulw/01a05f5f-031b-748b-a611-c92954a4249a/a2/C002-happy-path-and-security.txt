@@ -1,0 +1,33 @@
+C002 - real CLI happy path and edge/security scenarios
+Working directory: /home/avell/Projects/unchain0/flashcards-generator
+
+RED evidence:
+- A real merge --output ../escape.csv invocation exited 1 with an uncaught
+  Pydantic ValidationError traceback before the CLI-boundary repair.
+- The symlinked .flashcards_sources regression returned a snapshot outside
+  the intended directory before the no-follow descriptor repair.
+- The no-wait unit contract still expected an empty file before reconciliation.
+
+GREEN evidence:
+- A disposable fake NotebookLM executable plus a valid one-page local PDF was
+  exercised through:
+  uv run env PATH=<fake-cli>:$PATH python -m flashcards_generator generate
+  --input-dir <input> --output-dir <output> --skip-auth-check --timeout 30
+  It exited 0, produced exactly one parsed two-column source.csv containing a
+  cloze front and detailed back, and emitted no traceback. No live auth ran.
+- The real merge happy path exited 0 and a csv.reader observed the expected
+  two-column cloze record.
+- Real missing-input and non-directory probes exited 1 with contextual
+  Portuguese errors, no traceback, and no output directory.
+- Real merge traversal probe exited 1 with contextual DTO validation, no
+  traceback, and no escaped file.
+- The exact registered C002 command
+  uv run pytest tests/unit/test_path_scenarios.py
+  tests/unit/test_safe_filename.py tests/unit/test_chunk_state_repository.py
+  tests/unit/test_use_cases_edge_cases.py tests/unit/test_adapter_edge_cases.py
+  tests/integration/test_resume_flow.py -q exited 0 with 53 passed.
+- The suite includes symlink rejection, source-snapshot containment,
+  exclusive resume locking, corrupt/missing state recovery, source digest
+  invalidation, retry/failure recording, and selector validation.
+
+PASS: executed C002 scenarios are controlled, contained, and green.

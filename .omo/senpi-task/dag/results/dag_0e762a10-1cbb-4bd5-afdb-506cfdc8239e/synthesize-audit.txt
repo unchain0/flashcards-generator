@@ -1,0 +1,9 @@
+I read this as a completed audit synthesis - the requested map is written and verified.
+
+Created `.omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a1/audit-synthesis.md`.
+
+Verified:
+- 25 behavior rows each have source-audit link, `file:line`, RED, and GREEN proof.
+- Six implementation lanes have disjoint write scopes.
+- Dependency matrix, critical path, CLI QA artifacts, and residual-risk table are present.
+- Non-empty; 2,710 words, below 8,000 tokens.

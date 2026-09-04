@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
+import signal
 import subprocess
 import time
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from rich.console import Console
 from rich.progress import (
@@ -21,11 +23,18 @@ from flashcards_generator.domain.entities import Flashcard
 from flashcards_generator.domain.exceptions import (
     ArtifactDownloadError,
     GenerationError,
+    NotebookLMResponseError,
     SourceProcessingError,
 )
 from flashcards_generator.domain.ports.flashcard_generator import (
     FlashcardGeneratorPort,
     GenerationConfig,
+)
+from flashcards_generator.infrastructure.document_limits import (
+    MAX_FLASHCARDS as DEFAULT_MAX_FLASHCARDS,
+)
+from flashcards_generator.infrastructure.document_limits import (
+    MAX_JSON_BYTES as DEFAULT_MAX_JSON_BYTES,
 )
 from flashcards_generator.infrastructure.logging_config import get_logger
 
@@ -35,23 +44,27 @@ if TYPE_CHECKING:
 
 logger = get_logger("notebooklm_adapter")
 
-# Constants extracted from magic numbers
 DEFAULT_COMMAND_TIMEOUT = 900
 DEFAULT_SOURCE_TIMEOUT = 600
 DEFAULT_ARTIFACT_TIMEOUT = 900
-RATE_LIMIT_RETRY_DELAY_SECONDS = 300  # 5 minutes
-MAX_LOG_OUTPUT_LENGTH = 500
+PROCESS_CLEANUP_TIMEOUT = 5
+RATE_LIMIT_RETRY_DELAY_SECONDS = 300
+DOWNLOAD_RETRY_DELAY_SECONDS = 30
+MAX_DOWNLOAD_RETRIES = 3
 
 
 class NotebookLMAdapter(FlashcardGeneratorPort):
-    """Adapter for Google NotebookLM CLI."""
+    """Adapter for the NotebookLM CLI using a list-argv process contract."""
 
-    # Error patterns for retry logic
-    RATE_LIMIT_PATTERNS: ClassVar[list[str]] = [
-        "GENERATION_FAILED",
+    MAX_JSON_BYTES = DEFAULT_MAX_JSON_BYTES
+    MAX_FLASHCARDS = DEFAULT_MAX_FLASHCARDS
+
+    TRANSIENT_ERROR_PATTERNS: ClassVar[tuple[str, ...]] = (
         "rate limit",
-        "RPC CREATE_ARTIFACT failed",
-    ]
+        "too many requests",
+        "temporarily unavailable",
+        "rpc create_artifact failed",
+    )
 
     def __init__(
         self, notebooklm_path: str, timeout: int = DEFAULT_COMMAND_TIMEOUT
@@ -60,46 +73,87 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
         self.timeout = timeout
 
     def _run_command(
-        self, args: list[str], check: bool = True
+        self,
+        args: list[str],
+        check: bool = True,
+        timeout: int | None = None,
     ) -> tuple[int, str, str]:
-        """Execute notebooklm CLI command."""
-        cmd = [self.notebooklm_path, *args]
+        """Run one CLI command and reap it on timeout or cancellation."""
+        command_timeout = self.timeout if timeout is None else timeout
         process = subprocess.Popen(
-            cmd,
+            [self.notebooklm_path, *args],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
             encoding="utf-8",
+            shell=False,
+            start_new_session=True,
         )
         try:
-            stdout, stderr = process.communicate(timeout=self.timeout)
-        except KeyboardInterrupt:
-            logger.info("Interrupted by user, terminating subprocess...")
-            process.terminate()
-            try:
-                process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                process.kill()
+            stdout, stderr = process.communicate(timeout=command_timeout)
+        except (KeyboardInterrupt, subprocess.TimeoutExpired):
+            self._stop_process(process)
             raise
+
         if check and process.returncode != 0:
-            raise RuntimeError(f"Command failed: {stderr}")
+            raise RuntimeError(
+                self._command_failure(process.returncode, stderr)
+            )
         return process.returncode, stdout, stderr
+
+    def _stop_process(self, process: subprocess.Popen[str]) -> None:
+        """Stop the command group where possible and always reap its leader."""
+        self._signal_process(process, signal.SIGTERM)
+        try:
+            process.wait(timeout=PROCESS_CLEANUP_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            self._signal_process(process, signal.SIGKILL)
+            process.wait()
+
+    def _signal_process(
+        self, process: subprocess.Popen[str], signal_number: int
+    ) -> None:
+        """Signal the isolated process group, falling back to its leader."""
+        pid = getattr(process, "pid", None)
+        if os.name == "posix" and isinstance(pid, int):
+            try:
+                os.killpg(pid, signal_number)
+                return
+            except (OSError, ProcessLookupError):
+                pass
+        if signal_number == signal.SIGTERM:
+            process.terminate()
+        else:
+            process.kill()
+
+    @staticmethod
+    def _command_failure(returncode: int, stderr: str) -> str:
+        return (
+            "NotebookLM command failed "
+            f"(status={returncode}, stderr_chars={len(stderr)})"
+        )
+
+    @staticmethod
+    def _response_error(
+        operation: str, reason: str
+    ) -> NotebookLMResponseError:
+        return NotebookLMResponseError(operation, reason)
 
     def create_notebook(self, title: str) -> str:
         """Create a new notebook."""
         try:
             _, stdout, _ = self._run_command(["create", title, "--json"])
-        except RuntimeError as e:
-            raise GenerationError("", f"Failed to create notebook: {e}") from e
-        data: dict = json.loads(stdout)
-        notebook_id = data.get("id") or data.get("notebook", {}).get("id")
-        if not notebook_id:
-            raise GenerationError("", f"Failed to create notebook: {data}")
-        return str(notebook_id)
+            data = self._parse_json(stdout, "create notebook")
+            notebook_id = self._extract_identifier(
+                data, "create notebook", "id", "notebook"
+            )
+            return notebook_id
+        except (RuntimeError, OSError, subprocess.TimeoutExpired) as error:
+            raise GenerationError("", str(error)) from error
 
     def add_source(self, notebook_id: str, pdf_path: Path) -> str:
-        """Add PDF source to notebook."""
-        cmd = [
+        """Add a PDF source to notebook."""
+        command = [
             "source",
             "add",
             str(pdf_path),
@@ -107,14 +161,14 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
             notebook_id,
             "--json",
         ]
-        _, stdout, _ = self._run_command(cmd)
-        data: dict = json.loads(stdout)
-        source_id = data.get("source_id") or data.get("source", {}).get("id")
-        if not source_id:
-            raise SourceProcessingError(
-                pdf_path, f"Failed to add source: {data}"
+        try:
+            _, stdout, _ = self._run_command(command)
+            data = self._parse_json(stdout, "add source")
+            return self._extract_identifier(
+                data, "add source", "source_id", "source"
             )
-        return str(source_id)
+        except (RuntimeError, OSError, subprocess.TimeoutExpired) as error:
+            raise SourceProcessingError(pdf_path, str(error)) from error
 
     def wait_for_source(
         self,
@@ -122,8 +176,8 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
         source_id: str,
         timeout: int = DEFAULT_SOURCE_TIMEOUT,
     ) -> bool:
-        """Wait for source processing."""
-        cmd = [
+        """Wait for source processing within the requested deadline."""
+        command = [
             "source",
             "wait",
             source_id,
@@ -132,14 +186,16 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
             "--timeout",
             str(timeout),
         ]
-        returncode, _, _ = self._run_command(cmd, check=False)
+        returncode, _, _ = self._run_command(
+            command, check=False, timeout=timeout
+        )
         return returncode == 0
 
     def _build_generate_command(
         self, notebook_id: str, config: GenerationConfig
     ) -> list[str]:
-        """Build generate flashcards command."""
-        cmd = [
+        """Build the selected generate flashcards CLI dialect."""
+        command = [
             "generate",
             "flashcards",
             "--notebook",
@@ -151,108 +207,99 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
             "--json",
         ]
         if config.instructions:
-            sanitized_instructions = config.instructions.replace(
-                "\n", " "
-            ).strip()
-            cmd.append(sanitized_instructions)
-        return cmd
+            command.append(config.instructions.replace("\n", " ").strip())
+        return command
 
     def _needs_retry(self, stderr: str) -> bool:
-        """Check if error indicates rate limiting."""
+        """Return whether a failed command reported a transient condition."""
         stderr_lower = stderr.lower()
         return any(
-            pattern.lower() in stderr_lower
-            for pattern in self.RATE_LIMIT_PATTERNS
+            pattern in stderr_lower
+            for pattern in self.TRANSIENT_ERROR_PATTERNS
         )
 
-    def _extract_artifact_id(self, data: dict) -> str | None:
-        """Extract artifact ID from response."""
-        return data.get("task_id") or data.get("artifact_id") or data.get("id")
-
-    def _log_command_output(
-        self, stdout: str, stderr: str, prefix: str = ""
+    def _log_command_result(
+        self,
+        command: list[str],
+        returncode: int,
+        stdout: str,
+        stderr: str,
+        attempt: int,
+        timeout: int,
     ) -> None:
-        """Log command output (truncated)."""
-        label = f"{prefix} " if prefix else ""
-        truncated_stdout = (
-            stdout[:MAX_LOG_OUTPUT_LENGTH] if stdout else "empty"
+        """Log metadata without exposing CLI output, prompts, or credentials."""
+        logger.debug(
+            "NotebookLM command completed: "
+            f"operation={command[0]} status={returncode} attempt={attempt} "
+            f"timeout={timeout} stdout_chars={len(stdout)} "
+            f"stderr_chars={len(stderr)}"
         )
-        truncated_stderr = (
-            stderr[:MAX_LOG_OUTPUT_LENGTH] if stderr else "empty"
-        )
-        logger.debug(f"{label}stdout: {truncated_stdout}")
-        logger.debug(f"{label}stderr: {truncated_stderr}")
 
-    def _perform_retry(self, cmd: list[str]) -> tuple[str, str]:
-        """Wait and retry after rate limit."""
+    def _execute_with_retry(
+        self, command: list[str], timeout: int
+    ) -> tuple[int, str, str]:
+        """Retry exactly one classified transient nonzero generation failure."""
+        returncode, stdout, stderr = self._run_command(
+            command, check=False, timeout=timeout
+        )
+        self._log_command_result(
+            command, returncode, stdout, stderr, attempt=1, timeout=timeout
+        )
+        if returncode == 0 or not self._needs_retry(stderr):
+            return returncode, stdout, stderr
+
         logger.warning(
-            f"Rate limit or generation failure, waiting "
-            f"{RATE_LIMIT_RETRY_DELAY_SECONDS}s for retry..."
+            "NotebookLM generation transient failure; retrying once"
         )
         time.sleep(RATE_LIMIT_RETRY_DELAY_SECONDS)
-        _, stdout, stderr = self._run_command(cmd)
-        self._log_command_output(stdout, stderr, "Retry")
-        return stdout, stderr
-
-    def _execute_with_retry(self, cmd: list[str]) -> tuple[str, str]:
-        """Execute command with retry on rate limit."""
-        returncode, stdout, stderr = self._run_command(cmd, check=False)
-        self._log_command_output(stdout, stderr)
-
-        if self._needs_retry(stderr):
-            return self._perform_retry(cmd)
-
-        if returncode != 0:
-            logger.error(
-                f"Command failed with exit code {returncode}: {stderr}"
-            )
-
-        return stdout, stderr
+        returncode, stdout, stderr = self._run_command(
+            command, check=False, timeout=timeout
+        )
+        self._log_command_result(
+            command, returncode, stdout, stderr, attempt=2, timeout=timeout
+        )
+        return returncode, stdout, stderr
 
     def generate_flashcards(
         self, notebook_id: str, config: GenerationConfig
     ) -> str | None:
-        """Generate flashcards with retry logic."""
-        cmd = self._build_generate_command(notebook_id, config)
-        cmd_str = " ".join(cmd)
-        logger.debug(f"Generate command: {cmd_str[:200]}...")
-        instructions_len = (
-            len(config.instructions) if config.instructions else 0
-        )
-        logger.debug(f"Instructions length: {instructions_len}")
+        """Generate flashcards, returning ``None`` for optional failure."""
+        command = self._build_generate_command(notebook_id, config)
+        try:
+            returncode, stdout, stderr = self._execute_with_retry(
+                command, config.timeout_seconds
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            logger.error("NotebookLM generation failed before completion")
+            return None
+
+        if returncode != 0:
+            logger.error(
+                "NotebookLM generation failed: "
+                f"status={returncode} stderr_chars={len(stderr)}"
+            )
+            return None
+        if not stdout.strip():
+            logger.error("NotebookLM generation returned empty output")
+            return None
 
         try:
-            stdout, stderr = self._execute_with_retry(cmd)
-            logger.debug(
-                f"Command stdout: {stdout[:500] if stdout else 'empty'}"
+            data = self._parse_json(stdout, "generate flashcards")
+            return self._extract_identifier(
+                data, "generate flashcards", "task_id", "artifact_id", "id"
             )
-            logger.debug(
-                f"Command stderr: {stderr[:500] if stderr else 'empty'}"
-            )
-            if not stdout or stdout.strip() == "":
-                logger.error(
-                    f"Generation returned empty output. stderr: {stderr}"
-                )
-                return None
-            data = json.loads(stdout)
-            artifact_id = self._extract_artifact_id(data)
-            logger.debug(f"Extracted artifact_id: {artifact_id}")
-            return artifact_id
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse generation response: {e}")
-            return None
-        except subprocess.TimeoutExpired:
-            logger.error("Generation command timed out")
+        except NotebookLMResponseError:
+            logger.error("NotebookLM generation returned an invalid response")
             return None
 
     def wait_for_artifact(
         self,
         notebook_id: str,
         artifact_id: str,
-        timeout: int = DEFAULT_COMMAND_TIMEOUT,
+        timeout: int = DEFAULT_ARTIFACT_TIMEOUT,
     ) -> bool:
-        """Wait for artifact generation."""
-        cmd = [
+        """Wait for artifact generation within the requested deadline."""
+        command = [
             "artifact",
             "wait",
             artifact_id,
@@ -261,14 +308,16 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
             "--timeout",
             str(timeout),
         ]
-        returncode, _, _ = self._run_command(cmd, check=False)
+        returncode, _, _ = self._run_command(
+            command, check=False, timeout=timeout
+        )
         return returncode == 0
 
     def download_flashcards(
         self, notebook_id: str, artifact_id: str, output_path: Path
     ) -> bool:
-        """Download flashcards artifact with retry logic."""
-        cmd = [
+        """Download flashcards, retrying only transient nonzero failures."""
+        command = [
             "download",
             "flashcards",
             "-n",
@@ -279,134 +328,210 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
             "json",
             str(output_path),
         ]
-
-        max_retries = 3
-        for attempt in range(max_retries):
+        for attempt in range(MAX_DOWNLOAD_RETRIES):
             try:
-                self._run_command(cmd)
+                returncode, _, stderr = self._run_command(command, check=False)
+            except (OSError, subprocess.SubprocessError) as error:
+                raise ArtifactDownloadError(artifact_id, str(error)) from error
+
+            if returncode == 0:
                 return True
-            except (
-                subprocess.CalledProcessError,
-                subprocess.TimeoutExpired,
-                RuntimeError,
-            ) as e:
-                error_msg = str(e)
-                # Check if it's a rate limit or transient error
-                is_retryable = (
-                    self._needs_retry(error_msg)
-                    or "artifact" in error_msg.lower()
-                    or attempt < max_retries - 1
+            if (
+                not self._needs_retry(stderr)
+                or attempt == MAX_DOWNLOAD_RETRIES - 1
+            ):
+                raise ArtifactDownloadError(
+                    artifact_id, self._command_failure(returncode, stderr)
                 )
+            logger.warning(
+                "NotebookLM download transient failure: "
+                f"attempt={attempt + 1} status={returncode}; retrying"
+            )
+            time.sleep(DOWNLOAD_RETRY_DELAY_SECONDS * (attempt + 1))
 
-                if is_retryable and attempt < max_retries - 1:
-                    retry_delay = 30 * (attempt + 1)  # 30s, 60s, 90s
-                    logger.warning(
-                        f"Download failed (attempt {attempt + 1}/{max_retries}), "
-                        f"retrying in {retry_delay}s..."
-                    )
-                    time.sleep(retry_delay)
-                else:
-                    raise ArtifactDownloadError(artifact_id, error_msg) from e
-
-        # This should never be reached - loop always returns or raises
         raise AssertionError(
-            "Unreachable code in download_flashcards"
+            "unreachable download retry state"
         )  # pragma: no cover
 
-    def _extract_cards_data(self, data: dict | list) -> list:
-        """Extract cards list from various JSON structures."""
-        if isinstance(data, list):
-            return data
-        cards: list = data.get("cards", data.get("flashcards", []))
-        return cards
+    def _parse_json(self, stdout: str, operation: str) -> Any:
+        if len(stdout.encode("utf-8")) > self.MAX_JSON_BYTES:
+            raise self._response_error(
+                operation,
+                f"JSON exceeds maximum size of {self.MAX_JSON_BYTES} bytes",
+            )
+        try:
+            return json.loads(stdout)
+        except json.JSONDecodeError as error:
+            raise self._response_error(operation, "invalid JSON") from error
 
-    def _create_flashcard(self, item: dict) -> Flashcard | None:
-        """Create Flashcard from JSON item."""
+    def _extract_identifier(
+        self, data: Any, operation: str, *keys: str
+    ) -> str:
+        if not isinstance(data, dict):
+            raise self._response_error(
+                operation, "expected an object response"
+            )
+        for key in keys:
+            identifier = self._identifier_value(data.get(key))
+            if identifier is not None:
+                return identifier
+        raise self._response_error(operation, "missing nonempty identifier")
+
+    @staticmethod
+    def _identifier_value(value: Any) -> str | None:
+        if isinstance(value, str):
+            return value if value.strip() else None
+        if isinstance(value, dict):
+            nested_id = value.get("id")
+            return (
+                nested_id
+                if isinstance(nested_id, str) and nested_id.strip()
+                else None
+            )
+        return None
+
+    def _extract_cards_data(self, data: Any) -> list[Any]:
+        """Extract a schema-valid card array from a response envelope."""
+        if isinstance(data, list):
+            self._validate_card_count(data)
+            return data
+        if not isinstance(data, dict):
+            raise self._response_error(
+                "parse flashcards", "expected an array or object"
+            )
+        for key in ("cards", "flashcards"):
+            if key in data:
+                cards = data[key]
+                if isinstance(cards, list):
+                    self._validate_card_count(cards)
+                    return cards
+                raise self._response_error(
+                    "parse flashcards", f"{key} must be an array"
+                )
+        raise self._response_error("parse flashcards", "missing cards array")
+
+    def _validate_card_count(self, cards: list[Any]) -> None:
+        if len(cards) > self.MAX_FLASHCARDS:
+            raise self._response_error(
+                "parse flashcards",
+                f"card count exceeds maximum of {self.MAX_FLASHCARDS}",
+            )
+
+    def _create_flashcard(self, item: dict[str, Any]) -> Flashcard | None:
+        """Build a card when both fields are nonempty strings."""
         front = item.get("front", item.get("question", item.get("q", "")))
         back = item.get("back", item.get("answer", item.get("a", "")))
-        if front and back:
+        if (
+            isinstance(front, str)
+            and front.strip()
+            and isinstance(back, str)
+            and back.strip()
+        ):
             return Flashcard(front=front, back=back)
         return None
 
     def parse_flashcards(self, json_path: Path) -> list[Flashcard]:
-        """Parse flashcards from JSON file."""
-        flashcards: list[Flashcard] = []
+        """Parse a downloaded card response or raise a contextual response error."""
         try:
-            data = json.loads(json_path.read_text(encoding="utf-8"))
-            cards_data = self._extract_cards_data(data)
+            if json_path.stat().st_size > self.MAX_JSON_BYTES:
+                raise self._response_error(
+                    "parse flashcards",
+                    f"JSON exceeds maximum size of {self.MAX_JSON_BYTES} bytes",
+                )
+            data = self._parse_json(
+                json_path.read_text(encoding="utf-8"), "parse flashcards"
+            )
+        except OSError as error:
+            raise self._response_error(
+                "parse flashcards", "unable to read file"
+            ) from error
 
-            for item in cards_data:
-                card = self._create_flashcard(item)
-                if card:
-                    flashcards.append(card)
-        except (json.JSONDecodeError, OSError) as e:
-            logger.error(f"Failed to parse flashcards from {json_path}: {e}")
+        flashcards = []
+        for index, item in enumerate(self._extract_cards_data(data)):
+            if not isinstance(item, dict):
+                raise self._response_error(
+                    "parse flashcards", f"card {index} must be an object"
+                )
+            card = self._create_flashcard(item)
+            if card is None:
+                raise self._response_error(
+                    "parse flashcards",
+                    f"card {index} has empty or non-string fields",
+                )
+            flashcards.append(card)
         return flashcards
 
     def delete_notebook(self, notebook_id: str, silent: bool = False) -> bool:
-        """Delete notebook (best effort)."""
+        """Delete a notebook using the selected CLI dialect."""
         try:
-            if not silent:
-                logger.debug(f"Deleting notebook: {notebook_id[:8]}...")
-            returncode, _, _ = self._run_command(
+            returncode, _, stderr = self._run_command(
                 ["delete", "-n", notebook_id, "-y"], check=False
             )
-            if returncode == 0:
-                if not silent:
-                    logger.info(
-                        f"Successfully deleted notebook: {notebook_id[:8]}..."
-                    )
-                return True
-            else:
-                logger.warning(
-                    f"Failed to delete notebook {notebook_id[:8]}..."
-                )
-                return False
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
-            logger.error(f"Failed to delete notebook {notebook_id}: {e}")
+        except (OSError, subprocess.SubprocessError):
+            logger.warning("NotebookLM delete failed before completion")
             return False
+        if returncode == 0:
+            if not silent:
+                logger.info("NotebookLM notebook deleted")
+            return True
+        logger.warning(
+            "NotebookLM delete failed: "
+            f"status={returncode} stderr_chars={len(stderr)}"
+        )
+        return False
 
-    def list_notebooks(self, days: int | None = None) -> list[dict]:
-        """List all notebooks, optionally filtered by creation date."""
+    def list_notebooks(self, days: int | None = None) -> list[dict[str, Any]]:
+        """List notebooks, optionally filtering by creation date."""
+        notebooks = self._load_notebooks()
+        if days is None:
+            return notebooks
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        return [
+            notebook
+            for notebook in notebooks
+            if self._created_on_or_after(notebook, cutoff)
+        ]
+
+    def _load_notebooks(self) -> list[dict[str, Any]]:
+        data = self._list_notebook_data()
+        notebooks = (
+            data.get("notebooks", []) if isinstance(data, dict) else data
+        )
+        if not isinstance(notebooks, list):
+            return []
+        return [item for item in notebooks if isinstance(item, dict)]
+
+    def _list_notebook_data(self) -> Any:
         try:
             returncode, stdout, stderr = self._run_command(
                 ["list", "--json"], check=False
             )
             if returncode != 0:
-                logger.error(f"Failed to list notebooks: {stderr}")
-                return []
-            data = json.loads(stdout)
-            notebooks = (
-                data.get("notebooks", []) if isinstance(data, dict) else data
-            )
-            if not isinstance(notebooks, list):
-                return []
+                logger.error(
+                    "NotebookLM list failed: "
+                    f"status={returncode} stderr_chars={len(stderr)}"
+                )
+                return None
+            return self._parse_json(stdout, "list notebooks")
+        except (NotebookLMResponseError, OSError, subprocess.SubprocessError):
+            logger.error("NotebookLM list returned an invalid response")
+            return None
 
-            if days is None:
-                return notebooks
+    def _created_on_or_after(
+        self, notebook: dict[str, Any], cutoff: datetime
+    ) -> bool:
+        created = self._parse_datetime(
+            notebook.get("created_at") or notebook.get("created")
+        )
+        return created is None or created >= cutoff
 
-            cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-            filtered = []
-            for nb in notebooks:
-                if not isinstance(nb, dict):
-                    continue
-                created_str = nb.get("created_at") or nb.get("created")
-                if created_str:
-                    created = self._parse_datetime(created_str)
-                    if created and created >= cutoff:
-                        filtered.append(nb)
-                else:
-                    filtered.append(nb)
-            return filtered
-        except (json.JSONDecodeError, subprocess.CalledProcessError) as e:
-            logger.error(f"Failed to list notebooks: {e}")
-            return []
-
-    def _parse_datetime(self, dt_str: str) -> datetime | None:
+    def _parse_datetime(self, dt_str: Any) -> datetime | None:
+        if not isinstance(dt_str, str):
+            return None
         formats = [
             "%Y-%m-%dT%H:%M:%S.%fZ",
             "%Y-%m-%dT%H:%M:%SZ",
-            "%Y-%m-%dT%H:%M:%S",  # ISO format without timezone
+            "%Y-%m-%dT%H:%M:%S",
             "%Y-%m-%d %H:%M:%S",
             "%Y-%m-%d",
         ]
@@ -422,62 +547,57 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
     def delete_all_notebooks(
         self, days: int | None = None, show_progress: bool = False
     ) -> tuple[int, int]:
-        """Delete all notebooks. Returns (deleted_count, failed_count)."""
+        """Delete all notebooks. Returns ``(deleted_count, failed_count)``."""
         notebooks = self.list_notebooks(days=days)
         if not notebooks:
             logger.info("No notebooks found to delete")
             return 0, 0
 
-        deleted = 0
-        failed = 0
-        total = len(notebooks)
-
         if show_progress:
-            console = Console()
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[bold blue]{task.description}"),
-                BarColumn(bar_width=40),
-                TaskProgressColumn(),
-                console=console,
-            ) as progress:
-                task = progress.add_task(
-                    f"Deleting {total} notebooks...", total=total
-                )
-
-                for notebook in notebooks:
-                    notebook_id = (
-                        notebook.get("id")
-                        if isinstance(notebook, dict)
-                        else notebook
-                    )
-                    if not notebook_id:
-                        progress.update(task, advance=1)
-                        continue
-
-                    if self.delete_notebook(str(notebook_id), silent=True):
-                        deleted += 1
-                    else:
-                        failed += 1
-                    progress.update(task, advance=1)
+            deleted, failed = self._delete_with_progress(notebooks)
         else:
-            logger.info(f"Found {total} notebook(s) to delete...")
-
-            for i, notebook in enumerate(notebooks, 1):
-                notebook_id = (
-                    notebook.get("id")
-                    if isinstance(notebook, dict)
-                    else notebook
-                )
-                if not notebook_id:
-                    continue
-                logger.info(
-                    f"[{i}/{total}] Deleting {str(notebook_id)[:8]}..."
-                )
-                if self.delete_notebook(str(notebook_id)):
-                    deleted += 1
-                else:
-                    failed += 1
+            deleted, failed = self._delete_without_progress(notebooks)
 
         logger.info(f"Cleanup complete: {deleted} deleted, {failed} failed")
         return deleted, failed
+
+    def _delete_with_progress(
+        self, notebooks: list[dict[str, Any]]
+    ) -> tuple[int, int]:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(bar_width=40),
+            TaskProgressColumn(),
+            console=Console(),
+        ) as progress:
+            task = progress.add_task(
+                f"Deleting {len(notebooks)} notebooks...",
+                total=len(notebooks),
+            )
+            outcomes = []
+            for notebook in notebooks:
+                notebook_id = self._notebook_id(notebook)
+                if notebook_id:
+                    outcomes.append(
+                        self.delete_notebook(notebook_id, silent=True)
+                    )
+                progress.update(task, advance=1)
+        return outcomes.count(True), outcomes.count(False)
+
+    def _delete_without_progress(
+        self, notebooks: list[dict[str, Any]]
+    ) -> tuple[int, int]:
+        logger.info(f"Found {len(notebooks)} notebook(s) to delete...")
+        outcomes = []
+        for index, notebook in enumerate(notebooks, 1):
+            notebook_id = self._notebook_id(notebook)
+            if notebook_id:
+                logger.info(f"[{index}/{len(notebooks)}] Deleting notebook...")
+                outcomes.append(self.delete_notebook(notebook_id))
+        return outcomes.count(True), outcomes.count(False)
+
+    @staticmethod
+    def _notebook_id(notebook: Any) -> str | None:
+        value = notebook.get("id") if isinstance(notebook, dict) else notebook
+        return value if isinstance(value, str) and value else None

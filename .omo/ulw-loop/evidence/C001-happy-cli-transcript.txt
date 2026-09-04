@@ -1,0 +1,9 @@
+Scenario command:
+uv run pytest tests/integration/test_anki_connect_flow.py -k test_imports_cloze_cards_into_requested_deck -vv -s
+
+Manual surface:
+.venv/bin/python -m flashcards_generator generate --input-dir <tmp>/input --output-dir <tmp>/output --timeout 10 --skip-auth-check --anki-deck "Estácio::Disciplina::Unidade 1" --anki-connect-url http://127.0.0.1:<ephemeral-port>
+
+Observed: exit code 0; the real CLI generated the CSV and logged
+"1 card(s) importado(s) no Anki". The local request log contained createDeck
+followed by addNotes for the requested hierarchical deck.

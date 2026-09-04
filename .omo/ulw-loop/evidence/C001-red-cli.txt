@@ -1,0 +1,12 @@
+Command:
+uv run pytest tests/unit/test_cli.py -k anki_connect_options -vv --tb=short
+
+Result: RED (exit code 1)
+
+Failure:
+tests/unit/test_cli.py::TestMain::test_generate_parses_anki_connect_options FAILED
+SystemExit: 2
+pytest: error: unrecognized arguments: --anki-deck Estácio::Disciplina::Unidade 1 --anki-connect-url http://127.0.0.1:8765
+
+This is the expected pre-implementation failure: the existing generate parser
+has no AnkiConnect options yet.

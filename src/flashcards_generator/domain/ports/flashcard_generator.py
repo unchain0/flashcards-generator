@@ -7,10 +7,12 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
+from flashcards_generator.domain.entities import Deck
+
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from flashcards_generator.domain.entities import Deck, Flashcard
+    from flashcards_generator.domain.entities import Flashcard
 
 
 class GenerationConfig(BaseModel):

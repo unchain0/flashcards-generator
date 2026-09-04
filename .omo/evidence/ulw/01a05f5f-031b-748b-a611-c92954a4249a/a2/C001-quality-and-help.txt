@@ -1,0 +1,23 @@
+C001 - baseline/regression quality and module help
+Working directory: /home/avell/Projects/unchain0/flashcards-generator
+
+RED evidence before the corrective pass:
+- uv run ruff format --check .: exit 1; 18 files would be reformatted.
+- uv run mypy src/flashcards_generator: exit 1; two errors in
+  application/use_cases.py (_resume_lock annotation and optional manifest).
+- uv run pytest: exit 2 during collection because the added fake-CLI test
+  contained invalid Python string escaping.
+- The historical pre-fix transcripts are preserved in
+  a2/final-independent-audit.md and each lane report in a2/.
+
+GREEN evidence against the current tree:
+- uv run ruff check .: exit 0, All checks passed!
+- uv run ruff format --check .: exit 0, 89 files already formatted.
+- uv run mypy src/flashcards_generator: exit 0, no issues in 30 source files.
+- COVERAGE_FILE=<disposable-temp-file> uv run pytest: exit 0, 426 passed in
+  62.00s.
+- uv run python -m flashcards_generator --help: exit 0; generate, cleanup,
+  and merge are listed.
+- uv run flashcards --help: exit 0 with the same command surface.
+
+PASS: all named C001 commands and module-help checks are green.

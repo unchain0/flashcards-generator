@@ -1,0 +1,22 @@
+C005 - independent post-correction audit
+Working directory: /home/avell/Projects/unchain0/flashcards-generator
+
+The original independent verifier report first found three blockers and one
+high snapshot-directory risk. The lead then independently:
+- read all 42 current changed source/test/docs/config/lock paths;
+- fixed and re-tested the formatter, mypy, full-suite, snapshot, similarity,
+  no-wait, and CLI traversal findings;
+- reran lint, format, mypy, 426 tests, pip check, build, pre-commit, diff
+  check, LSP diagnostics, module/console help, fake-CLI generation, invalid
+  path probes, and the exact 53-test security/resume/CLI scenario;
+- updated a2/final-independent-audit.md with the current criterion mapping.
+
+Current result:
+- No critical or high blocker remains in the changed tree.
+- Current residuals are supplemental complexity debt, global Loguru sink
+  ownership, and external NotebookLM authentication/provider behavior.
+- User dependency changes in pyproject.toml and uv.lock remain untouched in
+  substance; no commit or external write occurred.
+
+PASS: independent re-audit is current, evidence-linked, and leaves only
+documented residual risks.

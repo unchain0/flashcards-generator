@@ -1,0 +1,25 @@
+working_dir=/home/avell/Projects/unchain0/flashcards-generator
+fixture_root=/tmp/flashcards-qa-symlink.9NeNuD
+$ env PATH=/tmp/flashcards-qa-symlink.9NeNuD/bin:$PATH .venv/bin/python -m flashcards_generator generate --input-dir /tmp/flashcards-qa-symlink.9NeNuD/input --output-dir /tmp/flashcards-qa-symlink.9NeNuD/output --skip-auth-check --timeout 5
+00:23:05 WARNING  cli:259 - Não foi possível configurar o idioma: provider should not be invoked for symlink input ['language', 'set', 'pt_BR']
+00:23:05 INFO     cli:298 - Iniciando...
+00:23:05 INFO     cli:299 - Entrada: /tmp/flashcards-qa-symlink.9NeNuD/input
+00:23:05 INFO     cli:300 - Saída: /tmp/flashcards-qa-symlink.9NeNuD/output (preservando a estrutura relativa)
+00:23:05 INFO     cli:303 - Dificuldade: medium
+00:23:05 INFO     cli:304 - Quantidade: standard
+00:23:05 WARNING  use_cases:723 - Skipping symlink: /tmp/flashcards-qa-symlink.9NeNuD/input/Tema1/evil.pdf
+00:23:05 WARNING  use_cases:209 - No PDFs found in /tmp/flashcards-qa-symlink.9NeNuD/input
+00:23:05 INFO     cli:309 - ============================================================
+00:23:05 INFO     cli:310 - RESUMO
+00:23:05 INFO     cli:311 - ============================================================
+00:23:05 INFO     cli:312 - Temas: 0
+00:23:05 INFO     cli:313 - Total de cards: 0
+00:23:05 INFO     cli:314 - Decks:
+[exit=0]
+resolver_used=/tmp/flashcards-qa-symlink.9NeNuD/bin/notebooklm
+
+output_tree:
+ d 40 bytes
+csv_count=0
+outside_source_unchanged=yes
+traceback_present=no observed in transcript

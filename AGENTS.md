@@ -61,7 +61,8 @@ import sites from the current source and tests.
 
 - Python is exactly 3.10 (`.python-version`, `uv.lock`, pre-commit hook).
 - Use `uv run ...`; dependencies live in the project environment, including
-  `notebooklm-py[browser]==0.7.3` and `playwright==1.61.0`.
+  the user-selected `notebooklm-py[browser]==0.8.1` and
+  `playwright==1.61.0`.
 - Ruff: target `py310`, 79 columns, double quotes, preview rules enabled.
 - Mypy checks production code with typed definitions, strict equality, and
   unreachable/redundant-cast warnings; tests relax definition annotations.

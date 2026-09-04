@@ -1,0 +1,40 @@
+working_dir=/home/avell/Projects/unchain0/flashcards-generator
+fixture_root=/tmp/flashcards-qa-generate-fake.0VUKI8
+$ env PATH=/tmp/flashcards-qa-generate-fake.0VUKI8/bin:$PATH .venv/bin/python -m flashcards_generator generate --input-dir /tmp/flashcards-qa-generate-fake.0VUKI8/input --output-dir /tmp/flashcards-qa-generate-fake.0VUKI8/output --skip-auth-check --timeout 30
+00:19:44 INFO     cli:253 - Idioma configurado: pt_BR
+00:19:44 INFO     cli:298 - Iniciando...
+00:19:44 INFO     cli:299 - Entrada: /tmp/flashcards-qa-generate-fake.0VUKI8/input
+00:19:44 INFO     cli:300 - Saída: /tmp/flashcards-qa-generate-fake.0VUKI8/output (preservando a estrutura relativa)
+00:19:44 INFO     cli:303 - Dificuldade: medium
+00:19:44 INFO     cli:304 - Quantidade: standard
+00:19:44 INFO     use_cases:212 - 1 PDF(s) found
+00:19:44 INFO     use_cases:1437 - ============================================================
+00:19:44 INFO     use_cases:1438 - PDF: Tema1/sample.pdf
+00:19:44 INFO     use_cases:1439 - Deck: Tema1_sample
+00:19:44 INFO     use_cases:1440 - ============================================================
+00:19:44 INFO     pdf_utils:270 - PDF .sample.7beef58bda7c90516c07e2bdcf75f027.pdf: 1 pages
+00:19:44 ERROR    use_cases:1417 - Generation error: Generation failed for : NotebookLM command failed (status=2, stderr_chars=82)
+00:19:44 INFO     cli:309 - ============================================================
+00:19:44 INFO     cli:310 - RESUMO
+00:19:44 INFO     cli:311 - ============================================================
+00:19:44 INFO     cli:312 - Temas: 0
+00:19:44 INFO     cli:313 - Total de cards: 0
+00:19:44 INFO     cli:314 - Decks:
+[exit=0]
+
+resolver_used=/tmp/flashcards-qa-generate-fake.0VUKI8/bin/notebooklm
+
+output tree:
+ d 60 bytes
+Tema1 d 60 bytes
+Tema1/.flashcards_resume d 60 bytes
+Tema1/.flashcards_resume/.sample.lock f 0 bytes
+
+CSV parse (/tmp/flashcards-qa-generate-fake.0VUKI8/output/Tema1/sample.csv):
+Traceback (most recent call last):
+  File "<stdin>", line 5, in <module>
+  File "/home/avell/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/pathlib.py", line 1119, in open
+    return self._accessor.open(self, mode, buffering, encoding, errors,
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/flashcards-qa-generate-fake.0VUKI8/output/Tema1/sample.csv'
+
+traceback_present=no

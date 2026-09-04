@@ -47,11 +47,18 @@ class DeckExporter:
             "#html:true",
             "",
         ]
-        for card in deck.flashcards:
-            front = convert_to_anki_math_format(card.front)
-            back = convert_to_anki_math_format(card.back)
-            lines.append(f"{front}\t{back}")
-        path.write_text("\n".join(lines), encoding="utf-8")
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+            writer = csv.writer(
+                f,
+                delimiter="\t",
+                quoting=csv.QUOTE_ALL,
+                lineterminator="\n",
+            )
+            for card in deck.flashcards:
+                front = convert_to_anki_math_format(card.front)
+                back = convert_to_anki_math_format(card.back)
+                writer.writerow([front, back])
 
     @staticmethod
     def export_markdown(deck: Deck, path: Path) -> None:

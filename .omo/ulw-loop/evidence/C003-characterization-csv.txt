@@ -1,0 +1,14 @@
+Command:
+uv run pytest tests/integration/test_anki_connect_flow.py -k existing_csv_export_remains_default -vv --tb=short -s
+
+Result: characterization PASS (exit code 0)
+
+Observed:
+1 passed, 2 deselected
+The real CLI runner with the existing fake NotebookLM path produced one
+quoted two-column Cloze CSV and the local AnkiConnect request log remained
+empty.
+
+This is a pre-existing behavior characterization. It must remain green after
+the opt-in integration; the mutation proof for accidental default Anki calls
+will be captured after implementation.

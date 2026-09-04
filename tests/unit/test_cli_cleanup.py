@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from flashcards_generator.interfaces.cli import CLI
 
 
@@ -54,22 +56,21 @@ class TestCLICleanup:
 
     @patch.object(CLI, "check_auth")
     @patch("flashcards_generator.interfaces.cli.NotebookLMAdapter")
-    def test_cleanup_no_options_shows_error(
+    def test_cleanup_no_options_is_parse_error(
         self, mock_adapter_class, mock_check_auth, tmp_path
     ):
-        """Test cleanup command without --days or --all shows error."""
-        mock_check_auth.return_value = True
-
-        mock_adapter = MagicMock()
-        mock_adapter_class.return_value = mock_adapter
-
+        """Test cleanup requires one destructive selector."""
         cli = CLI()
 
-        with patch("sys.argv", ["cli", "cleanup"]):
-            result = cli.run()
+        with (
+            patch("sys.argv", ["cli", "cleanup"]),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            cli.run()
 
-        assert result == 1
-        mock_adapter.delete_all_notebooks.assert_not_called()
+        assert exc_info.value.code == 2
+        mock_check_auth.assert_not_called()
+        mock_adapter_class.assert_not_called()
 
     @patch.object(CLI, "check_auth")
     @patch("flashcards_generator.interfaces.cli.NotebookLMAdapter")
@@ -123,6 +124,26 @@ class TestCLICleanup:
 
         assert result == 1
 
+    @patch("flashcards_generator.interfaces.cli.logger")
+    @patch.object(CLI, "_create_adapter")
+    def test_cleanup_reports_adapter_os_error(
+        self, mock_create_adapter, mock_logger
+    ):
+        adapter = MagicMock()
+        adapter.delete_all_notebooks.side_effect = PermissionError("denied")
+        mock_create_adapter.return_value = adapter
+
+        cli = CLI()
+        with patch(
+            "sys.argv", ["cli", "cleanup", "--all", "--skip-auth-check"]
+        ):
+            result = cli.run()
+
+        assert result == 1
+        mock_logger.error.assert_called_once_with(
+            "Não foi possível limpar notebooks: denied"
+        )
+
     @patch.object(CLI, "check_auth")
     @patch("flashcards_generator.interfaces.cli.NotebookLMAdapter")
     def test_cleanup_skip_auth_check(
@@ -158,10 +179,11 @@ class TestCLINoCommand:
 
         assert result == 1
 
+    @patch.object(CLI, "_set_language")
     @patch.object(CLI, "check_auth")
     @patch("flashcards_generator.interfaces.cli.GenerateFlashcardsUseCase")
     def test_default_to_generate_with_args(
-        self, mock_use_case_class, mock_check_auth, tmp_path
+        self, mock_use_case_class, mock_check_auth, mock_set_language, tmp_path
     ):
         """Test that when command is 'generate' it works normally."""
         mock_check_auth.return_value = True

@@ -1,0 +1,53 @@
+C002 - final canonical evidence
+Working directory: /home/avell/Projects/unchain0/flashcards-generator
+Final tree state: 2026-09-02, uncommitted; disposable QA paths cleaned.
+
+RED evidence retained before the corrective edits:
+- Merge traversal output first raised an uncaught Pydantic ValidationError.
+- A symlinked `.flashcards_sources` path escaped the intended snapshot root.
+- The no-wait test expected an empty output file despite the current contract.
+
+GREEN targeted regression suite:
+
+```console
+$ uv run pytest tests/unit/test_path_scenarios.py tests/unit/test_safe_filename.py tests/unit/test_chunk_state_repository.py tests/unit/test_use_cases_edge_cases.py tests/unit/test_adapter_edge_cases.py tests/integration/test_resume_flow.py -q
+56 passed
+[exit=0]
+```
+
+GREEN real CLI probes:
+
+```console
+$ uv run python -m flashcards_generator generate --input-dir /tmp/ulw-missing-input --output-dir /tmp/ulw-output
+ERROR ... Diretório não existe: /tmp/ulw-missing-input
+[exit=1; traceback absent; output absent]
+
+$ uv run python -m flashcards_generator merge --folder /tmp/ulw-missing-folder --output ../ulw-escape.csv
+ERROR ... Pasta inválida ou inexistente: /tmp/ulw-missing-folder
+[exit=1; traceback absent; escaped file absent]
+
+$ uv run python -m flashcards_generator merge --folder <fixture> --output ../ulw-escape.csv
+ERROR ... validation failed for output path
+[exit=1; traceback absent; escaped file absent]
+```
+
+A disposable fake NotebookLM executable and valid one-page local PDF were
+used for the real generation surface. It exited 0, produced exactly one
+two-column cloze CSV record, and left no source snapshot or temporary output.
+No live NotebookLM authentication or network call was made.
+
+Final remediation probes:
+
+- Fake-provider generation exited 0; `lesson.csv` contained one two-column
+  Cloze row and no resume lock.
+- Malformed merge exited 1 and preserved the previous merged CSV byte-for-byte.
+- Fake-provider source failure exited 1, produced no CSV or traceback, and
+  left no resume lock.
+- The command resolver was preflighted to the disposable fake before every
+  generation probe; no real NotebookLM process remained.
+- PDF/PDF-page-count, JSON-byte/card-count, and sparse semantic-boundary
+  limits are covered by focused regressions.
+
+Result: PASS. Resume/retry, corrupt/missing state, exclusive locking,
+symlink rejection, source-digest invalidation, and bounded similarity tests
+are included in the passing suite.

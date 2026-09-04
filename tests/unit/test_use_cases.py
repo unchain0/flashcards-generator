@@ -156,7 +156,7 @@ class TestGenerateFlashcardsUseCase:
         result = use_case.execute(request)
 
         assert len(result) == 1
-        assert (output_dir / "Tema1" / "file.csv").exists()
+        assert not (output_dir / "Tema1" / "file.csv").exists()
         assert result[0].flashcards == []  # Empty in no-wait mode
 
     def test_execute_wait_timeout(

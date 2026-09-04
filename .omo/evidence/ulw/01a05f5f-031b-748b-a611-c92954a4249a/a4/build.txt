@@ -1,0 +1,219 @@
+$ uv build
+Building source distribution...
+running egg_info
+writing src/flashcards_generator.egg-info/PKG-INFO
+writing dependency_links to src/flashcards_generator.egg-info/dependency_links.txt
+writing entry points to src/flashcards_generator.egg-info/entry_points.txt
+writing requirements to src/flashcards_generator.egg-info/requires.txt
+writing top-level names to src/flashcards_generator.egg-info/top_level.txt
+reading manifest file 'src/flashcards_generator.egg-info/SOURCES.txt'
+writing manifest file 'src/flashcards_generator.egg-info/SOURCES.txt'
+running sdist
+running egg_info
+writing src/flashcards_generator.egg-info/PKG-INFO
+writing dependency_links to src/flashcards_generator.egg-info/dependency_links.txt
+writing entry points to src/flashcards_generator.egg-info/entry_points.txt
+writing requirements to src/flashcards_generator.egg-info/requires.txt
+writing top-level names to src/flashcards_generator.egg-info/top_level.txt
+reading manifest file 'src/flashcards_generator.egg-info/SOURCES.txt'
+writing manifest file 'src/flashcards_generator.egg-info/SOURCES.txt'
+running check
+creating flashcards_generator-1.0.0
+creating flashcards_generator-1.0.0/src/flashcards_generator
+creating flashcards_generator-1.0.0/src/flashcards_generator.egg-info
+creating flashcards_generator-1.0.0/src/flashcards_generator/adapters
+creating flashcards_generator-1.0.0/src/flashcards_generator/application
+creating flashcards_generator-1.0.0/src/flashcards_generator/application/dto
+creating flashcards_generator-1.0.0/src/flashcards_generator/domain
+creating flashcards_generator-1.0.0/src/flashcards_generator/domain/ports
+creating flashcards_generator-1.0.0/src/flashcards_generator/infrastructure
+creating flashcards_generator-1.0.0/src/flashcards_generator/interfaces
+creating flashcards_generator-1.0.0/tests
+copying files to flashcards_generator-1.0.0...
+copying README.md -> flashcards_generator-1.0.0
+copying pyproject.toml -> flashcards_generator-1.0.0
+copying src/flashcards_generator/__init__.py -> flashcards_generator-1.0.0/src/flashcards_generator
+copying src/flashcards_generator/__main__.py -> flashcards_generator-1.0.0/src/flashcards_generator
+copying src/flashcards_generator.egg-info/PKG-INFO -> flashcards_generator-1.0.0/src/flashcards_generator.egg-info
+copying src/flashcards_generator.egg-info/SOURCES.txt -> flashcards_generator-1.0.0/src/flashcards_generator.egg-info
+copying src/flashcards_generator.egg-info/dependency_links.txt -> flashcards_generator-1.0.0/src/flashcards_generator.egg-info
+copying src/flashcards_generator.egg-info/entry_points.txt -> flashcards_generator-1.0.0/src/flashcards_generator.egg-info
+copying src/flashcards_generator.egg-info/requires.txt -> flashcards_generator-1.0.0/src/flashcards_generator.egg-info
+copying src/flashcards_generator.egg-info/top_level.txt -> flashcards_generator-1.0.0/src/flashcards_generator.egg-info
+copying src/flashcards_generator/adapters/__init__.py -> flashcards_generator-1.0.0/src/flashcards_generator/adapters
+copying src/flashcards_generator/adapters/notebooklm_adapter.py -> flashcards_generator-1.0.0/src/flashcards_generator/adapters
+copying src/flashcards_generator/application/__init__.py -> flashcards_generator-1.0.0/src/flashcards_generator/application
+copying src/flashcards_generator/application/converter.py -> flashcards_generator-1.0.0/src/flashcards_generator/application
+copying src/flashcards_generator/application/csv_merger.py -> flashcards_generator-1.0.0/src/flashcards_generator/application
+copying src/flashcards_generator/application/exporter.py -> flashcards_generator-1.0.0/src/flashcards_generator/application
+copying src/flashcards_generator/application/math_processor.py -> flashcards_generator-1.0.0/src/flashcards_generator/application
+copying src/flashcards_generator/application/use_cases.py -> flashcards_generator-1.0.0/src/flashcards_generator/application
+copying src/flashcards_generator/application/dto/__init__.py -> flashcards_generator-1.0.0/src/flashcards_generator/application/dto
+copying src/flashcards_generator/application/dto/generate_request.py -> flashcards_generator-1.0.0/src/flashcards_generator/application/dto
+copying src/flashcards_generator/application/dto/merge_request.py -> flashcards_generator-1.0.0/src/flashcards_generator/application/dto
+copying src/flashcards_generator/domain/__init__.py -> flashcards_generator-1.0.0/src/flashcards_generator/domain
+copying src/flashcards_generator/domain/entities.py -> flashcards_generator-1.0.0/src/flashcards_generator/domain
+copying src/flashcards_generator/domain/exceptions.py -> flashcards_generator-1.0.0/src/flashcards_generator/domain
+copying src/flashcards_generator/domain/value_objects.py -> flashcards_generator-1.0.0/src/flashcards_generator/domain
+copying src/flashcards_generator/domain/ports/__init__.py -> flashcards_generator-1.0.0/src/flashcards_generator/domain/ports
+copying src/flashcards_generator/domain/ports/chunk_state.py -> flashcards_generator-1.0.0/src/flashcards_generator/domain/ports
+copying src/flashcards_generator/domain/ports/deck_repository.py -> flashcards_generator-1.0.0/src/flashcards_generator/domain/ports
+copying src/flashcards_generator/domain/ports/flashcard_generator.py -> flashcards_generator-1.0.0/src/flashcards_generator/domain/ports
+copying src/flashcards_generator/infrastructure/__init__.py -> flashcards_generator-1.0.0/src/flashcards_generator/infrastructure
+copying src/flashcards_generator/infrastructure/chunk_state_repository.py -> flashcards_generator-1.0.0/src/flashcards_generator/infrastructure
+copying src/flashcards_generator/infrastructure/logging_config.py -> flashcards_generator-1.0.0/src/flashcards_generator/infrastructure
+copying src/flashcards_generator/infrastructure/notebooklm_client.py -> flashcards_generator-1.0.0/src/flashcards_generator/infrastructure
+copying src/flashcards_generator/infrastructure/paths.py -> flashcards_generator-1.0.0/src/flashcards_generator/infrastructure
+copying src/flashcards_generator/infrastructure/pdf_utils.py -> flashcards_generator-1.0.0/src/flashcards_generator/infrastructure
+copying src/flashcards_generator/infrastructure/semantic_chunker.py -> flashcards_generator-1.0.0/src/flashcards_generator/infrastructure
+copying src/flashcards_generator/interfaces/__init__.py -> flashcards_generator-1.0.0/src/flashcards_generator/interfaces
+copying src/flashcards_generator/interfaces/cli.py -> flashcards_generator-1.0.0/src/flashcards_generator/interfaces
+copying tests/test_semantic_chunking.py -> flashcards_generator-1.0.0/tests
+copying src/flashcards_generator.egg-info/SOURCES.txt -> flashcards_generator-1.0.0/src/flashcards_generator.egg-info
+Writing flashcards_generator-1.0.0/setup.cfg
+Creating tar archive
+removing 'flashcards_generator-1.0.0' (and everything under it)
+Building wheel from source distribution...
+running egg_info
+writing src/flashcards_generator.egg-info/PKG-INFO
+writing dependency_links to src/flashcards_generator.egg-info/dependency_links.txt
+writing entry points to src/flashcards_generator.egg-info/entry_points.txt
+writing requirements to src/flashcards_generator.egg-info/requires.txt
+writing top-level names to src/flashcards_generator.egg-info/top_level.txt
+reading manifest file 'src/flashcards_generator.egg-info/SOURCES.txt'
+writing manifest file 'src/flashcards_generator.egg-info/SOURCES.txt'
+running bdist_wheel
+running build
+running build_py
+creating build/lib/flashcards_generator
+copying src/flashcards_generator/__init__.py -> build/lib/flashcards_generator
+copying src/flashcards_generator/__main__.py -> build/lib/flashcards_generator
+creating build/lib/flashcards_generator/adapters
+copying src/flashcards_generator/adapters/__init__.py -> build/lib/flashcards_generator/adapters
+copying src/flashcards_generator/adapters/notebooklm_adapter.py -> build/lib/flashcards_generator/adapters
+creating build/lib/flashcards_generator/application
+copying src/flashcards_generator/application/__init__.py -> build/lib/flashcards_generator/application
+copying src/flashcards_generator/application/converter.py -> build/lib/flashcards_generator/application
+copying src/flashcards_generator/application/csv_merger.py -> build/lib/flashcards_generator/application
+copying src/flashcards_generator/application/exporter.py -> build/lib/flashcards_generator/application
+copying src/flashcards_generator/application/math_processor.py -> build/lib/flashcards_generator/application
+copying src/flashcards_generator/application/use_cases.py -> build/lib/flashcards_generator/application
+creating build/lib/flashcards_generator/domain
+copying src/flashcards_generator/domain/__init__.py -> build/lib/flashcards_generator/domain
+copying src/flashcards_generator/domain/entities.py -> build/lib/flashcards_generator/domain
+copying src/flashcards_generator/domain/exceptions.py -> build/lib/flashcards_generator/domain
+copying src/flashcards_generator/domain/value_objects.py -> build/lib/flashcards_generator/domain
+creating build/lib/flashcards_generator/infrastructure
+copying src/flashcards_generator/infrastructure/__init__.py -> build/lib/flashcards_generator/infrastructure
+copying src/flashcards_generator/infrastructure/chunk_state_repository.py -> build/lib/flashcards_generator/infrastructure
+copying src/flashcards_generator/infrastructure/logging_config.py -> build/lib/flashcards_generator/infrastructure
+copying src/flashcards_generator/infrastructure/notebooklm_client.py -> build/lib/flashcards_generator/infrastructure
+copying src/flashcards_generator/infrastructure/paths.py -> build/lib/flashcards_generator/infrastructure
+copying src/flashcards_generator/infrastructure/pdf_utils.py -> build/lib/flashcards_generator/infrastructure
+copying src/flashcards_generator/infrastructure/semantic_chunker.py -> build/lib/flashcards_generator/infrastructure
+creating build/lib/flashcards_generator/interfaces
+copying src/flashcards_generator/interfaces/__init__.py -> build/lib/flashcards_generator/interfaces
+copying src/flashcards_generator/interfaces/cli.py -> build/lib/flashcards_generator/interfaces
+creating build/lib/flashcards_generator/application/dto
+copying src/flashcards_generator/application/dto/__init__.py -> build/lib/flashcards_generator/application/dto
+copying src/flashcards_generator/application/dto/generate_request.py -> build/lib/flashcards_generator/application/dto
+copying src/flashcards_generator/application/dto/merge_request.py -> build/lib/flashcards_generator/application/dto
+creating build/lib/flashcards_generator/domain/ports
+copying src/flashcards_generator/domain/ports/__init__.py -> build/lib/flashcards_generator/domain/ports
+copying src/flashcards_generator/domain/ports/chunk_state.py -> build/lib/flashcards_generator/domain/ports
+copying src/flashcards_generator/domain/ports/deck_repository.py -> build/lib/flashcards_generator/domain/ports
+copying src/flashcards_generator/domain/ports/flashcard_generator.py -> build/lib/flashcards_generator/domain/ports
+running egg_info
+writing src/flashcards_generator.egg-info/PKG-INFO
+writing dependency_links to src/flashcards_generator.egg-info/dependency_links.txt
+writing entry points to src/flashcards_generator.egg-info/entry_points.txt
+writing requirements to src/flashcards_generator.egg-info/requires.txt
+writing top-level names to src/flashcards_generator.egg-info/top_level.txt
+reading manifest file 'src/flashcards_generator.egg-info/SOURCES.txt'
+writing manifest file 'src/flashcards_generator.egg-info/SOURCES.txt'
+installing to build/bdist.linux-x86_64/wheel
+running install
+running install_lib
+creating build/bdist.linux-x86_64/wheel
+creating build/bdist.linux-x86_64/wheel/flashcards_generator
+copying build/lib/flashcards_generator/__init__.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator
+copying build/lib/flashcards_generator/__main__.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator
+creating build/bdist.linux-x86_64/wheel/flashcards_generator/adapters
+copying build/lib/flashcards_generator/adapters/__init__.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/adapters
+copying build/lib/flashcards_generator/adapters/notebooklm_adapter.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/adapters
+creating build/bdist.linux-x86_64/wheel/flashcards_generator/application
+copying build/lib/flashcards_generator/application/__init__.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/application
+copying build/lib/flashcards_generator/application/converter.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/application
+copying build/lib/flashcards_generator/application/csv_merger.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/application
+copying build/lib/flashcards_generator/application/exporter.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/application
+copying build/lib/flashcards_generator/application/math_processor.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/application
+copying build/lib/flashcards_generator/application/use_cases.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/application
+creating build/bdist.linux-x86_64/wheel/flashcards_generator/application/dto
+copying build/lib/flashcards_generator/application/dto/__init__.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/application/dto
+copying build/lib/flashcards_generator/application/dto/generate_request.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/application/dto
+copying build/lib/flashcards_generator/application/dto/merge_request.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/application/dto
+creating build/bdist.linux-x86_64/wheel/flashcards_generator/domain
+copying build/lib/flashcards_generator/domain/__init__.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/domain
+copying build/lib/flashcards_generator/domain/entities.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/domain
+copying build/lib/flashcards_generator/domain/exceptions.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/domain
+copying build/lib/flashcards_generator/domain/value_objects.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/domain
+creating build/bdist.linux-x86_64/wheel/flashcards_generator/domain/ports
+copying build/lib/flashcards_generator/domain/ports/__init__.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/domain/ports
+copying build/lib/flashcards_generator/domain/ports/chunk_state.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/domain/ports
+copying build/lib/flashcards_generator/domain/ports/deck_repository.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/domain/ports
+copying build/lib/flashcards_generator/domain/ports/flashcard_generator.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/domain/ports
+creating build/bdist.linux-x86_64/wheel/flashcards_generator/infrastructure
+copying build/lib/flashcards_generator/infrastructure/__init__.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/infrastructure
+copying build/lib/flashcards_generator/infrastructure/chunk_state_repository.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/infrastructure
+copying build/lib/flashcards_generator/infrastructure/logging_config.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/infrastructure
+copying build/lib/flashcards_generator/infrastructure/notebooklm_client.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/infrastructure
+copying build/lib/flashcards_generator/infrastructure/paths.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/infrastructure
+copying build/lib/flashcards_generator/infrastructure/pdf_utils.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/infrastructure
+copying build/lib/flashcards_generator/infrastructure/semantic_chunker.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/infrastructure
+creating build/bdist.linux-x86_64/wheel/flashcards_generator/interfaces
+copying build/lib/flashcards_generator/interfaces/__init__.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/interfaces
+copying build/lib/flashcards_generator/interfaces/cli.py -> build/bdist.linux-x86_64/wheel/./flashcards_generator/interfaces
+running install_egg_info
+Copying src/flashcards_generator.egg-info to build/bdist.linux-x86_64/wheel/./flashcards_generator-1.0.0-py3.10.egg-info
+running install_scripts
+creating build/bdist.linux-x86_64/wheel/flashcards_generator-1.0.0.dist-info/WHEEL
+creating '/home/avell/Projects/unchain0/flashcards-generator/dist/.tmp-l0y5mk1v/flashcards_generator-1.0.0-py3-none-any.whl' and adding 'build/bdist.linux-x86_64/wheel' to it
+adding 'flashcards_generator/__init__.py'
+adding 'flashcards_generator/__main__.py'
+adding 'flashcards_generator/adapters/__init__.py'
+adding 'flashcards_generator/adapters/notebooklm_adapter.py'
+adding 'flashcards_generator/application/__init__.py'
+adding 'flashcards_generator/application/converter.py'
+adding 'flashcards_generator/application/csv_merger.py'
+adding 'flashcards_generator/application/exporter.py'
+adding 'flashcards_generator/application/math_processor.py'
+adding 'flashcards_generator/application/use_cases.py'
+adding 'flashcards_generator/application/dto/__init__.py'
+adding 'flashcards_generator/application/dto/generate_request.py'
+adding 'flashcards_generator/application/dto/merge_request.py'
+adding 'flashcards_generator/domain/__init__.py'
+adding 'flashcards_generator/domain/entities.py'
+adding 'flashcards_generator/domain/exceptions.py'
+adding 'flashcards_generator/domain/value_objects.py'
+adding 'flashcards_generator/domain/ports/__init__.py'
+adding 'flashcards_generator/domain/ports/chunk_state.py'
+adding 'flashcards_generator/domain/ports/deck_repository.py'
+adding 'flashcards_generator/domain/ports/flashcard_generator.py'
+adding 'flashcards_generator/infrastructure/__init__.py'
+adding 'flashcards_generator/infrastructure/chunk_state_repository.py'
+adding 'flashcards_generator/infrastructure/logging_config.py'
+adding 'flashcards_generator/infrastructure/notebooklm_client.py'
+adding 'flashcards_generator/infrastructure/paths.py'
+adding 'flashcards_generator/infrastructure/pdf_utils.py'
+adding 'flashcards_generator/infrastructure/semantic_chunker.py'
+adding 'flashcards_generator/interfaces/__init__.py'
+adding 'flashcards_generator/interfaces/cli.py'
+adding 'flashcards_generator-1.0.0.dist-info/METADATA'
+adding 'flashcards_generator-1.0.0.dist-info/WHEEL'
+adding 'flashcards_generator-1.0.0.dist-info/entry_points.txt'
+adding 'flashcards_generator-1.0.0.dist-info/top_level.txt'
+adding 'flashcards_generator-1.0.0.dist-info/RECORD'
+removing build/bdist.linux-x86_64/wheel
+Successfully built dist/flashcards_generator-1.0.0.tar.gz
+Successfully built dist/flashcards_generator-1.0.0-py3-none-any.whl
+[exit=0]

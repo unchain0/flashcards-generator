@@ -232,6 +232,59 @@ def _save_chunk_result(
     )
 
 
+def _assert_first_resume_state(
+    manifest: ChunkResumeManifest,
+) -> None:
+    """Assert the durable state left by an interrupted first run."""
+    assert manifest.total_chunks == 2
+    assert [chunk.chunk_index for chunk in manifest.chunks] == [1, 2]
+    assert manifest.chunks[0].status == ChunkStatus.COMPLETED
+    assert manifest.chunks[1].status == ChunkStatus.FAILED
+    assert manifest.chunks[1].error_message == "simulated interruption"
+
+
+def _assert_no_interrupted_csv(csv_path: Path) -> None:
+    """Assert an interrupted run never publishes a final CSV."""
+    assert csv_path.exists() is False
+
+
+def _assert_saved_chunk_result(manifest: ChunkResumeManifest) -> None:
+    """Assert the successful chunk result was persisted."""
+    result_path = manifest.chunks[0].result_path
+    assert result_path is not None
+    assert Path(result_path).exists()
+
+
+def _assert_resumed_output(
+    resumed_decks: list[Deck],
+    generator: ScriptedChunkGenerator,
+    csv_path: Path,
+    expected_cards: list[Flashcard],
+) -> None:
+    """Assert resumed generation produces both source cards."""
+    assert len(resumed_decks) == 1
+    assert generator.processed_source_names == ["resume_flow_chunk_002.pdf"]
+    assert csv_path.exists()
+    assert _read_csv_rows(csv_path) == [
+        [card.front, card.back] for card in expected_cards
+    ]
+
+
+def _assert_resume_artifacts_clean(
+    use_case: GenerateFlashcardsUseCase,
+    state_path: Path,
+    resume_paths: dict[str, Path],
+) -> None:
+    """Assert all durable and temporary resume artifacts were removed."""
+    assert not state_path.exists()
+    assert not use_case._get_resume_dir(
+        resume_paths["pdf_output_path"],
+        resume_paths["pdf_path"].stem,
+    ).exists()
+    assert not resume_paths["chunk_1"].exists()
+    assert not resume_paths["chunk_2"].exists()
+
+
 def test_resume_after_interruption_processes_only_missing_chunks(
     resume_paths: dict[str, Path],
 ) -> None:
@@ -275,14 +328,9 @@ def test_resume_after_interruption_processes_only_missing_chunks(
 
     assert first_result == []
     assert saved_manifest is not None
-    assert saved_manifest.total_chunks == 2
-    assert [chunk.chunk_index for chunk in saved_manifest.chunks] == [1, 2]
-    assert saved_manifest.chunks[0].status == ChunkStatus.COMPLETED
-    assert saved_manifest.chunks[1].status == ChunkStatus.FAILED
-    assert saved_manifest.chunks[1].error_message == "simulated interruption"
-    assert saved_manifest.chunks[0].result_path is not None
-    assert Path(saved_manifest.chunks[0].result_path).exists()
-    assert csv_path.exists() is False
+    _assert_first_resume_state(saved_manifest)
+    _assert_no_interrupted_csv(csv_path)
+    _assert_saved_chunk_result(saved_manifest)
 
     second_run_generator = ScriptedChunkGenerator({
         resume_paths["chunk_2"].name: chunk_two_cards
@@ -295,22 +343,15 @@ def test_resume_after_interruption_processes_only_missing_chunks(
 
     resumed_decks = second_run_use_case.execute(request)
 
-    assert len(resumed_decks) == 1
-    assert second_run_generator.processed_source_names == [
-        resume_paths["chunk_2"].name
-    ]
-    assert csv_path.exists()
-    assert _read_csv_rows(csv_path) == [
-        [chunk_one_cards[0].front, chunk_one_cards[0].back],
-        [chunk_two_cards[0].front, chunk_two_cards[0].back],
-    ]
-    assert not state_path.exists()
-    assert not second_run_use_case._get_resume_dir(
-        resume_paths["pdf_output_path"],
-        resume_paths["pdf_path"].stem,
-    ).exists()
-    assert not resume_paths["chunk_1"].exists()
-    assert not resume_paths["chunk_2"].exists()
+    _assert_resumed_output(
+        resumed_decks,
+        second_run_generator,
+        csv_path,
+        [chunk_one_cards[0], chunk_two_cards[0]],
+    )
+    _assert_resume_artifacts_clean(
+        second_run_use_case, state_path, resume_paths
+    )
 
 
 def test_resume_restarts_from_scratch_when_source_signature_changes(
@@ -395,8 +436,7 @@ def test_resume_restarts_from_scratch_when_source_signature_changes(
         resume_paths["chunk_1"].name,
         resume_paths["chunk_2"].name,
     ]
-    assert not state_path.exists()
-    assert not resume_dir.exists()
+    _assert_resume_artifacts_clean(fresh_use_case, state_path, resume_paths)
 
 
 def test_resume_disabled_uses_normal_processing_without_state_tracking(
@@ -434,13 +474,7 @@ def test_resume_disabled_uses_normal_processing_without_state_tracking(
         resume_paths["chunk_1"].name,
         resume_paths["chunk_2"].name,
     ]
-    assert not state_path.exists()
-    assert not use_case._get_resume_dir(
-        resume_paths["pdf_output_path"],
-        resume_paths["pdf_path"].stem,
-    ).exists()
-    assert not resume_paths["chunk_1"].exists()
-    assert not resume_paths["chunk_2"].exists()
+    _assert_resume_artifacts_clean(use_case, state_path, resume_paths)
 
 
 def test_resume_cleans_up_when_all_chunks_are_already_complete(
@@ -523,7 +557,6 @@ def test_resume_cleans_up_when_all_chunks_are_already_complete(
 
     assert len(decks) == 1
     assert generator.processed_source_names == []
-    assert not state_path.exists()
-    assert not resume_dir.exists()
-    assert not resume_paths["chunk_1"].exists()
-    assert not resume_paths["chunk_2"].exists()
+    _assert_resume_artifacts_clean(
+        completed_use_case, state_path, resume_paths
+    )

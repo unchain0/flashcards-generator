@@ -1,0 +1,7 @@
+$ find /tmp -maxdepth 1 -type d -name 'flashcards-manual-qa.*' -print
+temp_roots_remaining=0
+$ pgrep -x notebooklm
+notebooklm_process_exit=1
+notebooklm_process_count=0
+$ test -e /tmp/flashcards-manual-qa.Xnulug
+old_failed_attempt_root_exists=no

@@ -1,0 +1,58 @@
+Screen {
+    background: $surface;
+    color: $text;
+}
+
+Header {
+    background: $panel;
+    color: $text;
+}
+
+TabbedContent {
+    height: 1fr;
+    width: 100%;
+}
+
+TabPane {
+    padding: 2 4;
+    height: 1fr;
+    overflow-y: auto;
+}
+
+.workflow-panel {
+    width: 100%;
+    height: auto;
+    min-height: 8;
+    padding: 2 3;
+    border: round $primary-darken-2;
+    background: $panel;
+}
+
+.workflow-title {
+    text-style: bold;
+    color: $accent;
+}
+
+.workflow-description {
+    margin-top: 1;
+    color: $text-muted;
+}
+
+#help-dialog {
+    width: 46;
+    height: auto;
+    min-height: 14;
+    padding: 2 3;
+    border: round $accent;
+    background: $panel;
+    align: center middle;
+}
+
+#help-title {
+    text-style: bold;
+    color: $accent;
+}
+
+#help-shortcuts {
+    margin-top: 1;
+}

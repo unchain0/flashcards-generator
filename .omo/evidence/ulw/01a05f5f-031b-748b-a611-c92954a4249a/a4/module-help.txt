@@ -1,0 +1,18 @@
+$ uv run python -m flashcards_generator --help
+usage: __main__.py [-h] [--log-level {DEBUG,INFO,WARNING,ERROR}]
+                   {generate,cleanup,merge} ...
+
+Gera flashcards com Cloze Deletion a partir de PDFs
+
+positional arguments:
+  {generate,cleanup,merge}
+                        Comandos disponíveis
+    generate            Gerar flashcards de PDFs
+    cleanup             Limpar notebooks do NotebookLM
+    merge               Mesclar arquivos CSV de flashcards
+
+options:
+  -h, --help            show this help message and exit
+  --log-level {DEBUG,INFO,WARNING,ERROR}
+                        Nível de log (padrão: INFO)
+[exit=0]

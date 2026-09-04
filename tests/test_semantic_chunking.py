@@ -1,5 +1,12 @@
 """Tests for semantic chunking functionality."""
 
+import sys
+from types import SimpleNamespace
+from unittest.mock import patch
+
+import pytest
+from scipy.sparse import csr_matrix
+
 from flashcards_generator.infrastructure.semantic_chunker import (
     QualityFilter,
     SemanticChunker,
@@ -85,6 +92,36 @@ class TestSemanticChunker:
         chunker = SemanticChunker()
         boundaries = chunker.find_semantic_boundaries([])
         assert boundaries == []
+
+    def test_find_semantic_boundaries_does_not_materialize_dense_matrix(self):
+        """Boundary detection must remain bounded for many segments."""
+        chunker = SemanticChunker()
+        segments = [
+            TextSegment(f"segment {index}", 1, 1, 2) for index in range(4)
+        ]
+        sparse_vectors = csr_matrix([
+            [1.0, 0.0, 0.0],
+            [0.5, 0.8660254, 0.0],
+            [0.0, 0.1, 0.9949874],
+            [0.0, 0.0, 1.0],
+        ])
+
+        with (
+            patch(
+                "flashcards_generator.infrastructure.semantic_chunker."
+                "TfidfVectorizer.fit_transform",
+                return_value=sparse_vectors,
+            ),
+            patch(
+                "scipy.sparse.csr_matrix.toarray",
+                side_effect=AssertionError(
+                    "dense similarity matrix was materialized"
+                ),
+            ),
+        ):
+            boundaries = chunker.find_semantic_boundaries(segments)
+
+        assert boundaries == [1]
 
     def test_get_overlap_text(self):
         """Test overlap text extraction."""
@@ -252,3 +289,190 @@ class TestQualityFilterEdgeCases:
         # Should not raise, should return empty list
         result = filter_q.find_similar_cards(cards)
         assert isinstance(result, list)
+
+
+class TestSemanticChunkerRegressions:
+    @staticmethod
+    def _word_count(text: str) -> int:
+        return len(text.split())
+
+    def _chunker_with_segments(
+        self,
+        monkeypatch,
+        segments: list[TextSegment],
+        *,
+        target_tokens: int = 500,
+        min_tokens: int = 200,
+        max_tokens: int = 800,
+        overlap_tokens: int = 50,
+        boundaries: list[int] | None = None,
+    ) -> SemanticChunker:
+        chunker = SemanticChunker(
+            target_tokens=target_tokens,
+            min_tokens=min_tokens,
+            max_tokens=max_tokens,
+            overlap_tokens=overlap_tokens,
+        )
+        monkeypatch.setattr(chunker.token_counter, "count", self._word_count)
+        monkeypatch.setattr(
+            chunker, "extract_text_from_pdf", lambda _path: segments
+        )
+        monkeypatch.setattr(
+            chunker,
+            "find_semantic_boundaries",
+            lambda _segments: [] if boundaries is None else boundaries,
+        )
+        return chunker
+
+    def test_extract_text_skips_none_page_without_losing_later_page(
+        self, monkeypatch, tmp_path
+    ):
+        class Page:
+            def __init__(self, text):
+                self.text = text
+
+            def extract_text(self):
+                return self.text
+
+        reader = SimpleNamespace(pages=[Page(None), Page("retained page")])
+        monkeypatch.setitem(
+            sys.modules,
+            "pypdf",
+            SimpleNamespace(PdfReader=lambda *_args, **_kwargs: reader),
+        )
+        chunker = SemanticChunker()
+
+        assert chunker.extract_text_from_pdf(tmp_path / "sample.pdf") == [
+            TextSegment(
+                "retained page",
+                2,
+                2,
+                chunker.token_counter.count("retained page"),
+            )
+        ]
+
+    def test_extract_text_rejects_oversized_pdf_before_reader(
+        self, monkeypatch, tmp_path
+    ):
+        pdf_path = tmp_path / "oversized.pdf"
+        pdf_path.write_bytes(b"012345")
+        monkeypatch.setattr(
+            SemanticChunker, "MAX_PDF_FILE_BYTES", 5, raising=False
+        )
+
+        def fail_if_reader_called(*_args, **_kwargs):
+            pytest.fail("oversized PDF reached pypdf")
+
+        monkeypatch.setitem(
+            sys.modules,
+            "pypdf",
+            SimpleNamespace(PdfReader=fail_if_reader_called),
+        )
+
+        assert SemanticChunker().extract_text_from_pdf(pdf_path) == []
+
+    def test_short_and_oversized_text_is_preserved_within_max_tokens(
+        self, monkeypatch, tmp_path
+    ):
+        tokens = [f"sentinel_{index}" for index in range(22)]
+        chunker = self._chunker_with_segments(
+            monkeypatch,
+            [TextSegment(" ".join(tokens), 1, 1, len(tokens))],
+            min_tokens=200,
+            max_tokens=10,
+            overlap_tokens=0,
+        )
+
+        chunks = list(chunker.create_semantic_chunks(tmp_path / "sample.pdf"))
+
+        assert [
+            token for text, _, _ in chunks for token in text.split()
+        ] == tokens
+        assert all(
+            chunker.token_counter.count(text) <= 10 for text, _, _ in chunks
+        )
+
+    def test_boundary_chunk_starts_at_first_represented_page(
+        self, monkeypatch, tmp_path
+    ):
+        chunker = self._chunker_with_segments(
+            monkeypatch,
+            [
+                TextSegment("one.", 1, 1, 1),
+                TextSegment("two.", 2, 2, 1),
+                TextSegment("three.", 3, 3, 1),
+            ],
+            target_tokens=2,
+            min_tokens=1,
+            max_tokens=10,
+            boundaries=[1],
+        )
+
+        chunks = list(chunker.create_semantic_chunks(tmp_path / "sample.pdf"))
+
+        assert [(start, end) for _, start, end in chunks] == [(1, 2), (3, 3)]
+
+    def test_overlap_chunk_metadata_includes_the_overlapped_page(
+        self, monkeypatch, tmp_path
+    ):
+        chunker = self._chunker_with_segments(
+            monkeypatch,
+            [
+                TextSegment("Alpha. Beta. Gamma.", 1, 1, 3),
+                TextSegment("Delta.", 2, 2, 1),
+            ],
+            min_tokens=1,
+            max_tokens=3,
+            overlap_tokens=1,
+        )
+
+        chunks = list(chunker.create_semantic_chunks(tmp_path / "sample.pdf"))
+
+        assert chunks == [
+            ("Alpha. Beta. Gamma.", 1, 1),
+            ("Gamma. Delta.", 1, 2),
+        ]
+        assert all(
+            chunker.token_counter.count(text) <= 3 for text, _, _ in chunks
+        )
+
+
+class TestQualityFilterRegressions:
+    def test_stop_word_duplicate_is_detected_when_tfidf_has_no_vocabulary(
+        self,
+    ):
+        cards = [
+            ("could would should", "first detailed answer"),
+            ("could would should", "second detailed answer"),
+        ]
+
+        assert QualityFilter().find_similar_cards(cards) == [(0, 1, 1.0)]
+
+    def test_similarity_filter_does_not_materialize_a_dense_matrix(
+        self, monkeypatch
+    ):
+        def fail_if_called(*_args, **_kwargs):
+            pytest.fail("dense cosine similarity matrix must not be created")
+
+        monkeypatch.setattr("scipy.sparse.csr_matrix.toarray", fail_if_called)
+        cards = [
+            ("alpha beta gamma", "first detailed answer"),
+            ("alpha beta gamma", "second detailed answer"),
+            ("delta epsilon zeta", "third detailed answer"),
+        ]
+
+        assert QualityFilter().find_similar_cards(cards) == [(0, 1, 1.0)]
+
+    def test_similarity_filter_bounds_pair_memory_for_dense_inputs(
+        self, monkeypatch
+    ):
+        filter_q = QualityFilter()
+        monkeypatch.setattr(filter_q, "MAX_SIMILAR_PAIRS", 3)
+        cards = [
+            (f"alpha beta gamma {index}", "first detailed answer")
+            for index in range(20)
+        ]
+
+        result = filter_q.find_similar_cards(cards)
+
+        assert len(result) <= 3

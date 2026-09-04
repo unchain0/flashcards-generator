@@ -3,6 +3,9 @@
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import pytest
+from pypdf.errors import EmptyFileError
+
 from flashcards_generator.infrastructure.pdf_utils import PDFChunker
 
 
@@ -41,6 +44,16 @@ class TestPDFChunker:
         chunker._has_pypdf = False
         pdf_path = tmp_path / "test.pdf"
         assert chunker.count_pages(pdf_path) == 0
+
+    def test_count_pages_rejects_oversized_pdf(self, tmp_path, monkeypatch):
+        """PDF parsing must enforce a finite input-size limit."""
+        pdf_path = tmp_path / "oversized.pdf"
+        pdf_path.write_bytes(b"012345")
+        monkeypatch.setattr(PDFChunker, "MAX_PDF_FILE_BYTES", 5, raising=False)
+        chunker = PDFChunker()
+
+        with pytest.raises(ValueError, match="maximum"):
+            chunker.count_pages(pdf_path)
 
     @patch(
         "flashcards_generator.infrastructure.pdf_utils.PDFChunker.count_pages"
@@ -206,6 +219,92 @@ class TestPDFChunker:
 
         assert chunker.get_chapter_boundaries(pdf_path) == []
         mock_reader_class.assert_called_once_with(str(pdf_path), strict=False)
+
+    def test_rejects_invalid_chunk_configuration(self):
+        with pytest.raises(ValueError, match="chunk_size"):
+            PDFChunker(chunk_size=0)
+
+        with pytest.raises(ValueError, match="overlap_pages"):
+            PDFChunker(chunk_size=30, overlap_pages=30)
+
+        with pytest.raises(ValueError, match="overlap_pages"):
+            PDFChunker(chunk_size=30, overlap_pages=-1)
+
+    def test_fixed_size_ranges_use_single_overlap_and_close_reader(
+        self, tmp_path
+    ):
+        chunker = PDFChunker(chunk_size=30, overlap_pages=5)
+        chunker._has_pypdf = True
+        reader = Mock()
+        reader.pages = list(range(51))
+        chunker._create_reader = Mock(return_value=reader)
+        writers = []
+
+        def create_writer():
+            writer = Mock()
+            writers.append(writer)
+            return writer
+
+        with patch("pypdf.PdfWriter", side_effect=create_writer):
+            chunks = list(
+                chunker._chunk_fixed_size_with_overlap(
+                    tmp_path / "source.pdf", tmp_path / "output"
+                )
+            )
+
+        assert [
+            [call.args[0] for call in writer.add_page.call_args_list]
+            for writer in writers
+        ] == [list(range(30)), list(range(25, 51))]
+        assert len(chunks) == 2
+        reader.stream.close.assert_called_once_with()
+
+    def test_fixed_size_reader_closes_when_generator_is_closed(self, tmp_path):
+        chunker = PDFChunker(chunk_size=2, overlap_pages=0)
+        reader = Mock()
+        reader.pages = list(range(3))
+        chunker._create_reader = Mock(return_value=reader)
+
+        with patch("pypdf.PdfWriter", return_value=Mock()):
+            chunks = chunker._chunk_fixed_size_with_overlap(
+                tmp_path / "source.pdf", tmp_path / "output"
+            )
+            next(chunks)
+            chunks.close()
+
+        reader.stream.close.assert_called_once_with()
+
+    def test_chapter_chunk_preserves_leading_pages(self, tmp_path):
+        chunker = PDFChunker(chunk_size=30, overlap_pages=0)
+        reader = Mock()
+        reader.pages = list(range(10))
+        chunker._create_reader = Mock(return_value=reader)
+        writer = Mock()
+
+        with patch("pypdf.PdfWriter", return_value=writer):
+            chunks = list(
+                chunker._chunk_by_chapters(
+                    tmp_path / "source.pdf",
+                    tmp_path / "output",
+                    [(5, 10, "Chapter")],
+                )
+            )
+
+        assert [
+            call.args[0] for call in writer.add_page.call_args_list
+        ] == list(range(10))
+        assert len(chunks) == 1
+        reader.stream.close.assert_called_once_with()
+
+    def test_corrupt_pdf_returns_controlled_fallbacks(self, tmp_path):
+        chunker = PDFChunker()
+        chunker._has_pypdf = True
+        chunker._create_reader = Mock(side_effect=EmptyFileError("empty"))
+        pdf_path = tmp_path / "corrupt.pdf"
+
+        assert chunker.count_pages(pdf_path) == 0
+        assert chunker.get_chapter_boundaries(pdf_path) == []
+        assert list(chunker.chunk_pdf(pdf_path, tmp_path / "output")) == []
 
     @patch("pypdf.PdfReader")
     def test_get_chapter_boundaries_success(self, mock_reader_class, tmp_path):

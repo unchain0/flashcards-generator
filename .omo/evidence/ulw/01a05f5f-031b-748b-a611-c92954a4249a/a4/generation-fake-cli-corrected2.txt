@@ -1,0 +1,49 @@
+working_dir=/home/avell/Projects/unchain0/flashcards-generator
+fixture_root=/tmp/flashcards-qa-generate-fake2.k7i1WH
+$ env PATH=/tmp/flashcards-qa-generate-fake2.k7i1WH/bin:$PATH .venv/bin/python -m flashcards_generator generate --input-dir /tmp/flashcards-qa-generate-fake2.k7i1WH/input --output-dir /tmp/flashcards-qa-generate-fake2.k7i1WH/output --skip-auth-check --timeout 30
+00:20:16 INFO     cli:253 - Idioma configurado: pt_BR
+00:20:16 INFO     cli:298 - Iniciando...
+00:20:16 INFO     cli:299 - Entrada: /tmp/flashcards-qa-generate-fake2.k7i1WH/input
+00:20:16 INFO     cli:300 - Saída: /tmp/flashcards-qa-generate-fake2.k7i1WH/output (preservando a estrutura relativa)
+00:20:16 INFO     cli:303 - Dificuldade: medium
+00:20:16 INFO     cli:304 - Quantidade: standard
+00:20:16 INFO     use_cases:212 - 1 PDF(s) found
+00:20:16 INFO     use_cases:1437 - ============================================================
+00:20:16 INFO     use_cases:1438 - PDF: Tema1/sample.pdf
+00:20:16 INFO     use_cases:1439 - Deck: Tema1_sample
+00:20:16 INFO     use_cases:1440 - ============================================================
+00:20:16 INFO     pdf_utils:270 - PDF .sample.313f47159b1bac5e8822d194a3466721.pdf: 1 pages
+00:20:16 INFO     use_cases:833 - Source added: qa-sourc...
+00:20:16 INFO     use_cases:1489 - Processing source...
+00:20:16 INFO     use_cases:1515 - Generating flashcards...
+00:20:16 INFO     use_cases:1543 - Waiting for generation...
+00:20:16 WARNING  notebooklm_adapter:449 - NotebookLM delete failed: status=2 stderr_chars=71
+00:20:16 INFO     use_cases:1646 - Notebook deleted
+00:20:16 INFO     use_cases:1654 - Saved to: /tmp/flashcards-qa-generate-fake2.k7i1WH/output/Tema1/sample.csv
+00:20:16 INFO     use_cases:630 - Resume state cleaned up
+00:20:16 INFO     cli:309 - ============================================================
+00:20:16 INFO     cli:310 - RESUMO
+00:20:16 INFO     cli:311 - ============================================================
+00:20:16 INFO     cli:312 - Temas: 1
+00:20:16 INFO     cli:313 - Total de cards: 1
+00:20:16 INFO     cli:314 - Decks:
+00:20:16 INFO     cli:317 -   ✅ Tema1_sample: 1 cards
+[exit=0]
+
+resolver_used=/tmp/flashcards-qa-generate-fake2.k7i1WH/bin/notebooklm
+
+output tree:
+ d 60 bytes
+Tema1 d 80 bytes
+Tema1/.flashcards_resume d 60 bytes
+Tema1/.flashcards_resume/.sample.lock f 0 bytes
+Tema1/sample.csv f 134 bytes
+
+CSV parse (/tmp/flashcards-qa-generate-fake2.k7i1WH/output/Tema1/sample.csv):
+rows=1 widths=[2]
+valid_two_columns=True
+has_cloze=True
+nonempty_fields=True
+content=[['O {{c1::Python}} é uma linguagem de programação.', 'Python oferece sintaxe clara e tipagem dinâmica para desenvolvimento geral.']]
+
+traceback_in_cli_output=see transcript above

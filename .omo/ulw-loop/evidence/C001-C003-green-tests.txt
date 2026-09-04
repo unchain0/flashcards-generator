@@ -1,0 +1,10 @@
+Command:
+uv run pytest tests/integration/test_anki_connect_flow.py -q -s
+
+Result: GREEN (exit code 0)
+
+Observed:
+3 passed in 3.46s
+
+The tests launch the real flashcards_generator module CLI, a temporary
+NotebookLM executable, and a local AnkiConnect HTTP server.

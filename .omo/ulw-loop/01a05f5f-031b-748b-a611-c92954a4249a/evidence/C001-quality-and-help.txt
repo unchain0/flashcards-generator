@@ -1,0 +1,46 @@
+C001 - final canonical evidence
+Working directory: /home/avell/Projects/unchain0/flashcards-generator
+Final tree state: 2026-09-02, uncommitted; pyproject.toml and uv.lock user changes preserved.
+
+RED evidence retained before the corrective edits:
+- `uv run ruff format --check .`: exit 1, formatter reported files to reformat.
+- `uv run mypy src/flashcards_generator`: exit 1, two use_cases.py errors.
+- `uv run pytest`: exit 2 during collection because the fake-CLI regression
+  test had malformed escaping.
+- The pre-fix no-wait expectation and other behavioral RED transcripts remain
+  in `.omo/evidence/ulw/.../a2/`.
+
+GREEN evidence on the final tree:
+
+```console
+$ uv run ruff check .
+All checks passed!
+[exit=0]
+
+$ uv run ruff format --check .
+97 files already formatted
+[exit=0]
+
+$ uv run mypy src/flashcards_generator
+Success: no issues found in 31 source files
+[exit=0]
+
+$ uv run pytest
+======================== 437 passed in 68.93s ========================
+[exit=0]
+
+$ uv run python -m flashcards_generator --help
+usage: __main__.py ...
+    generate            Gerar flashcards de PDFs
+    cleanup             Limpar notebooks temporários
+    merge               Mesclar arquivos CSV de flashcards
+[exit=0]
+
+$ uv run flashcards --help
+    generate            Gerar flashcards de PDFs
+    cleanup             Limpar notebooks temporários
+    merge               Mesclar arquivos CSV de flashcards
+[exit=0]
+```
+
+Result: PASS. No traceback appeared.

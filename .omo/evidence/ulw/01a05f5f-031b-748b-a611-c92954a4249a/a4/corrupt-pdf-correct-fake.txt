@@ -1,0 +1,33 @@
+working_dir=/home/avell/Projects/unchain0/flashcards-generator
+fixture_root=/tmp/flashcards-qa-corrupt.XPp78H
+$ env PATH=/tmp/flashcards-qa-corrupt.XPp78H/bin:$PATH .venv/bin/python -m flashcards_generator generate --input-dir /tmp/flashcards-qa-corrupt.XPp78H/input --output-dir /tmp/flashcards-qa-corrupt.XPp78H/output-root --skip-auth-check --timeout 5
+00:22:40 WARNING  cli:259 - Não foi possível configurar o idioma: unexpected provider invocation ['language', 'set', 'pt_BR']
+00:22:40 INFO     cli:298 - Iniciando...
+00:22:40 INFO     cli:299 - Entrada: /tmp/flashcards-qa-corrupt.XPp78H/input
+00:22:40 INFO     cli:300 - Saída: /tmp/flashcards-qa-corrupt.XPp78H/output-root (preservando a estrutura relativa)
+00:22:40 INFO     cli:303 - Dificuldade: medium
+00:22:40 INFO     cli:304 - Quantidade: standard
+00:22:40 INFO     use_cases:212 - 1 PDF(s) found
+00:22:40 INFO     use_cases:1437 - ============================================================
+00:22:40 INFO     use_cases:1438 - PDF: Tema1/corrupt.pdf
+00:22:40 INFO     use_cases:1439 - Deck: Tema1_corrupt
+00:22:40 INFO     use_cases:1440 - ============================================================
+00:22:40 ERROR    pdf_utils:173 - Failed to count pages in /tmp/flashcards-qa-corrupt.XPp78H/output-root/Tema1/.flashcards_sources/.corrupt.0d6b9b22c7eb816f6dc10560f12d0932.pdf: Stream has ended unexpectedly
+00:22:40 INFO     pdf_utils:270 - PDF .corrupt.0d6b9b22c7eb816f6dc10560f12d0932.pdf: 0 pages
+00:22:40 ERROR    use_cases:1417 - Generation error: Generation failed for : NotebookLM command failed (status=2, stderr_chars=81)
+00:22:40 INFO     cli:309 - ============================================================
+00:22:40 INFO     cli:310 - RESUMO
+00:22:40 INFO     cli:311 - ============================================================
+00:22:40 INFO     cli:312 - Temas: 0
+00:22:40 INFO     cli:313 - Total de cards: 0
+00:22:40 INFO     cli:314 - Decks:
+[exit=0]
+resolver_used=/tmp/flashcards-qa-corrupt.XPp78H/bin/notebooklm
+
+output_tree:
+ d 60 bytes
+Tema1 d 60 bytes
+Tema1/.flashcards_resume/.corrupt.lock f 0 bytes
+Tema1/.flashcards_resume d 60 bytes
+csv_count=0
+traceback_present=no observed in transcript

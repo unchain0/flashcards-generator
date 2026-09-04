@@ -1,0 +1,3 @@
+I read this as a completed audit - the bounded report was written and re-read for concrete traversal inputs, race interleavings, and binary expected outcomes.
+
+Report: `.omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a1/audit-state-path.md`

@@ -1,0 +1,9 @@
+Scenario command:
+uv run pytest tests/integration/test_anki_connect_flow.py -k test_existing_csv_export_remains_default -vv -s
+
+Manual surface:
+.venv/bin/python -m flashcards_generator generate --input-dir <tmp>/input --output-dir <tmp>/output --timeout 10 --skip-auth-check
+
+Observed: exit code 0; one existing two-column Cloze CSV was written and the
+local AnkiConnect request log remained empty. No AnkiConnect options were
+passed.

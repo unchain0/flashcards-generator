@@ -1,0 +1,12 @@
+Command:
+uv run pytest tests/integration/test_anki_connect_flow.py -k test_reports_anki_connect_failure_without_claiming_success -vv --tb=short -s
+
+Result: RED (exit code 1)
+
+Failure:
+tests/integration/test_anki_connect_flow.py::test_reports_anki_connect_failure_without_claiming_success FAILED
+SystemExit: 2
+pytest: error: unrecognized arguments: --anki-deck Estácio::Disciplina::Unidade 1 --anki-connect-url <temporary local URL>
+
+The test reaches the existing generate parser and fails because the
+AnkiConnect opt-in contract does not exist yet.

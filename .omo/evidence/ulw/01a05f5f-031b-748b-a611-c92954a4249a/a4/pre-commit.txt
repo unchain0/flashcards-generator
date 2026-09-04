@@ -1,0 +1,22 @@
+$ uv run pre-commit run --all-files --show-diff-on-failure
+trim trailing whitespace.................................................Passed
+fix end of files.........................................................Passed
+check yaml...............................................................Passed
+check json...............................................................Passed
+check toml...............................................................Passed
+check for merge conflicts................................................Passed
+check for added large files..............................................Passed
+check for case conflicts.................................................Passed
+check docstring is first.................................................Passed
+debug statements (python)................................................Passed
+mixed line ending........................................................Passed
+RUFF linter..............................................................Passed
+RUFF formatter...........................................................Passed
+Gitleaks secrets scan....................................................Passed
+check blanket noqa.......................................................Passed
+check for not-real mock methods..........................................Passed
+check for eval().........................................................Passed
+use logger.warning(......................................................Passed
+type annotations not comments............................................Passed
+Check Python version compatibility.......................................Passed
+[exit=0]

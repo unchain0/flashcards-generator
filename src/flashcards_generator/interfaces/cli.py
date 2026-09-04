@@ -8,6 +8,10 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from flashcards_generator.adapters.anki_connect_adapter import (
+    DEFAULT_ANKI_CONNECT_URL,
+    AnkiConnectAdapter,
+)
 from flashcards_generator.adapters.notebooklm_adapter import NotebookLMAdapter
 from flashcards_generator.application.csv_merger import CsvMerger
 from flashcards_generator.application.dto.generate_request import (
@@ -17,7 +21,11 @@ from flashcards_generator.application.dto.merge_request import MergeCsvRequest
 from flashcards_generator.application.use_cases import (
     GenerateFlashcardsUseCase,
 )
-from flashcards_generator.domain.exceptions import CSVMergeError
+from flashcards_generator.domain.exceptions import (
+    AnkiConnectError,
+    CSVMergeError,
+)
+from flashcards_generator.domain.ports.anki_exporter import AnkiExporterPort
 from flashcards_generator.infrastructure.chunk_state_repository import (
     FileSystemChunkStateRepository,
 )
@@ -31,6 +39,14 @@ if TYPE_CHECKING:
     from flashcards_generator.domain.entities import Deck
 
 logger = get_logger("cli")
+
+
+def _positive_int(value: str) -> int:
+    """Parse a positive integer for destructive cleanup selection."""
+    parsed = int(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("deve ser um inteiro positivo")
+    return parsed
 
 
 class CLI:
@@ -120,20 +136,44 @@ class CLI:
             type=str,
             help="Lista explícita de PDFs separados por vírgula",
         )
+        generate_parser.add_argument(
+            "--anki-deck",
+            type=str,
+            help=(
+                "Importar cards diretamente no deck Anki informado "
+                "(opcional; suporta `::` para decks hierárquicos)"
+            ),
+        )
+        generate_parser.add_argument(
+            "--anki-connect-url",
+            type=str,
+            help=(
+                "URL local do AnkiConnect (padrão: "
+                f"{DEFAULT_ANKI_CONNECT_URL})"
+            ),
+        )
+        generate_parser.add_argument(
+            "--anki-api-key",
+            type=str,
+            help="Chave opcional configurada no AnkiConnect",
+        )
         # Cleanup command
         cleanup_parser = subparsers.add_parser(
             "cleanup", help="Limpar notebooks do NotebookLM"
         )
-        cleanup_parser.add_argument(
+        cleanup_selector = cleanup_parser.add_mutually_exclusive_group(
+            required=True
+        )
+        cleanup_selector.add_argument(
             "--days",
             "-d",
-            type=int,
+            type=_positive_int,
             help=(
                 "Deletar apenas notebooks criados nos últimos N dias "
                 "(ex: 1=hoje, 2=ontem+hoje)"
             ),
         )
-        cleanup_parser.add_argument(
+        cleanup_selector.add_argument(
             "--all",
             "-a",
             action="store_true",
@@ -183,14 +223,22 @@ class CLI:
                 check=False,
                 timeout=10,
             )
-            return result.returncode == 0 and "✓" in result.stdout
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            return False
+            return result.returncode == 0
+        except subprocess.TimeoutExpired:
+            logger.error("Tempo esgotado ao verificar autenticação")
+        except FileNotFoundError:
+            logger.error("Executável notebooklm não encontrado")
+        except OSError as error:
+            logger.error(f"Não foi possível verificar autenticação: {error}")
+        return False
 
     def _validate_input(self, input_dir: Path) -> bool:
-        """Validate input directory exists."""
+        """Validate input directory exists and is a directory."""
         if not input_dir.exists():
             logger.error(f"Diretório não existe: {input_dir}")
+            return False
+        if not input_dir.is_dir():
+            logger.error(f"Diretório inválido: {input_dir}")
             return False
         return True
 
@@ -209,15 +257,35 @@ class CLI:
         """Set language for NotebookLM."""
         notebooklm = find_notebooklm()
         try:
-            subprocess.run(
+            result = subprocess.run(
                 [notebooklm, "language", "set", language],
                 capture_output=True,
+                text=True,
                 check=False,
                 timeout=10,
             )
+        except subprocess.TimeoutExpired:
+            logger.warning(
+                "Não foi possível configurar o idioma: tempo esgotado"
+            )
+            return
+        except FileNotFoundError:
+            logger.warning(
+                "Não foi possível configurar o idioma: executável não encontrado"
+            )
+            return
+        except OSError as error:
+            logger.warning(f"Não foi possível configurar o idioma: {error}")
+            return
+
+        if result.returncode == 0:
             logger.info(f"Idioma configurado: {language}")
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            logger.warning("Não foi possível configurar o idioma")
+            return
+
+        reason = result.stderr.strip()[:200] or (
+            f"código de saída {result.returncode}"
+        )
+        logger.warning(f"Não foi possível configurar o idioma: {reason}")
 
     def _create_adapter(self, timeout: int = 900) -> NotebookLMAdapter:
         """Create NotebookLM adapter."""
@@ -233,6 +301,37 @@ class CLI:
             generator=generator,
             chunk_state_repository=FileSystemChunkStateRepository(),
         )
+
+    @staticmethod
+    def _create_anki_exporter(
+        args: argparse.Namespace,
+    ) -> AnkiExporterPort | None:
+        """Create the opt-in AnkiConnect exporter."""
+        if (
+            args.anki_deck is None
+            and args.anki_connect_url is None
+            and args.anki_api_key is None
+        ):
+            return None
+        if args.anki_deck is None:
+            raise ValueError(
+                "--anki-deck é obrigatório ao configurar o AnkiConnect"
+            )
+        return AnkiConnectAdapter(
+            deck_name=args.anki_deck,
+            url=args.anki_connect_url or DEFAULT_ANKI_CONNECT_URL,
+            api_key=args.anki_api_key,
+        )
+
+    @staticmethod
+    def _export_to_anki(
+        decks: list[Deck],
+        exporter: AnkiExporterPort,
+    ) -> int:
+        """Export generated decks and return the imported card count."""
+        imported = sum(exporter.export(deck) for deck in decks)
+        logger.info(f"✅ {imported} card(s) importado(s) no Anki")
+        return imported
 
     def _create_request(
         self, args: argparse.Namespace
@@ -286,39 +385,85 @@ class CLI:
             return 1
 
         self._set_language(args.language)
+        return self._run_generation_pipeline(args)
+
+    def _run_generation_pipeline(self, args: argparse.Namespace) -> int:
+        """Build, execute, export, and summarize one generation."""
+        context = self._create_generation_context(args)
+        if context is None:
+            return 1
+
+        use_case, request, anki_exporter = context
+        decks = self._execute_generation(use_case, request)
+        if decks is None:
+            return 130
+
+        if not self._export_generation(decks, anki_exporter):
+            return 1
+
+        self._print_summary(decks)
+        return 1 if use_case.last_run_had_errors is True else 0
+
+    def _create_generation_context(
+        self, args: argparse.Namespace
+    ) -> (
+        tuple[
+            GenerateFlashcardsUseCase,
+            GenerateFlashcardsRequest,
+            AnkiExporterPort | None,
+        ]
+        | None
+    ):
+        """Create the collaborators needed for one generation."""
+        try:
+            anki_exporter = self._create_anki_exporter(args)
+        except ValueError as error:
+            logger.error(f"Opções do AnkiConnect inválidas: {error}")
+            return None
 
         use_case = self._create_use_case(args)
         request = self._create_request(args)
         self._log_config(request)
+        return use_case, request, anki_exporter
 
+    @staticmethod
+    def _execute_generation(
+        use_case: GenerateFlashcardsUseCase,
+        request: GenerateFlashcardsRequest,
+    ) -> list[Deck] | None:
+        """Execute generation and preserve the CLI cancellation status."""
         try:
             decks = use_case.execute(request)
         except KeyboardInterrupt:
             logger.info("\n⚠️  Operation cancelled by user")
-            return 130
+            return None
+        return decks
 
-        self._print_summary(decks)
-        return 0
+    def _export_generation(
+        self,
+        decks: list[Deck],
+        anki_exporter: AnkiExporterPort | None,
+    ) -> bool:
+        """Export generated decks when direct Anki import is enabled."""
+        if anki_exporter is None:
+            return True
+        try:
+            self._export_to_anki(decks, anki_exporter)
+        except AnkiConnectError as error:
+            logger.error(f"Falha na importação via AnkiConnect: {error}")
+            return False
+        return True
 
     def _run_cleanup(self, args: argparse.Namespace) -> int:
         """Run cleanup command."""
         if not self._authenticate(args.skip_auth_check):
             return 1
 
-        adapter = self._create_adapter()
-
-        if args.days:
-            logger.info(
-                f"Deletando notebooks dos últimos {args.days} dia(s)..."
-            )
-            deleted, failed = adapter.delete_all_notebooks(
-                days=args.days, show_progress=True
-            )
-        elif args.all:
-            logger.info("Deletando todos os notebooks...")
-            deleted, failed = adapter.delete_all_notebooks(show_progress=True)
-        else:
-            logger.error("Especifique --days ou --all")
+        try:
+            adapter = self._create_adapter()
+            deleted, failed = self._delete_selected_notebooks(adapter, args)
+        except OSError as error:
+            logger.error(f"Não foi possível limpar notebooks: {error}")
             return 1
 
         if failed > 0:
@@ -328,18 +473,36 @@ class CLI:
         logger.info(f"✅ {deleted} notebook(s) deletado(s) com sucesso")
         return 0
 
+    @staticmethod
+    def _delete_selected_notebooks(
+        adapter: NotebookLMAdapter, args: argparse.Namespace
+    ) -> tuple[int, int]:
+        if args.days:
+            logger.info(
+                f"Deletando notebooks dos últimos {args.days} dia(s)..."
+            )
+            return adapter.delete_all_notebooks(
+                days=args.days, show_progress=True
+            )
+        logger.info("Deletando todos os notebooks...")
+        return adapter.delete_all_notebooks(show_progress=True)
+
     def _run_merge(self, args: argparse.Namespace) -> int:
         """Run merge command."""
-        if not args.folder.exists():
-            logger.error(f"Pasta não existe: {args.folder}")
+        if not args.folder.exists() or not args.folder.is_dir():
+            logger.error(f"Pasta inválida ou inexistente: {args.folder}")
             return 1
 
-        request = MergeCsvRequest(
-            folder_path=args.folder,
-            output_filename=args.output,
-            deduplicate=args.deduplicate,
-            recursive=not args.no_recursive,
-        )
+        try:
+            request = MergeCsvRequest(
+                folder_path=args.folder,
+                output_filename=args.output,
+                deduplicate=args.deduplicate,
+                recursive=not args.no_recursive,
+            )
+        except ValueError as error:
+            logger.error(f"Opções de merge inválidas: {error}")
+            return 1
 
         try:
             rows = CsvMerger.merge(request)
@@ -361,13 +524,8 @@ class CLI:
             return self._run_merge(args)
         elif args.command == "generate":
             return self._run_generate(args)
-        else:
-            # Default to generate if no command specified
-            # But we need input-dir for generate, so show help if missing
-            if not hasattr(args, "input_dir") or args.input_dir is None:
-                self.parser.print_help()
-                return 1
-            return self._run_generate(args)
+        self.parser.print_help()
+        return 1
 
 
 def main() -> None:

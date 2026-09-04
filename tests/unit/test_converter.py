@@ -1,3 +1,5 @@
+import pytest
+
 from flashcards_generator.domain.entities import Flashcard
 
 
@@ -168,6 +170,20 @@ class TestClozeConverter:
         sentence = "a e o são importantes"
         result = cloze_converter._extract_important(sentence)
         assert result == "são importantes"
+
+    @pytest.mark.parametrize(
+        ("front", "back"),
+        [
+            ("Explain this", "alpha beta gamma delta epsilon zeta"),
+            ("Text {{cX::answer}}", "answer"),
+        ],
+    )
+    def test_convert_rejects_cards_without_valid_cloze(
+        self, cloze_converter, front, back
+    ):
+        result = cloze_converter.convert(Flashcard(front=front, back=back))
+
+        assert result is None
 
     def test_convert_existing_cloze_invalid_quality(self, cloze_converter):
         card = Flashcard(front="{{c1::é}}", back="answer")

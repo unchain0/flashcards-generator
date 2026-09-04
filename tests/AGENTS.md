@@ -52,8 +52,9 @@ tests/
 ## CONVENTIONS
 
 - Pytest discovers `test_*.py`, `Test*`, and `test_*` under `tests/`.
-- The current discovery baseline is 361 tests (`uv run pytest --collect-only`);
-  intentional additions or removals must explain collection-count changes.
+- The initial discovery baseline was 361 tests; the current suite contains
+  427 tests (`uv run pytest --collect-only`). Intentional additions or
+  removals must explain collection-count changes.
 - Pytest runs with `--strict-markers`; only `unit` and `integration` are
   registered in `pyproject.toml`. Register a new marker before using it.
 - Prefer behavior assertions and externally visible state over private-call

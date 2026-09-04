@@ -186,12 +186,13 @@ class TestNotebookLMAdapterParseDatetime:
         dt_str = "2024-01-15T10:30:00"
         result = adapter._parse_datetime(dt_str)
 
-        assert result is not None
-        assert result.year == 2024
-        assert result.month == 1
-        assert result.day == 15
-        assert result.hour == 10
-        assert result.tzinfo is not None  # Should have UTC timezone applied
+        assert result is not None and (
+            result.year,
+            result.month,
+            result.day,
+            result.hour,
+            result.tzinfo is not None,
+        ) == (2024, 1, 15, 10, True)
 
     def test_parse_datetime_invalid(self):
         """Test parsing invalid datetime."""

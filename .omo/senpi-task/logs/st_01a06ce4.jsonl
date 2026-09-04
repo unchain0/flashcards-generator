@@ -1,0 +1,23 @@
+{"type":"transition_applied","payload":{"type":"transition_applied","status":"running","residency_state":"resident"}}
+{"type":"assistant_message","payload":{"text":"I read this as an investigation - I’ll trace the integration fixture, subprocess environment, adapter URL resolution, and lifecycle without editing. I’ll stop when the server-boundary diagnosis and minimal patch recommendation are evidence-backed."}}
+{"type":"tool_execution","payload":{"tool":"read","is_error":false}}
+{"type":"tool_execution","payload":{"tool":"bash","is_error":false}}
+{"type":"tool_execution","payload":{"tool":"bash","is_error":true}}
+{"type":"tool_execution","payload":{"tool":"bash","is_error":false}}
+{"type":"tool_execution","payload":{"tool":"read","is_error":false}}
+{"type":"tool_execution","payload":{"tool":"read","is_error":false}}
+{"type":"tool_execution","payload":{"tool":"read","is_error":false}}
+{"type":"tool_execution","payload":{"tool":"read","is_error":false}}
+{"type":"tool_execution","payload":{"tool":"read","is_error":false}}
+{"type":"tool_execution","payload":{"tool":"read","is_error":false}}
+{"type":"tool_execution","payload":{"tool":"bash","is_error":false}}
+{"type":"assistant_message","payload":{"text":"The static trace shows the socket is bound before the fixture yields and the handler runs in the pytest process, so the child can update the parent-owned state through HTTP. I’m now checking the focused tests and runtime server defaults to distinguish a real lifecycle defect from only hardening opportunities."}}
+{"type":"tool_execution","payload":{"tool":"bash","is_error":false}}
+{"type":"tool_execution","payload":{"tool":"bash","is_error":false}}
+{"type":"tool_execution","payload":{"tool":"bash","is_error":false}}
+{"type":"tool_execution","payload":{"tool":"bash","is_error":true}}
+{"type":"tool_execution","payload":{"tool":"bash","is_error":false}}
+{"type":"assistant_message","payload":{"text":"The server boundary is correct and should receive child-process requests.\n\nEvidence:\n- `ThreadingHTTPServer((\"127.0.0.1\", 0), ...)` binds/listens during construction, before `thread.start()` and `yield`; there is no startup-readiness race.\n- The subprocess inherits the same network namespace and receives the fixture URL directly through `--anki-connect-url`.\n- CLI passes that URL to `AnkiConnectAdapter`, which strips only trailing slashes and posts JSON to the same root URL.\n- Handlers execute in the parent pytest process, so `state.requests.append(...)` records requests in parent memory.\n- Requests are sequential, and recording occurs before each response is sent, so assertions after synchronous `subprocess.run()` are safe.\n- Teardown order is sound: `shutdown()`, serving-thread `join()`, then `server_close()`. Python 3.10 reports `ThreadingHTTPServer.daemon_threads = True`.\n- An isolated local exercise returned `0`, recorded `[\"createDeck\", \"addNotes\"]`, and left `thread.is_alive() == False`.\n\nThe focused test file currently fails for unrelated fixture isolation defects:\n\n1. The first two tests omit `--output-dir`, so the child uses repository-relative `output/`. An existing `output/unidade-1/aula.csv` causes generation to be skipped, leaving no decks and therefore no Anki requests.\n2. `test_existing_csv_export_remains_default` creates `tmp_path/input`, then `_run_real_cli()` creates the same directory again without `exist_ok=True`, raising `FileExistsError`.\n3. `subprocess.run()` has no outer timeout. A hung child would delay fixture teardown indefinitely unless the suite-level pytest timeout intervenes.\n4. No URL defect was found. Environment proxying is theoretically possible because HTTPX defaults to `trust_env=True`, but no proxy variables were present locally and the exercised loopback request worked.\n\nMinimal patch recommendation:\n\n- In `_run_real_cli()`, always add:\n  ```python\n  \"--output-dir\",\n  str(tmp_path / \"output\"),\n  ```\n  before `*arguments`, keeping all generated state under `tmp_path`.\n- Remove the redundant input/PDF setup from `test_existing_csv_export_remains_default`; `_run_real_cli()` already creates it.\n- Add a bounded timeout such as `timeout=60` to the outer `subprocess.run()`.\n\nNo server-fixture or adapter URL change is needed. The observed failures were 3/3, but the corrected-output ad hoc execution proved cross-process server connectivity and state recording work as designed."}}
+{"type":"transition_applied","payload":{"type":"transition_applied","status":"completed","residency_state":"resident"}}
+{"type":"transition_applied","payload":{"type":"transition_applied","status":"completed","residency_state":"evicted"}}
+{"type":"evicted","payload":{"cause":"evict"}}

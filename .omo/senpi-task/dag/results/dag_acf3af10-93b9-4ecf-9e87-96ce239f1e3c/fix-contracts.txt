@@ -1,0 +1,6 @@
+I read this as an implementation task - the L1 contract lane is complete.
+
+- Added B1-B3 regression coverage and minimal fixes.
+- Evidence with RED/GREEN transcripts: `.omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L1-contracts.md`
+- Verified: scoped suite passes (`53 passed`), focused contracts pass, clean-process commands exit 0, and all changed production files have clean LSP diagnostics.
+- Unrelated concurrent L4 and pre-existing working-tree changes were left untouched.

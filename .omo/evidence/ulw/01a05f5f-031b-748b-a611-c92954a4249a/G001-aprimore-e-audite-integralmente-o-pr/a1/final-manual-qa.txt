@@ -1,0 +1,10 @@
+Final independent manual QA artifact.
+
+The fresh QA executor matrix, transcript, and cleanup receipt are:
+
+- `.omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a4/G001-aprimore-e-audite-integralmente-o-pr-manual-qa.md`
+- `.omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a4/manual-qa-fresh-transcript.txt`
+- `.omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a4/manual-qa-fresh-cleanup.txt`
+
+The executor reported PASS for help, fake generation, provider/corrupt
+failure, merge happy/malformed paths, missing paths, traversal, and cleanup.

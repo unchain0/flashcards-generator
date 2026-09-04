@@ -1,0 +1,21 @@
+============================= test session starts ==============================
+platform linux -- Python 3.10.21, pytest-8.4.2, pluggy-1.6.0
+rootdir: /home/avell/Projects/unchain0/flashcards-generator
+configfile: pyproject.toml
+plugins: timeout-2.4.0, asyncio-1.2.0, cov-7.1.0, anyio-4.14.2
+asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 1 item
+
+tests/unit/test_cli.py F                                                 [100%]
+
+=================================== FAILURES ===================================
+_____________ TestMain.test_check_auth_uses_successful_exit_status _____________
+tests/unit/test_cli.py:430: in test_check_auth_uses_successful_exit_status
+    assert CLI().check_auth() is True
+E   assert False is True
+E    +  where False = check_auth()
+E    +    where check_auth = <flashcards_generator.interfaces.cli.CLI object at 0x7f4544801e70>.check_auth
+E    +      where <flashcards_generator.interfaces.cli.CLI object at 0x7f4544801e70> = CLI()
+=========================== short test summary info ============================
+FAILED tests/unit/test_cli.py::TestMain::test_check_auth_uses_successful_exit_status
+============================== 1 failed in 0.68s ===============================

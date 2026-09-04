@@ -1,0 +1,4 @@
+Surface: source diagnostics
+Invocation: lsp_diagnostics(src/flashcards_generator, severity=all)
+Observed: Directory /home/avell/Projects/unchain0/flashcards-generator/src/flashcards_generator; Extension .py; Files scanned: 30; Files with errors: 0; Total diagnostics: 0.
+Verdict: PASS

@@ -43,6 +43,18 @@ class TestCLIMerge:
         assert result == 1
 
     @patch("flashcards_generator.interfaces.cli.CsvMerger.merge")
+    def test_merge_command_rejects_regular_file(self, mock_merge, tmp_path):
+        folder_file = tmp_path / "not-a-folder.csv"
+        folder_file.touch()
+
+        cli = CLI()
+        with patch("sys.argv", ["cli", "merge", "--folder", str(folder_file)]):
+            result = cli.run()
+
+        assert result == 1
+        mock_merge.assert_not_called()
+
+    @patch("flashcards_generator.interfaces.cli.CsvMerger.merge")
     def test_merge_command_with_deduplication(self, mock_merge, tmp_path):
         """Test merge command with -d flag for deduplication."""
         mock_merge.return_value = 3
@@ -108,3 +120,24 @@ class TestCLIMerge:
             cli.run()
 
         mock_logger.info.assert_called()
+
+    @patch("flashcards_generator.interfaces.cli.logger")
+    def test_merge_command_rejects_traversal_output(
+        self, mock_logger, tmp_path
+    ):
+        cli = CLI()
+        with patch(
+            "sys.argv",
+            [
+                "cli",
+                "merge",
+                "--folder",
+                str(tmp_path),
+                "--output",
+                "../escape.csv",
+            ],
+        ):
+            result = cli.run()
+
+        assert result == 1
+        mock_logger.error.assert_called_once()

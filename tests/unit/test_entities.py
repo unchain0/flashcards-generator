@@ -1,3 +1,6 @@
+import pytest
+
+
 class TestFlashcard:
     def test_create_flashcard(self, sample_flashcard):
         assert sample_flashcard.front == "Qual é a capital da França?"
@@ -28,6 +31,18 @@ class TestDeck:
         removed = sample_deck.deduplicate()
         assert removed == 0
         assert sample_deck.total_cards == 0
+
+    @pytest.mark.parametrize("threshold", [-0.01, 1.01, float("nan")])
+    def test_deduplicate_rejects_invalid_threshold_without_mutation(
+        self, sample_deck, sample_flashcard, threshold
+    ):
+        sample_deck.add_flashcard(sample_flashcard)
+        original_cards = list(sample_deck.flashcards)
+
+        with pytest.raises(ValueError):
+            sample_deck.deduplicate(similarity_threshold=threshold)
+
+        assert sample_deck.flashcards == original_cards
 
     def test_deduplicate_no_duplicates(self, sample_deck):
         from flashcards_generator.domain.entities import Flashcard

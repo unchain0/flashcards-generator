@@ -1,0 +1,284 @@
+working_dir=/home/avell/Projects/unchain0/flashcards-generator
+tree_stamp=0f8f3c45e872223eca672497c70b1b529f5dea15
+fixture_root=/tmp/flashcards-manual-qa.Xnulug
+fake_provider=/tmp/flashcards-manual-qa.Xnulug/bin/notebooklm
+fake_contract=language/create/source-add/source-wait/generate/artifact-wait/download/delete; no network/auth
+
+[QA-01 module help surface]
+$ .venv/bin/python -m flashcards_generator --help
+usage: __main__.py [-h] [--log-level {DEBUG,INFO,WARNING,ERROR}]
+                   {generate,cleanup,merge} ...
+
+Gera flashcards com Cloze Deletion a partir de PDFs
+
+positional arguments:
+  {generate,cleanup,merge}
+                        Comandos disponíveis
+    generate            Gerar flashcards de PDFs
+    cleanup             Limpar notebooks do NotebookLM
+    merge               Mesclar arquivos CSV de flashcards
+
+options:
+  -h, --help            show this help message and exit
+  --log-level {DEBUG,INFO,WARNING,ERROR}
+                        Nível de log (padrão: INFO)
+[exit=0]
+
+[QA-02 console help surface]
+$ uv run flashcards --help
+usage: flashcards [-h] [--log-level {DEBUG,INFO,WARNING,ERROR}]
+                  {generate,cleanup,merge} ...
+
+Gera flashcards com Cloze Deletion a partir de PDFs
+
+positional arguments:
+  {generate,cleanup,merge}
+                        Comandos disponíveis
+    generate            Gerar flashcards de PDFs
+    cleanup             Limpar notebooks do NotebookLM
+    merge               Mesclar arquivos CSV de flashcards
+
+options:
+  -h, --help            show this help message and exit
+  --log-level {DEBUG,INFO,WARNING,ERROR}
+                        Nível de log (padrão: INFO)
+[exit=0]
+[preflight] PATH=/tmp/flashcards-manual-qa.Xnulug/bin:<original>
+[preflight] command -v notebooklm=/tmp/flashcards-manual-qa.Xnulug/bin/notebooklm
+[preflight] readlink -f=/tmp/flashcards-manual-qa.Xnulug/bin/notebooklm
+[preflight] resolver_verified=yes
+
+[QA-03 fake generation and CSV validity]
+$ env PATH=/tmp/flashcards-manual-qa.Xnulug/bin:/home/avell/.omo/agent/bin:/home/avell/.local/share/mise/installs/node/26.8.1/lib/node_modules/omo-ai/plugin/runtime/agent-toolkit:/home/avell/.local/share/mise/installs/node/26.8.1/lib/node_modules/omo-ai/node_modules/@code-yeongyu/senpi/node_modules/.bin:/home/avell/Projects/unchain0/flashcards-generator/.venv/bin:/home/avell/.config/composer/vendor/bin:/home/avell/.local/share/mise/installs/codex/latest/bin:/home/avell/.local/share/mise/installs/gh/latest/gh_2.98.0_linux_amd64/bin:/home/avell/.local/share/mise/installs/go/1.27.0/bin:/home/avell/.local/share/mise/installs/java/latest/bin:/home/avell/.local/share/mise/installs/maven/latest/apache-maven-3.9.16/bin:/home/avell/.local/share/mise/installs/node/latest/bin:/home/avell/.local/share/mise/installs/npm-playwright/latest/node_modules/.bin:/home/avell/.local/share/mise/installs/opencode/latest:/home/avell/.local/share/mise/installs/python/latest/bin:/home/avell/.local/share/mise/installs/ruby/latest/bin:/usr/share/omarchy/bin:/home/avell/.local/share/mise/shims:/home/avell/.local/share/../bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/home/avell/.local/share/mise/shims:/home/avell/.local/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl FAKE_LOG=/tmp/flashcards-manual-qa.Xnulug/provider.log FAKE_MODE=normal .venv/bin/python -m flashcards_generator generate --input-dir /tmp/flashcards-manual-qa.Xnulug/input --output-dir /tmp/flashcards-manual-qa.Xnulug/output --skip-auth-check --timeout 5
+00:58:46 INFO     cli:253 - Idioma configurado: pt_BR
+00:58:46 INFO     cli:298 - Iniciando...
+00:58:46 INFO     cli:299 - Entrada: /tmp/flashcards-manual-qa.Xnulug/input
+00:58:46 INFO     cli:300 - Saída: /tmp/flashcards-manual-qa.Xnulug/output (preservando a estrutura relativa)
+00:58:46 INFO     cli:303 - Dificuldade: medium
+00:58:46 INFO     cli:304 - Quantidade: standard
+00:58:46 INFO     use_cases:220 - 1 PDF(s) found
+00:58:46 INFO     pdf_utils:352 - PDF .sample.736b0d6cefb36ef0596ba71c1a33269a.pdf: 1 pages
+00:58:46 INFO     use_cases:1488 - ============================================================
+00:58:46 INFO     use_cases:1489 - PDF: Tema1/sample.pdf
+00:58:46 INFO     use_cases:1490 - Deck: Tema1_sample
+00:58:46 INFO     use_cases:1491 - ============================================================
+00:58:46 INFO     pdf_utils:352 - PDF .sample.736b0d6cefb36ef0596ba71c1a33269a.pdf: 1 pages
+00:58:46 INFO     use_cases:881 - Source added: qa-sourc...
+00:58:46 INFO     use_cases:1549 - Processing source...
+00:58:46 INFO     use_cases:1578 - Generating flashcards...
+00:58:46 INFO     use_cases:1606 - Waiting for generation...
+00:58:46 INFO     notebooklm_adapter:475 - NotebookLM notebook deleted
+00:58:46 INFO     use_cases:1709 - Notebook deleted
+00:58:46 INFO     use_cases:1717 - Saved to: /tmp/flashcards-manual-qa.Xnulug/output/Tema1/sample.csv
+00:58:46 INFO     use_cases:678 - Resume state cleaned up
+00:58:46 INFO     cli:309 - ============================================================
+00:58:46 INFO     cli:310 - RESUMO
+00:58:46 INFO     cli:311 - ============================================================
+00:58:46 INFO     cli:312 - Temas: 1
+00:58:46 INFO     cli:313 - Total de cards: 1
+00:58:46 INFO     cli:314 - Decks:
+00:58:46 INFO     cli:317 -   ✅ Tema1_sample: 1 cards
+[exit=0]
+[QA-03 assertions] csv_exists=True rows=1 widths=[2] two_columns=True cloze=True nonempty=True
+[QA-03 assertions] provider_ops=['language set pt_BR', 'create Flashcards: Tema1_sample --json', 'source add /tmp/flashcards-manual-qa.Xnulug/output/Tema1/.flashcards_sources/.sample.736b0d6cefb36ef0596ba71c1a33269a.pdf --notebook qa-notebook --json', 'source wait qa-source -n qa-notebook --timeout 600', "generate flashcards --notebook qa-notebook --difficulty medium --quantity standard --json Crie flashcards para recuperação ativa e repetição espaçada usando somente informações explicitamente sustentadas pela fonte. SELEÇÃO: priorize fundamentos, definições, relações causais, condições, distinções e etapas essenciais. Ignore títulos, repetições, detalhes decorativos, opiniões e trechos incompletos. Não tente cobrir todo o texto. FORMATO OBRIGATÓRIO: use apenas Cloze Deletion. A frente deve ser uma frase declarativa natural com exatamente uma lacuna {{c1::resposta}}. Exemplo: 'A {{c1::mitocôndria}} produz a maior parte do ATP celular.' QUALIDADE DE CADA CARD: 1. Teste uma única ideia independente. Divida frases com mais de um fato. 2. A lacuna deve ocultar a menor resposta significativa possível, preferencialmente de uma a cinco palavras; nunca oculte palavras triviais. 3. Depois de ocultar a resposta, a frase deve continuar auto-contida e permitir uma única resposta esperada. Inclua o qualificador mínimo que elimine ambiguidades e interferência com conceitos semelhantes. 4. Não deixe na frente sinônimos, traduções, paráfrases ou pistas gramaticais que revelem a resposta. Use {{c1::termo::dica}} apenas quando uma dica curta for indispensável para tornar a pergunta inequívoca. 5. Mantenha a frente curta, idealmente até 25 palavras, sem perder o contexto necessário. O verso deve trazer apenas uma explicação breve do porquê, mecanismo ou contexto já presente na fonte. 6. Evite listas. Converta cada item em uma relação significativa própria. Se a ordem for essencial, teste uma etapa por card e mantenha visível apenas o contexto necessário para localizar essa etapa. Nunca agrupe uma lista inteira em clozes c1, c2, c3. 7. Para conceitos parecidos, formule pistas que destaquem a diferença diagnóstica em vez de criar cartões quase idênticos e ambíguos. 8. Para código, oculte apenas o identificador, operador ou expressão-chave; nunca blocos inteiros. Para matemática, preserve a notação em LaTeX $...$. 9. Não invente exemplos, relações, definições ou conclusões. Use exemplos somente quando estiverem na fonte e forem necessários para compreensão. 10. Não gere duplicatas nem cartões que possam ser respondidos apenas por senso comum, estrutura da frase ou reconhecimento superficial. CONTEXTO DO DOCUMENTO: trabalhe somente com o conteúdo completo desta seção. Se um conceito depender de outra parte ou não estiver claro, ignore-o. Antes de finalizar, descarte qualquer card que não seja fiel à fonte, atômico, inequívoco, auto-contido e útil para recuperação ativa. SAÍDA: Frente (cloze); Verso (explicação breve).", 'artifact wait qa-artifact -n qa-notebook --timeout 5', 'download flashcards -n qa-notebook -a qa-artifact --format json /tmp/flashcards-manual-qa.Xnulug/output/Tema1/sample_raw.json', 'delete -n qa-notebook -y']
+[QA-03 assertions] transient_lock_paths=[]
+[preflight] PATH=/tmp/flashcards-manual-qa.Xnulug/bin:<original>
+[preflight] command -v notebooklm=/tmp/flashcards-manual-qa.Xnulug/bin/notebooklm
+[preflight] readlink -f=/tmp/flashcards-manual-qa.Xnulug/bin/notebooklm
+[preflight] resolver_verified=yes
+
+[QA-04 provider failure status and state]
+$ env PATH=/tmp/flashcards-manual-qa.Xnulug/bin:/home/avell/.omo/agent/bin:/home/avell/.local/share/mise/installs/node/26.8.1/lib/node_modules/omo-ai/plugin/runtime/agent-toolkit:/home/avell/.local/share/mise/installs/node/26.8.1/lib/node_modules/omo-ai/node_modules/@code-yeongyu/senpi/node_modules/.bin:/home/avell/Projects/unchain0/flashcards-generator/.venv/bin:/home/avell/.config/composer/vendor/bin:/home/avell/.local/share/mise/installs/codex/latest/bin:/home/avell/.local/share/mise/installs/gh/latest/gh_2.98.0_linux_amd64/bin:/home/avell/.local/share/mise/installs/go/1.27.0/bin:/home/avell/.local/share/mise/installs/java/latest/bin:/home/avell/.local/share/mise/installs/maven/latest/apache-maven-3.9.16/bin:/home/avell/.local/share/mise/installs/node/latest/bin:/home/avell/.local/share/mise/installs/npm-playwright/latest/node_modules/.bin:/home/avell/.local/share/mise/installs/opencode/latest:/home/avell/.local/share/mise/installs/python/latest/bin:/home/avell/.local/share/mise/installs/ruby/latest/bin:/usr/share/omarchy/bin:/home/avell/.local/share/mise/shims:/home/avell/.local/share/../bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/home/avell/.local/share/mise/shims:/home/avell/.local/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl FAKE_LOG=/tmp/flashcards-manual-qa.Xnulug/provider.log FAKE_MODE=provider-fail .venv/bin/python -m flashcards_generator generate --input-dir /tmp/flashcards-manual-qa.Xnulug/input-provider --output-dir /tmp/flashcards-manual-qa.Xnulug/output-provider --skip-auth-check --timeout 5
+00:58:47 INFO     cli:253 - Idioma configurado: pt_BR
+00:58:47 INFO     cli:298 - Iniciando...
+00:58:47 INFO     cli:299 - Entrada: /tmp/flashcards-manual-qa.Xnulug/input-provider
+00:58:47 INFO     cli:300 - Saída: /tmp/flashcards-manual-qa.Xnulug/output-provider (preservando a estrutura relativa)
+00:58:47 INFO     cli:303 - Dificuldade: medium
+00:58:47 INFO     cli:304 - Quantidade: standard
+00:58:47 INFO     use_cases:220 - 1 PDF(s) found
+00:58:47 INFO     pdf_utils:352 - PDF .provider.9e9ade0cea328e936cea06ce2508b22f.pdf: 1 pages
+00:58:47 INFO     use_cases:1488 - ============================================================
+00:58:47 INFO     use_cases:1489 - PDF: Tema1/provider.pdf
+00:58:47 INFO     use_cases:1490 - Deck: Tema1_provider
+00:58:47 INFO     use_cases:1491 - ============================================================
+00:58:47 INFO     pdf_utils:352 - PDF .provider.9e9ade0cea328e936cea06ce2508b22f.pdf: 1 pages
+00:58:47 INFO     use_cases:881 - Source added: qa-sourc...
+00:58:47 INFO     use_cases:1549 - Processing source...
+00:58:47 INFO     use_cases:1578 - Generating flashcards...
+00:58:47 ERROR    notebooklm_adapter:277 - NotebookLM generation failed: status=23 stderr_chars=21
+00:58:47 ERROR    use_cases:1584 - Failed to generate flashcards
+00:58:47 INFO     use_cases:850 - Cleaning up 1 notebook(s)...
+00:58:47 INFO     notebooklm_adapter:475 - NotebookLM notebook deleted
+00:58:47 INFO     use_cases:856 - Deleted: qa-noteb...
+00:58:47 INFO     cli:309 - ============================================================
+00:58:47 INFO     cli:310 - RESUMO
+00:58:47 INFO     cli:311 - ============================================================
+00:58:47 INFO     cli:312 - Temas: 0
+00:58:47 INFO     cli:313 - Total de cards: 0
+00:58:47 INFO     cli:314 - Decks:
+[exit=1]
+[QA-04 assertions] csv_count=0
+[QA-04 assertions] resume_state=[preflight] PATH=/tmp/flashcards-manual-qa.Xnulug/bin:<original>
+[preflight] command -v notebooklm=/tmp/flashcards-manual-qa.Xnulug/bin/notebooklm
+[preflight] readlink -f=/tmp/flashcards-manual-qa.Xnulug/bin/notebooklm
+[preflight] resolver_verified=yes
+
+[QA-05 corrupt PDF status and state]
+$ env PATH=/tmp/flashcards-manual-qa.Xnulug/bin:/home/avell/.omo/agent/bin:/home/avell/.local/share/mise/installs/node/26.8.1/lib/node_modules/omo-ai/plugin/runtime/agent-toolkit:/home/avell/.local/share/mise/installs/node/26.8.1/lib/node_modules/omo-ai/node_modules/@code-yeongyu/senpi/node_modules/.bin:/home/avell/Projects/unchain0/flashcards-generator/.venv/bin:/home/avell/.config/composer/vendor/bin:/home/avell/.local/share/mise/installs/codex/latest/bin:/home/avell/.local/share/mise/installs/gh/latest/gh_2.98.0_linux_amd64/bin:/home/avell/.local/share/mise/installs/go/1.27.0/bin:/home/avell/.local/share/mise/installs/java/latest/bin:/home/avell/.local/share/mise/installs/maven/latest/apache-maven-3.9.16/bin:/home/avell/.local/share/mise/installs/node/latest/bin:/home/avell/.local/share/mise/installs/npm-playwright/latest/node_modules/.bin:/home/avell/.local/share/mise/installs/opencode/latest:/home/avell/.local/share/mise/installs/python/latest/bin:/home/avell/.local/share/mise/installs/ruby/latest/bin:/usr/share/omarchy/bin:/home/avell/.local/share/mise/shims:/home/avell/.local/share/../bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/home/avell/.local/share/mise/shims:/home/avell/.local/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl FAKE_LOG=/tmp/flashcards-manual-qa.Xnulug/provider.log FAKE_MODE=corrupt .venv/bin/python -m flashcards_generator generate --input-dir /tmp/flashcards-manual-qa.Xnulug/input-corrupt --output-dir /tmp/flashcards-manual-qa.Xnulug/output-corrupt --skip-auth-check --timeout 5
+00:58:48 INFO     cli:253 - Idioma configurado: pt_BR
+00:58:48 INFO     cli:298 - Iniciando...
+00:58:48 INFO     cli:299 - Entrada: /tmp/flashcards-manual-qa.Xnulug/input-corrupt
+00:58:48 INFO     cli:300 - Saída: /tmp/flashcards-manual-qa.Xnulug/output-corrupt (preservando a estrutura relativa)
+00:58:48 INFO     cli:303 - Dificuldade: medium
+00:58:48 INFO     cli:304 - Quantidade: standard
+00:58:48 INFO     use_cases:220 - 1 PDF(s) found
+00:58:48 ERROR    pdf_utils:253 - Failed to count pages in /tmp/flashcards-manual-qa.Xnulug/output-corrupt/Tema1/.flashcards_sources/.corrupt.a43dfcac16e1f537ffc2a5dac6a69b71.pdf: Stream has ended unexpectedly
+00:58:48 INFO     pdf_utils:352 - PDF .corrupt.a43dfcac16e1f537ffc2a5dac6a69b71.pdf: 0 pages
+00:58:48 INFO     use_cases:1488 - ============================================================
+00:58:48 INFO     use_cases:1489 - PDF: Tema1/corrupt.pdf
+00:58:48 INFO     use_cases:1490 - Deck: Tema1_corrupt
+00:58:48 INFO     use_cases:1491 - ============================================================
+00:58:48 ERROR    pdf_utils:253 - Failed to count pages in /tmp/flashcards-manual-qa.Xnulug/output-corrupt/Tema1/.flashcards_sources/.corrupt.a43dfcac16e1f537ffc2a5dac6a69b71.pdf: Stream has ended unexpectedly
+00:58:48 INFO     pdf_utils:352 - PDF .corrupt.a43dfcac16e1f537ffc2a5dac6a69b71.pdf: 0 pages
+00:58:48 ERROR    use_cases:884 - Failed to add PDF: Failed to process /tmp/flashcards-manual-qa.Xnulug/output-corrupt/Tema1/.flashcards_sources/.corrupt.a43dfcac16e1f537ffc2a5dac6a69b71.pdf: NotebookLM command failed (status=24, stderr_chars=33)
+00:58:48 INFO     use_cases:885 - Notebook preserved: qa-notebook
+00:58:48 INFO     use_cases:850 - Cleaning up 1 notebook(s)...
+00:58:48 INFO     notebooklm_adapter:475 - NotebookLM notebook deleted
+00:58:48 INFO     use_cases:856 - Deleted: qa-noteb...
+00:58:48 INFO     cli:309 - ============================================================
+00:58:48 INFO     cli:310 - RESUMO
+00:58:48 INFO     cli:311 - ============================================================
+00:58:48 INFO     cli:312 - Temas: 0
+00:58:48 INFO     cli:313 - Total de cards: 0
+00:58:48 INFO     cli:314 - Decks:
+[exit=1]
+[QA-05 assertions] csv_count=0
+[QA-05 assertions] resume_state=
+[QA-06 merge happy path]
+$ uv run python -m flashcards_generator merge --folder /tmp/flashcards-manual-qa.Xnulug/merge-happy --output merged.csv --deduplicate
+00:58:49 INFO     cli:395 - ✅ 1 flashcards mesclados em: /tmp/flashcards-manual-qa.Xnulug/merge-happy/merged.csv
+[exit=0]
+[QA-06 assertions] exists=True rows=[['The {{c1::Python}} language.', 'General-purpose programming language.']] widths=[2] deduplicated=True cloze=True
+
+[QA-07 malformed merge preserving prior output]
+$ uv run python -m flashcards_generator merge --folder /tmp/flashcards-manual-qa.Xnulug/merge-malformed --output merged.csv
+00:58:50 ERROR    cli:398 - Erro ao mesclar: Row 2 must contain exactly 2 columns; found 3 columns
+[exit=1]
+[QA-07 assertions] prior_output_preserved=yes
+[QA-07 assertions] output_bytes=41
+[QA-07 assertions] temp_files=0
+
+[QA-08 missing generate input]
+$ uv run python -m flashcards_generator generate --input-dir /tmp/flashcards-manual-qa.Xnulug/missing-input --output-dir /tmp/flashcards-manual-qa.Xnulug/missing-output
+00:58:51 ERROR    cli:209 - Diretório não existe: /tmp/flashcards-manual-qa.Xnulug/missing-input
+[exit=1]
+[QA-08 assertions] output_created=no
+
+[QA-09 missing merge folder]
+$ uv run python -m flashcards_generator merge --folder /tmp/flashcards-manual-qa.Xnulug/missing-folder --output merged.csv
+00:58:52 ERROR    cli:378 - Pasta inválida ou inexistente: /tmp/flashcards-manual-qa.Xnulug/missing-folder
+[exit=1]
+
+[QA-10 traversal output rejection]
+$ uv run python -m flashcards_generator merge --folder /tmp/flashcards-manual-qa.Xnulug/merge-happy --output ../escaped.csv
+00:58:53 ERROR    cli:389 - Opções de merge inválidas: 1 validation error for MergeCsvRequest
+output_filename
+  Value error, output_filename must be a nonempty relative basename [type=value_error, input_value='../escaped.csv', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/value_error
+[exit=1]
+[QA-10 assertions] escaped_file_exists=no
+
+[QA-11 pre-cleanup artifact/process inspection]
+generated_paths=
+/tmp/flashcards-manual-qa.Xnulug/bin/notebooklm
+/tmp/flashcards-manual-qa.Xnulug/input-corrupt/Tema1/corrupt.pdf
+/tmp/flashcards-manual-qa.Xnulug/input-provider/Tema1/provider.pdf
+/tmp/flashcards-manual-qa.Xnulug/input/Tema1/sample.pdf
+/tmp/flashcards-manual-qa.Xnulug/merge-happy/merged.csv
+/tmp/flashcards-manual-qa.Xnulug/merge-happy/one.csv
+/tmp/flashcards-manual-qa.Xnulug/merge-happy/two.csv
+/tmp/flashcards-manual-qa.Xnulug/merge-malformed/bad.csv
+/tmp/flashcards-manual-qa.Xnulug/merge-malformed/merged.csv
+/tmp/flashcards-manual-qa.Xnulug/output/Tema1/sample.csv
+/tmp/flashcards-manual-qa.Xnulug/prior-merged.csv
+/tmp/flashcards-manual-qa.Xnulug/provider.log
+provider_invocation_log=
+language set pt_BR
+create Flashcards: Tema1_sample --json
+source add /tmp/flashcards-manual-qa.Xnulug/output/Tema1/.flashcards_sources/.sample.736b0d6cefb36ef0596ba71c1a33269a.pdf --notebook qa-notebook --json
+source wait qa-source -n qa-notebook --timeout 600
+generate flashcards --notebook qa-notebook --difficulty medium --quantity standard --json Crie flashcards para recuperação ativa e repetição espaçada usando somente informações explicitamente sustentadas pela fonte. SELEÇÃO: priorize fundamentos, definições, relações causais, condições, distinções e etapas essenciais. Ignore títulos, repetições, detalhes decorativos, opiniões e trechos incompletos. Não tente cobrir todo o texto. FORMATO OBRIGATÓRIO: use apenas Cloze Deletion. A frente deve ser uma frase declarativa natural com exatamente uma lacuna {{c1::resposta}}. Exemplo: 'A {{c1::mitocôndria}} produz a maior parte do ATP celular.' QUALIDADE DE CADA CARD: 1. Teste uma única ideia independente. Divida frases com mais de um fato. 2. A lacuna deve ocultar a menor resposta significativa possível, preferencialmente de uma a cinco palavras; nunca oculte palavras triviais. 3. Depois de ocultar a resposta, a frase deve continuar auto-contida e permitir uma única resposta esperada. Inclua o qualificador mínimo que elimine ambiguidades e interferência com conceitos semelhantes. 4. Não deixe na frente sinônimos, traduções, paráfrases ou pistas gramaticais que revelem a resposta. Use {{c1::termo::dica}} apenas quando uma dica curta for indispensável para tornar a pergunta inequívoca. 5. Mantenha a frente curta, idealmente até 25 palavras, sem perder o contexto necessário. O verso deve trazer apenas uma explicação breve do porquê, mecanismo ou contexto já presente na fonte. 6. Evite listas. Converta cada item em uma relação significativa própria. Se a ordem for essencial, teste uma etapa por card e mantenha visível apenas o contexto necessário para localizar essa etapa. Nunca agrupe uma lista inteira em clozes c1, c2, c3. 7. Para conceitos parecidos, formule pistas que destaquem a diferença diagnóstica em vez de criar cartões quase idênticos e ambíguos. 8. Para código, oculte apenas o identificador, operador ou expressão-chave; nunca blocos inteiros. Para matemática, preserve a notação em LaTeX $...$. 9. Não invente exemplos, relações, definições ou conclusões. Use exemplos somente quando estiverem na fonte e forem necessários para compreensão. 10. Não gere duplicatas nem cartões que possam ser respondidos apenas por senso comum, estrutura da frase ou reconhecimento superficial. CONTEXTO DO DOCUMENTO: trabalhe somente com o conteúdo completo desta seção. Se um conceito depender de outra parte ou não estiver claro, ignore-o. Antes de finalizar, descarte qualquer card que não seja fiel à fonte, atômico, inequívoco, auto-contido e útil para recuperação ativa. SAÍDA: Frente (cloze); Verso (explicação breve).
+artifact wait qa-artifact -n qa-notebook --timeout 5
+download flashcards -n qa-notebook -a qa-artifact --format json /tmp/flashcards-manual-qa.Xnulug/output/Tema1/sample_raw.json
+delete -n qa-notebook -y
+language set pt_BR
+create Flashcards: Tema1_provider --json
+source add /tmp/flashcards-manual-qa.Xnulug/output-provider/Tema1/.flashcards_sources/.provider.9e9ade0cea328e936cea06ce2508b22f.pdf --notebook qa-notebook --json
+source wait qa-source -n qa-notebook --timeout 600
+generate flashcards --notebook qa-notebook --difficulty medium --quantity standard --json Crie flashcards para recuperação ativa e repetição espaçada usando somente informações explicitamente sustentadas pela fonte. SELEÇÃO: priorize fundamentos, definições, relações causais, condições, distinções e etapas essenciais. Ignore títulos, repetições, detalhes decorativos, opiniões e trechos incompletos. Não tente cobrir todo o texto. FORMATO OBRIGATÓRIO: use apenas Cloze Deletion. A frente deve ser uma frase declarativa natural com exatamente uma lacuna {{c1::resposta}}. Exemplo: 'A {{c1::mitocôndria}} produz a maior parte do ATP celular.' QUALIDADE DE CADA CARD: 1. Teste uma única ideia independente. Divida frases com mais de um fato. 2. A lacuna deve ocultar a menor resposta significativa possível, preferencialmente de uma a cinco palavras; nunca oculte palavras triviais. 3. Depois de ocultar a resposta, a frase deve continuar auto-contida e permitir uma única resposta esperada. Inclua o qualificador mínimo que elimine ambiguidades e interferência com conceitos semelhantes. 4. Não deixe na frente sinônimos, traduções, paráfrases ou pistas gramaticais que revelem a resposta. Use {{c1::termo::dica}} apenas quando uma dica curta for indispensável para tornar a pergunta inequívoca. 5. Mantenha a frente curta, idealmente até 25 palavras, sem perder o contexto necessário. O verso deve trazer apenas uma explicação breve do porquê, mecanismo ou contexto já presente na fonte. 6. Evite listas. Converta cada item em uma relação significativa própria. Se a ordem for essencial, teste uma etapa por card e mantenha visível apenas o contexto necessário para localizar essa etapa. Nunca agrupe uma lista inteira em clozes c1, c2, c3. 7. Para conceitos parecidos, formule pistas que destaquem a diferença diagnóstica em vez de criar cartões quase idênticos e ambíguos. 8. Para código, oculte apenas o identificador, operador ou expressão-chave; nunca blocos inteiros. Para matemática, preserve a notação em LaTeX $...$. 9. Não invente exemplos, relações, definições ou conclusões. Use exemplos somente quando estiverem na fonte e forem necessários para compreensão. 10. Não gere duplicatas nem cartões que possam ser respondidos apenas por senso comum, estrutura da frase ou reconhecimento superficial. CONTEXTO DO DOCUMENTO: trabalhe somente com o conteúdo completo desta seção. Se um conceito depender de outra parte ou não estiver claro, ignore-o. Antes de finalizar, descarte qualquer card que não seja fiel à fonte, atômico, inequívoco, auto-contido e útil para recuperação ativa. SAÍDA: Frente (cloze); Verso (explicação breve).
+delete -n qa-notebook -y
+language set pt_BR
+create Flashcards: Tema1_corrupt --json
+source add /tmp/flashcards-manual-qa.Xnulug/output-corrupt/Tema1/.flashcards_sources/.corrupt.a43dfcac16e1f537ffc2a5dac6a69b71.pdf --notebook qa-notebook --json
+delete -n qa-notebook -y
+exact_notebooklm_processes=0
+tree_status_before_cleanup=
+ M .github/workflows/ci.yml
+ M AGENTS.md
+ M README.md
+ M pyproject.toml
+ M src/flashcards_generator/adapters/notebooklm_adapter.py
+ M src/flashcards_generator/application/converter.py
+ M src/flashcards_generator/application/csv_merger.py
+ M src/flashcards_generator/application/dto/generate_request.py
+ M src/flashcards_generator/application/dto/merge_request.py
+ M src/flashcards_generator/application/exporter.py
+ M src/flashcards_generator/application/use_cases.py
+ M src/flashcards_generator/domain/entities.py
+ M src/flashcards_generator/domain/exceptions.py
+ M src/flashcards_generator/domain/ports/flashcard_generator.py
+ M src/flashcards_generator/infrastructure/AGENTS.md
+ M src/flashcards_generator/infrastructure/chunk_state_repository.py
+ M src/flashcards_generator/infrastructure/logging_config.py
+ M src/flashcards_generator/infrastructure/notebooklm_client.py
+ M src/flashcards_generator/infrastructure/pdf_utils.py
+ M src/flashcards_generator/infrastructure/semantic_chunker.py
+ M src/flashcards_generator/interfaces/cli.py
+ M tests/AGENTS.md
+ M tests/integration/test_client_integration.py
+ M tests/integration/test_resume_flow.py
+ M tests/test_semantic_chunking.py
+ M tests/unit/test_adapter_edge_cases.py
+ M tests/unit/test_adapter_list_delete.py
+ M tests/unit/test_chunk_state_repository.py
+ M tests/unit/test_cli.py
+ M tests/unit/test_cli_cleanup.py
+ M tests/unit/test_cli_merge.py
+ M tests/unit/test_converter.py
+ M tests/unit/test_coverage_edge_cases.py
+ M tests/unit/test_csv_merger.py
+ M tests/unit/test_entities.py
+ M tests/unit/test_exporter.py
+ M tests/unit/test_logging_config.py
+ M tests/unit/test_main_entry.py
+ M tests/unit/test_notebooklm_adapter.py
+ M tests/unit/test_notebooklm_client.py
+ M tests/unit/test_pdf_utils.py
+ M tests/unit/test_pptx_converter.py
+ M tests/unit/test_use_cases.py
+ M tests/unit/test_use_cases_edge_cases.py
+ M tests/unit/test_use_cases_resume.py
+ M uv.lock
+?? .omo/evidence/G001-aprimore-e-audite-integralmente-o-pr-code-review.md
+?? .omo/evidence/st_01a0601d-code-review.md
+?? .omo/evidence/st_01a06040-code-review.md
+?? .omo/evidence/ulw/
+?? .omo/senpi-task/
+?? .omo/ulw-loop/
+?? src/flashcards_generator/infrastructure/document_limits.py
+?? tests/unit/test_contracts.py
+
+[final cleanup] fixture_root_exists=no
+[final cleanup] exact_notebooklm_processes=0
+[final cleanup] temp_roots_remaining=0
+[final cleanup] exit_before_cleanup=0

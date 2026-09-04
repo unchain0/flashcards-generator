@@ -1,0 +1,9 @@
+2026-09-01 22:04:53.182 | WARNING  | flashcards_generator.application.use_cases:_is_safe_file_path:511 - Skipping file outside input directory: /tmp/tmp57uyo9hv/input/../outside.pdf
+2026-09-01 22:04:53.182 | WARNING  | flashcards_generator.application.use_cases:_find_all_pdfs:459 - Explicit file not found: ../outside.pdf
+2026-09-01 22:04:53.182 | DEBUG    | flashcards_generator.infrastructure.chunk_state_repository:save_manifest:42 - Saving manifest to /tmp/tmp57uyo9hv/output/.flashcards_resume/inside/state.json
+2026-09-01 22:04:53.183 | DEBUG    | flashcards_generator.infrastructure.chunk_state_repository:load_manifest:35 - Loading manifest from /tmp/tmp57uyo9hv/output/.flashcards_resume/inside/state.json
+explicit_selection ['inside.pdf']
+result_contained True
+manifest_round_trip True
+manifest_contained True
+state_modes 0o700 0o600

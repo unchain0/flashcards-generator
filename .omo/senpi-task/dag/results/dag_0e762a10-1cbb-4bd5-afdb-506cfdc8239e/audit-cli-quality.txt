@@ -1,0 +1,5 @@
+I read this as an audit-only task - the report is complete and verified.
+
+Wrote: `.omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a1/audit-cli-quality.md`
+
+Verified it is non-empty (1,618 words), under 5,000 tokens, covers all requested audit areas, and preserves the pre-existing `pyproject.toml` / `uv.lock` changes.

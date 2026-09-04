@@ -3,7 +3,7 @@
 import json
 import subprocess
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -93,10 +93,10 @@ class TestNotebookLMAdapter:
 
     @patch("flashcards_generator.adapters.notebooklm_adapter.time.sleep")
     @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
-    def test_generate_flashcards_with_rate_limit(
+    def test_generate_flashcards_does_not_retry_success_with_rate_limit_text(
         self, mock_popen_class, mock_sleep
     ):
-        """Test rate limit retry."""
+        """A successful status is authoritative even when stderr has a warning."""
         mock_popen_class.side_effect = [
             mock_popen(
                 returncode=0,
@@ -113,8 +113,8 @@ class TestNotebookLMAdapter:
         result = adapter.generate_flashcards("nb123", config)
 
         assert result == "art789"
-        assert mock_popen_class.call_count == 2
-        mock_sleep.assert_called_once()
+        assert mock_popen_class.call_count == 1
+        mock_sleep.assert_not_called()
 
     def test_parse_flashcards(self, tmp_path):
         """Test parsing flashcards."""
@@ -225,7 +225,7 @@ class TestNotebookLMAdapter:
         )
 
         mock_popen_class.return_value = mock_popen(
-            returncode=1, stdout="", stderr="Error"
+            returncode=1, stdout="", stderr="rate limited"
         )
 
         adapter = NotebookLMAdapter("notebooklm")
@@ -276,15 +276,13 @@ class TestNotebookLMAdapter:
         json_file.write_text("invalid json")
 
         adapter = NotebookLMAdapter("notebooklm")
-        result = adapter.parse_flashcards(json_file)
-
-        assert result == []
+        with pytest.raises(RuntimeError, match="response"):
+            adapter.parse_flashcards(json_file)
 
     def test_parse_flashcards_os_error(self, tmp_path):
         adapter = NotebookLMAdapter("notebooklm")
-        result = adapter.parse_flashcards(Path("/nonexistent/path/file.json"))
-
-        assert result == []
+        with pytest.raises(RuntimeError, match="response"):
+            adapter.parse_flashcards(Path("/nonexistent/path/file.json"))
 
     @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
     def test_delete_notebook_success(self, mock_popen_class):
@@ -340,11 +338,35 @@ class TestNotebookLMAdapter:
         mock_process.terminate.assert_called_once()
 
     @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_run_command_timeout_reaps_process(self, mock_popen_class):
+        """A timed-out command must be terminated, killed, and reaped."""
+        mock_process = MagicMock()
+        mock_process.communicate.side_effect = subprocess.TimeoutExpired(
+            "cmd", 7
+        )
+        mock_process.wait.side_effect = [
+            subprocess.TimeoutExpired("cmd", 5),
+            None,
+        ]
+        mock_popen_class.return_value = mock_process
+
+        adapter = NotebookLMAdapter("notebooklm", timeout=7)
+        with pytest.raises(subprocess.TimeoutExpired):
+            adapter._run_command(["create", "test"])
+
+        mock_process.terminate.assert_called_once()
+        mock_process.kill.assert_called_once()
+        assert mock_process.wait.call_args_list == [call(timeout=5), call()]
+
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
     def test_run_command_keyboard_interrupt_kill(self, mock_popen_class):
         """Test KeyboardInterrupt handling when terminate times out."""
         mock_process = MagicMock()
         mock_process.communicate.side_effect = KeyboardInterrupt()
-        mock_process.wait.side_effect = subprocess.TimeoutExpired("cmd", 5)
+        mock_process.wait.side_effect = [
+            subprocess.TimeoutExpired("cmd", 5),
+            None,
+        ]
         mock_popen_class.return_value = mock_process
 
         adapter = NotebookLMAdapter("notebooklm")
@@ -353,3 +375,22 @@ class TestNotebookLMAdapter:
 
         mock_process.terminate.assert_called_once()
         mock_process.kill.assert_called_once()
+        assert mock_process.wait.call_args_list == [call(timeout=5), call()]
+
+    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    def test_generation_timeout_is_the_subprocess_deadline(
+        self, mock_popen_class
+    ):
+        mock_popen_class.return_value = mock_popen(
+            returncode=0, stdout='{"task_id": "art789"}', stderr=""
+        )
+        adapter = NotebookLMAdapter("notebooklm", timeout=900)
+
+        result = adapter.generate_flashcards(
+            "nb123", GenerationConfig(timeout_seconds=7)
+        )
+
+        assert result == "art789"
+        mock_popen_class.return_value.communicate.assert_called_once_with(
+            timeout=7
+        )

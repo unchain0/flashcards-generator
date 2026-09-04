@@ -1,0 +1,13 @@
+I read this as audit completion - the report is written and verified.
+
+Created:
+
+`.omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a1/audit-pdf-semantic.md`
+
+Verification:
+- 12 findings with required fields
+- All mandated topics addressed
+- Verified defects distinguished from hypotheses
+- 4,276 tokens, under the 5,000-token limit
+- No production or test files changed
+- No commit created

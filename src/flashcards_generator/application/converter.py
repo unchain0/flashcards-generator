@@ -243,20 +243,19 @@ class ClozeConverter:
         )
 
     def _is_quality_valid(self, cloze_text: str) -> bool:
-        if not cloze_text or len(cloze_text) < 10:
+        if len(cloze_text) < 10:
             return False
 
         matches = self.CLOZE_PATTERN.findall(cloze_text)
+        return bool(matches) and all(
+            self._has_meaningful_cloze_content(match) for match in matches
+        )
 
-        for match in matches:
-            clean_content = match.strip().lower()
-            if clean_content in self.TRIVIAL_WORDS:
-                return False
-            words = clean_content.split()
-            if words and all(w.lower() in self.TRIVIAL_WORDS for w in words):
-                return False
-
-        return True
+    def _has_meaningful_cloze_content(self, content: str) -> bool:
+        words = content.strip().lower().split()
+        return bool(words) and any(
+            word not in self.TRIVIAL_WORDS for word in words
+        )
 
     def _clean(self, text: str) -> str:
         text = self.WHITESPACE_PATTERN.sub(" ", text)

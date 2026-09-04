@@ -1,0 +1,9 @@
+Scenario command:
+uv run pytest tests/integration/test_anki_connect_flow.py -k test_reports_anki_connect_failure_without_claiming_success -vv -s
+
+Manual surface:
+.venv/bin/python -m flashcards_generator generate --input-dir <tmp>/input --output-dir <tmp>/output --timeout 10 --skip-auth-check --anki-deck "Estácio::Disciplina::Unidade 1" --anki-connect-url http://127.0.0.1:<ephemeral-port>
+
+Observed: exit code 1; the CSV was saved, and stderr reported:
+"Falha na importação via AnkiConnect: AnkiConnect createDeck failed: cannot create requested deck".
+The request log contained createDeck only; no successful-import message appeared.

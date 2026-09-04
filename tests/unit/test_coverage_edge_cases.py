@@ -19,6 +19,15 @@ from flashcards_generator.infrastructure.pdf_utils import PDFChunker
 from flashcards_generator.interfaces.cli import CLI
 
 
+class TestQualityConfiguration:
+    """Test CI-enforced quality thresholds."""
+
+    def test_ci_enforces_coverage_baseline(self):
+        workflow = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+        assert "--cov-fail-under=80" in workflow
+
+
 class TestConverterEdgeCases:
     """Test converter edge cases for 100% coverage."""
 
@@ -273,6 +282,7 @@ class TestCLIEdgeCases:
         cli = CLI()
         # Mock parser.parse_args to return valid args
         mock_args = MagicMock()
+        mock_args.command = "generate"
         mock_args.input_dir = Path("/tmp/input")
         mock_args.output_dir = Path("/tmp/output")
         mock_args.language = "pt_BR"

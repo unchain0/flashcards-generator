@@ -1,0 +1,119 @@
+tree_stamp=0f8f3c45e872223eca672497c70b1b529f5dea15
+git_status_before_receipt:
+ M .github/workflows/ci.yml
+ M AGENTS.md
+ M README.md
+ M pyproject.toml
+ M src/flashcards_generator/adapters/notebooklm_adapter.py
+ M src/flashcards_generator/application/converter.py
+ M src/flashcards_generator/application/csv_merger.py
+ M src/flashcards_generator/application/dto/generate_request.py
+ M src/flashcards_generator/application/dto/merge_request.py
+ M src/flashcards_generator/application/exporter.py
+ M src/flashcards_generator/application/use_cases.py
+ M src/flashcards_generator/domain/entities.py
+ M src/flashcards_generator/domain/exceptions.py
+ M src/flashcards_generator/domain/ports/flashcard_generator.py
+ M src/flashcards_generator/infrastructure/chunk_state_repository.py
+ M src/flashcards_generator/infrastructure/logging_config.py
+ M src/flashcards_generator/infrastructure/notebooklm_client.py
+ M src/flashcards_generator/infrastructure/pdf_utils.py
+ M src/flashcards_generator/infrastructure/semantic_chunker.py
+ M src/flashcards_generator/interfaces/cli.py
+ M tests/AGENTS.md
+ M tests/integration/test_client_integration.py
+ M tests/integration/test_resume_flow.py
+ M tests/test_semantic_chunking.py
+ M tests/unit/test_adapter_edge_cases.py
+ M tests/unit/test_adapter_list_delete.py
+ M tests/unit/test_chunk_state_repository.py
+ M tests/unit/test_cli.py
+ M tests/unit/test_cli_cleanup.py
+ M tests/unit/test_cli_merge.py
+ M tests/unit/test_converter.py
+ M tests/unit/test_coverage_edge_cases.py
+ M tests/unit/test_csv_merger.py
+ M tests/unit/test_entities.py
+ M tests/unit/test_exporter.py
+ M tests/unit/test_logging_config.py
+ M tests/unit/test_main_entry.py
+ M tests/unit/test_notebooklm_adapter.py
+ M tests/unit/test_notebooklm_client.py
+ M tests/unit/test_pdf_utils.py
+ M tests/unit/test_pptx_converter.py
+ M tests/unit/test_use_cases.py
+ M tests/unit/test_use_cases_edge_cases.py
+ M tests/unit/test_use_cases_resume.py
+ M uv.lock
+?? .omo/evidence/G001-aprimore-e-audite-integralmente-o-pr-code-review.md
+?? .omo/evidence/st_01a0601d-code-review.md
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/G001-aprimore-e-audite-integralmente-o-pr/a1/G001-aprimore-e-audite-integralmente-o-pr-gate-review.md
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a1/audit-adapter-client.md
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a1/audit-application.md
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a1/audit-cli-quality.md
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a1/audit-domain-dto.md
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a1/audit-pdf-semantic.md
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a1/audit-state-path.md
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a1/audit-synthesis.md
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/C001-quality-and-help.txt
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/C002-happy-path-and-security.txt
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/C003-full-regression-build.txt
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/C004-quality-adjacent-audit.txt
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/C005-independent-audit.txt
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L1-contracts.md
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L2-filesystem-check.txt
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L2-generation-state.md
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L2-green.txt
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L2-red-verified.txt
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L2-red.txt
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L3-exports.md
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L4-pdf.md
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L4-semantic-logging.md
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L5-adapter.md
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L6-cli-docs.md
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L6-green-module-help.txt
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L6-green-readme.txt
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L6-green-tests.txt
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L6-red-auth.txt
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L6-red-readme.txt
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L6-red-tests.txt
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/cleanup-receipt.md
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/final-independent-audit.md
+?? .omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a3/complexity-refactor.md
+
+leftover_disposable_tmp_paths:
+
+active_related_processes:
+
+repository_generated_paths:
+ABSENT dist
+ABSENT build
+ABSENT src/flashcards_generator.egg-info
+ABSENT htmlcov
+ABSENT coverage.xml
+
+tracked_coverage_hash:
+6a218c7dcdb1b0cee25ac34c553d0126d1093082
+
+quality_artifacts_nonempty:
+build.txt 18756 bytes
+cleanup-receipt.txt 5119 bytes
+console-help.txt 620 bytes
+corrupt-and-missing-probes.txt 2557 bytes
+corrupt-pdf-correct-fake.txt 2189 bytes
+diff-check.txt 28 bytes
+focused-edge-suite.txt 1024 bytes
+generation-fake-cli-corrected2.txt 2741 bytes
+generation-fake-cli-corrected.txt 2368 bytes
+generation-fake-cli-final.txt 2838 bytes
+generation-fake-cli.txt 5859 bytes
+merge-and-controlled-failures.txt 2035 bytes
+module-help.txt 642 bytes
+mypy.txt 92 bytes
+pip-check.txt 58 bytes
+pre-commit.txt 1668 bytes
+pytest.txt 46098 bytes
+quality-gate.txt 280 bytes
+ruff-check.txt 50 bytes
+ruff-format-check.txt 67 bytes
+symlink-containment-cli.txt 1536 bytes

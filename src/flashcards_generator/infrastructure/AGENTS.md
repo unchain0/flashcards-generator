@@ -7,6 +7,7 @@ Root and package `AGENTS.md` rules still apply; this file only narrows them.
 
 - `pdf_utils.py` — `PPTXConverter`; `PDFChunker` page counting, outline-aware
   splitting, overlap, and temporary-chunk cleanup.
+- `document_limits.py` — finite PDF and provider-artifact resource bounds.
 - `semantic_chunker.py` — token estimation, PDF text segmentation, TF-IDF
   boundaries, overlap, trivial-card rejection, and deck deduplication.
 - `notebooklm_client.py` — lower-level NotebookLM CLI/artifact helper and JSON
@@ -34,6 +35,8 @@ Root and package `AGENTS.md` rules still apply; this file only narrows them.
   chunks. Continue opening real-world PDFs with `strict=False`.
 - Close pypdf reader streams on every path. Cleanup must target only generated
   chunk paths and tolerate individual `OSError` failures.
+- Enforce the shared finite PDF size, page-count, and extracted-text limits
+  before retaining untrusted document content.
 - PPTX conversion is optional: probe `soffice` with a bounded call, convert
   headlessly into the supplied directory, and verify the expected PDF exists.
 - Semantic enrichment must preserve page metadata and token bounds. `tiktoken`
@@ -70,6 +73,6 @@ Root and package `AGENTS.md` rules still apply; this file only narrows them.
 
 ## Runtime Dependencies
 
-- Python is 3.10. `notebooklm-py[browser]==0.7.3` and
+- Python is 3.10. `notebooklm-py[browser]==0.8.1` and
   `playwright==1.61.0` are project dependencies, alongside pypdf, scikit-learn,
   tiktoken, and Loguru; do not treat NotebookLM or Playwright as undeclared tools.

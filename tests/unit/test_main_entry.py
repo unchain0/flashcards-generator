@@ -1,5 +1,7 @@
 """Tests for __main__.py entry point."""
 
+import runpy
+import sys
 from unittest.mock import patch
 
 
@@ -14,23 +16,10 @@ class TestMainEntryPoint:
         # Verify it has the expected structure
         assert hasattr(__main__, "main")
 
-    @patch("flashcards_generator.interfaces.cli.main")
+    @patch("flashcards_generator.interfaces.main.main")
     def test_main_execution(self, mock_main):
-        """Test that running __main__ calls cli.main()."""
-        import sys
+        """Test that module execution calls the primary dispatcher."""
+        sys.modules.pop("flashcards_generator.__main__", None)
+        runpy.run_module("flashcards_generator.__main__", run_name="__main__")
 
-        # Remove module from cache to force re-import
-        if "flashcards_generator.__main__" in sys.modules:
-            del sys.modules["flashcards_generator.__main__"]
-
-        # Mock __name__ == "__main__" condition
-        with patch.dict(
-            "sys.modules", {"flashcards_generator.__main__": None}
-        ):
-            # Import and execute
-            from flashcards_generator import __main__
-
-            # The main should have been called during import if __name__ == "__main__"
-            # But since we're importing as a module, it won't be called
-            # So we just verify the import works
-            assert __main__ is not None
+        mock_main.assert_called_once_with()

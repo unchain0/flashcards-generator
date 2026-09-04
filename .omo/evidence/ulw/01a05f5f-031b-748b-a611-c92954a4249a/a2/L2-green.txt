@@ -1,0 +1,14 @@
+============================= test session starts ==============================
+platform linux -- Python 3.10.21, pytest-8.4.2, pluggy-1.6.0
+rootdir: /home/avell/Projects/unchain0/flashcards-generator
+configfile: pyproject.toml
+plugins: timeout-2.4.0, asyncio-1.2.0, cov-7.1.0, anyio-4.14.2
+asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 35 items
+
+tests/unit/test_use_cases_edge_cases.py ..........                       [ 28%]
+tests/unit/test_use_cases_resume.py ...........                          [ 60%]
+tests/unit/test_chunk_state_repository.py ..........                     [ 88%]
+tests/integration/test_resume_flow.py ....                               [100%]
+
+============================== 35 passed in 0.67s ==============================

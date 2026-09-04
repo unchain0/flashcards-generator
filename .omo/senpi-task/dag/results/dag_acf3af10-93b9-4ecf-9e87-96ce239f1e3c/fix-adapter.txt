@@ -1,0 +1,8 @@
+I read this as completed implementation - the NotebookLM boundary lane is finished and verified.
+
+- Implemented subprocess cleanup/deadlines, typed response validation, transient-only retries, redacted metadata logging, and shared argv/status semantics.
+- Added mocked RED/GREEN regressions and fake-CLI contract coverage.
+- Scoped suite: **96 passed**.
+- LSP diagnostics: no errors.
+- Evidence: `.omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L5-adapter.md`
+- No live NotebookLM authentication/service calls were made.

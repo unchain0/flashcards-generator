@@ -1,0 +1,39 @@
+working_dir=/home/avell/Projects/unchain0/flashcards-generator
+fixture_root=/tmp/flashcards-qa-invalid.SoXKet
+
+[missing input; output initially absent]
+$ uv run python -m flashcards_generator generate --input-dir /tmp/flashcards-qa-invalid.SoXKet/missing --output-dir /tmp/flashcards-qa-invalid.SoXKet/absent-output
+00:21:52 ERROR    cli:209 - Diretório não existe: /tmp/flashcards-qa-invalid.SoXKet/missing
+[exit=1]
+output_initially_absent_after_probe=yes
+
+[corrupt PDF with local fake provider path]
+$ PATH=/tmp/flashcards-qa-invalid.SoXKet:$PATH .venv/bin/python -m flashcards_generator generate --input-dir /tmp/flashcards-qa-invalid.SoXKet/input --output-dir /tmp/flashcards-qa-invalid.SoXKet/output-root --skip-auth-check --timeout 5
+00:21:58 INFO     cli:253 - Idioma configurado: pt_BR
+00:21:58 INFO     cli:298 - Iniciando...
+00:21:58 INFO     cli:299 - Entrada: /tmp/flashcards-qa-invalid.SoXKet/input
+00:21:58 INFO     cli:300 - Saída: /tmp/flashcards-qa-invalid.SoXKet/output-root (preservando a estrutura relativa)
+00:21:58 INFO     cli:303 - Dificuldade: medium
+00:21:58 INFO     cli:304 - Quantidade: standard
+00:21:58 INFO     use_cases:212 - 1 PDF(s) found
+00:21:58 INFO     use_cases:1437 - ============================================================
+00:21:58 INFO     use_cases:1438 - PDF: Tema1/corrupt.pdf
+00:21:58 INFO     use_cases:1439 - Deck: Tema1_corrupt
+00:21:58 INFO     use_cases:1440 - ============================================================
+00:21:58 ERROR    pdf_utils:173 - Failed to count pages in /tmp/flashcards-qa-invalid.SoXKet/output-root/Tema1/.flashcards_sources/.corrupt.05ba4392383aab3b7c98622a895a17ee.pdf: Stream has ended unexpectedly
+00:21:58 INFO     pdf_utils:270 - PDF .corrupt.05ba4392383aab3b7c98622a895a17ee.pdf: 0 pages
+00:22:03 ERROR    use_cases:1417 - Generation error: Generation failed for : Command '['/home/avell/Projects/unchain0/flashcards-generator/.venv/bin/notebooklm', 'create', 'Flashcards: Tema1_corrupt', '--json']' timed out after 5 seconds
+00:22:03 INFO     cli:309 - ============================================================
+00:22:03 INFO     cli:310 - RESUMO
+00:22:03 INFO     cli:311 - ============================================================
+00:22:03 INFO     cli:312 - Temas: 0
+00:22:03 INFO     cli:313 - Total de cards: 0
+00:22:03 INFO     cli:314 - Decks:
+[exit=0]
+output_tree:
+ d 60 bytes
+Tema1 d 60 bytes
+Tema1/.flashcards_resume/.corrupt.lock f 0 bytes
+Tema1/.flashcards_resume d 60 bytes
+csv_count=0
+traceback_present_in_transcript=see above; none observed

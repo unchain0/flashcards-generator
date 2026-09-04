@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from difflib import SequenceMatcher
 from enum import Enum
+from math import isfinite
 
 from pydantic import BaseModel, Field
 
@@ -88,29 +89,41 @@ class Deck(BaseModel):
         Returns:
             Number of duplicates removed.
         """
+        if (
+            not isfinite(similarity_threshold)
+            or not 0 <= similarity_threshold <= 1
+        ):
+            raise ValueError(
+                "similarity_threshold must be finite and between 0 and 1"
+            )
+
         if not self.flashcards:
             return 0
 
         unique_cards: list[Flashcard] = []
         removed_count = 0
-
         for card in self.flashcards:
-            is_duplicate = False
-            normalized = card.normalized_front()
-
-            for existing in unique_cards:
-                existing_normalized = existing.normalized_front()
-                similarity = SequenceMatcher(
-                    None, normalized, existing_normalized
-                ).ratio()
-
-                if similarity >= similarity_threshold:
-                    is_duplicate = True
-                    removed_count += 1
-                    break
-
-            if not is_duplicate:
+            if self._duplicates_existing(
+                card, unique_cards, similarity_threshold
+            ):
+                removed_count += 1
+            else:
                 unique_cards.append(card)
 
         self.flashcards = unique_cards
         return removed_count
+
+    @staticmethod
+    def _duplicates_existing(
+        card: Flashcard,
+        existing_cards: list[Flashcard],
+        similarity_threshold: float,
+    ) -> bool:
+        normalized = card.normalized_front()
+        return any(
+            SequenceMatcher(
+                None, normalized, existing.normalized_front()
+            ).ratio()
+            >= similarity_threshold
+            for existing in existing_cards
+        )

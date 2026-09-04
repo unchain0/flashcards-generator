@@ -12,6 +12,22 @@ class FlashcardsGeneratorError(Exception):
     """Base exception for all domain errors."""
 
 
+class OperationCancelled(FlashcardsGeneratorError):
+    """Raised when a cooperative application operation is cancelled."""
+
+    def __init__(self) -> None:
+        super().__init__("Operation cancelled")
+
+
+class AnkiConnectError(FlashcardsGeneratorError):
+    """Raised when AnkiConnect cannot complete an export operation."""
+
+    def __init__(self, operation: str, reason: str) -> None:
+        self.operation = operation
+        self.reason = reason
+        super().__init__(f"AnkiConnect {operation} failed: {reason}")
+
+
 class SourceProcessingError(FlashcardsGeneratorError):
     """Raised when PDF source cannot be processed."""
 
@@ -37,6 +53,17 @@ class ArtifactDownloadError(FlashcardsGeneratorError):
         self.artifact_id = artifact_id
         self.reason = reason
         super().__init__(f"Download failed for {artifact_id}: {reason}")
+
+
+class NotebookLMResponseError(RuntimeError, FlashcardsGeneratorError):
+    """Raised when NotebookLM returns a syntactically valid invalid response."""
+
+    def __init__(self, operation: str, reason: str) -> None:
+        self.operation = operation
+        self.reason = reason
+        super().__init__(
+            f"Invalid NotebookLM response for {operation}: {reason}"
+        )
 
 
 class NotebookCleanupError(FlashcardsGeneratorError):

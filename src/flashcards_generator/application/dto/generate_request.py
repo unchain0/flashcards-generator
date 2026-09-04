@@ -4,8 +4,6 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-_ = Path  # Explicit runtime usage for pydantic model validation
-
 
 class GenerateFlashcardsRequest(BaseModel):
     """Request to generate flashcards."""

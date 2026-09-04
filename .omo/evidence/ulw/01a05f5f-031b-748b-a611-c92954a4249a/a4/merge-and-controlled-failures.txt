@@ -1,0 +1,38 @@
+working_dir=/home/avell/Projects/unchain0/flashcards-generator
+fixture_root=/tmp/flashcards-qa-merge.dYN2lu
+
+[merge happy path]
+$ uv run python -m flashcards_generator merge --folder /tmp/flashcards-qa-merge.dYN2lu/merge --output merged.csv --deduplicate
+00:21:23 INFO     cli:395 - ✅ 1 flashcards mesclados em: /tmp/flashcards-qa-merge.dYN2lu/merge/merged.csv
+[exit=0]
+merged_exists=True rows=[['O {{c1::Python}} é uma linguagem.', 'Linguagem de programação de propósito geral.']] widths=[2]
+two_columns=True deduplicated=True
+files=['merged.csv', 'one.csv']
+
+[missing generate input]
+$ uv run python -m flashcards_generator generate --input-dir /tmp/flashcards-qa-merge.dYN2lu/missing-input --output-dir /tmp/flashcards-qa-merge.dYN2lu/generate-output
+00:21:24 ERROR    cli:209 - Diretório não existe: /tmp/flashcards-qa-merge.dYN2lu/missing-input
+[exit=1]
+output_dir_exists=yes
+
+[missing merge folder]
+$ uv run python -m flashcards_generator merge --folder /tmp/flashcards-qa-merge.dYN2lu/missing-folder --output merged.csv
+00:21:25 ERROR    cli:378 - Pasta inválida ou inexistente: /tmp/flashcards-qa-merge.dYN2lu/missing-folder
+[exit=1]
+
+[traversal output]
+$ uv run python -m flashcards_generator merge --folder /tmp/flashcards-qa-merge.dYN2lu/merge --output ../flashcards-qa-outside.csv
+00:21:25 ERROR    cli:389 - Opções de merge inválidas: 1 validation error for MergeCsvRequest
+output_filename
+  Value error, output_filename must be a nonempty relative basename [type=value_error, input_value='../flashcards-qa-outside.csv', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/value_error
+[exit=1]
+outside_file_exists=no
+
+[malformed CSV]
+$ uv run python -m flashcards_generator merge --folder /tmp/flashcards-qa-merge.dYN2lu/malformed --output merged.csv
+00:21:26 ERROR    cli:398 - Erro ao mesclar: Row 2 must contain exactly 2 columns; found 3 columns
+[exit=1]
+malformed_output_exists=yes
+malformed_output_bytes=38
+malformed_output_rows=[['O {{c1::valid}} front', 'valid back']]

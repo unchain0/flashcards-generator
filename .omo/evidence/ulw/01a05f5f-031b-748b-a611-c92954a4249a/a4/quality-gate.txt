@@ -1,0 +1,7 @@
+$ uv run task quality-gate
+🔍 Checking complexity (max B6)...
+✅ All functions within B(6) limit
+src/flashcards_generator/adapters/notebooklm_adapter.py - B
+src/flashcards_generator/application/use_cases.py - C
+src/flashcards_generator/infrastructure/pdf_utils.py - B
+[exit=0]

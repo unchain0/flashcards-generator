@@ -1,0 +1,33 @@
+[
+  {
+    "action": "createDeck",
+    "version": 6,
+    "params": {
+      "deck": "Estácio::Disciplina::Unidade 1"
+    }
+  },
+  {
+    "action": "addNotes",
+    "version": 6,
+    "params": {
+      "notes": [
+        {
+          "deckName": "Estácio::Disciplina::Unidade 1",
+          "modelName": "Cloze",
+          "fields": {
+            "Text": "O núcleo contém {{c1::DNA}}.",
+            "Extra": "Material genético."
+          },
+          "tags": [
+            "unidade-1_aula"
+          ],
+          "options": {
+            "allowDuplicate": false,
+            "duplicateScope": "deck",
+            "duplicateScopeDeckName": "Estácio::Disciplina::Unidade 1"
+          }
+        }
+      ]
+    }
+  }
+]

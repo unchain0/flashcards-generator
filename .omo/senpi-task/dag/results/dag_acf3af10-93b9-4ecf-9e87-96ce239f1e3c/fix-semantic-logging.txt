@@ -1,0 +1,7 @@
+I read this as implementation - completed the semantic-chunking and logging lane.
+
+- Added scoped regression tests and implemented B17-B18 fixes.
+- RED/GREEN transcripts and invariant coverage: `.omo/evidence/ulw/01a05f5f-031b-748b-a611-c92954a4249a/a2/L4-semantic-logging.md`
+- Verified: `uv run pytest tests/test_semantic_chunking.py tests/unit/test_logging_config.py -q` -> 32 passed.
+- LSP diagnostics: no errors in both changed production files.
+- This lane edited only its four declared source/test paths; unrelated concurrent workspace changes remain untouched.

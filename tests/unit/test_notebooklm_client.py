@@ -100,9 +100,9 @@ class TestNotebookLMClient:
         mock_run.side_effect = Exception("Connection error")
 
         client = NotebookLMClient("notebooklm")
-        result = client.generate_flashcards("nb123", "Generate flashcards")
 
-        assert result is None
+        with pytest.raises(Exception, match="Connection error"):
+            client.generate_flashcards("nb123", "Generate flashcards")
 
     @patch(
         "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"
@@ -198,17 +198,15 @@ class TestNotebookLMClient:
         json_file.write_text("invalid json")
 
         client = NotebookLMClient("notebooklm")
-        result = client.parse_flashcards(json_file)
-
-        assert len(result) == 0
+        with pytest.raises(RuntimeError, match="response"):
+            client.parse_flashcards(json_file)
 
     def test_parse_flashcards_file_not_found(self, tmp_path):
         json_file = tmp_path / "nonexistent.json"
 
         client = NotebookLMClient("notebooklm")
-        result = client.parse_flashcards(json_file)
-
-        assert len(result) == 0
+        with pytest.raises(RuntimeError, match="response"):
+            client.parse_flashcards(json_file)
 
     @patch(
         "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"
@@ -237,9 +235,9 @@ class TestNotebookLMClient:
 
     def test_parse_flashcards_nonexistent_path(self):
         client = NotebookLMClient("notebooklm")
-        result = client.parse_flashcards(Path("/nonexistent/file.json"))
 
-        assert result == []
+        with pytest.raises(RuntimeError, match="response"):
+            client.parse_flashcards(Path("/nonexistent/file.json"))
 
     def test_create_flashcard_empty_front(self):
         client = NotebookLMClient("notebooklm")
@@ -268,6 +266,112 @@ class TestNotebookLMClient:
         result = client.delete_notebook("nb123")
 
         assert result is False
+
+    @patch(
+        "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"
+    )
+    def test_wait_timeout_is_the_subprocess_deadline(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        client = NotebookLMClient("notebooklm", timeout=900)
+
+        assert client.wait_for_source("nb123", "src456", timeout=7) is True
+        assert mock_run.call_args.kwargs["timeout"] == 7
+
+    @patch(
+        "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"
+    )
+    def test_generate_and_delete_use_adapter_cli_dialect(self, mock_run):
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout='{"task_id": "art789"}', stderr=""),
+            MagicMock(returncode=0, stdout="", stderr=""),
+        ]
+        client = NotebookLMClient("notebooklm")
+
+        assert client.generate_flashcards("nb123", "prompt text") == "art789"
+        assert client.delete_notebook("nb123") is True
+
+        assert mock_run.call_args_list[0].args[0] == [
+            "notebooklm",
+            "generate",
+            "flashcards",
+            "--notebook",
+            "nb123",
+            "--difficulty",
+            "medium",
+            "--quantity",
+            "standard",
+            "--json",
+            "prompt text",
+        ]
+        assert mock_run.call_args_list[1].args[0] == [
+            "notebooklm",
+            "delete",
+            "-n",
+            "nb123",
+            "-y",
+        ]
+
+    @patch(
+        "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"
+    )
+    def test_delete_notebook_returns_false_for_nonzero_status(self, mock_run):
+        mock_run.return_value = MagicMock(
+            returncode=1, stdout="", stderr="denied"
+        )
+        client = NotebookLMClient("notebooklm")
+
+        assert client.delete_notebook("nb123") is False
+
+    @patch(
+        "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"
+    )
+    def test_create_notebook_rejects_wrong_json_shape(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout="[]", stderr="")
+        client = NotebookLMClient("notebooklm")
+
+        with pytest.raises(RuntimeError, match="response"):
+            client.create_notebook("notebook")
+
+    def test_parse_flashcards_rejects_malformed_envelope(self, tmp_path):
+        json_path = tmp_path / "cards.json"
+        json_path.write_text('[{"front": [], "back": "answer"}]')
+        client = NotebookLMClient("notebooklm")
+
+        with pytest.raises(RuntimeError, match="response"):
+            client.parse_flashcards(json_path)
+
+    def test_parse_flashcards_rejects_oversized_json(
+        self, tmp_path, monkeypatch
+    ):
+        """Downloaded JSON must be bounded before parsing."""
+        json_path = tmp_path / "cards.json"
+        json_path.write_text('{"cards": []}')
+        monkeypatch.setattr(
+            NotebookLMClient, "MAX_JSON_BYTES", 5, raising=False
+        )
+        client = NotebookLMClient("notebooklm")
+
+        with pytest.raises(RuntimeError, match="maximum"):
+            client.parse_flashcards(json_path)
+
+    def test_parse_flashcards_rejects_too_many_cards(
+        self, tmp_path, monkeypatch
+    ):
+        """A valid envelope must not permit unbounded card allocation."""
+        json_path = tmp_path / "cards.json"
+        json_path.write_text(
+            '{"cards": ['
+            '{"front": "Question one", "back": "Answer one"},'
+            '{"front": "Question two", "back": "Answer two"}'
+            "]}"
+        )
+        monkeypatch.setattr(
+            NotebookLMClient, "MAX_FLASHCARDS", 1, raising=False
+        )
+        client = NotebookLMClient("notebooklm")
+
+        with pytest.raises(RuntimeError, match="maximum"):
+            client.parse_flashcards(json_path)
 
     @patch(
         "flashcards_generator.infrastructure.notebooklm_client.subprocess.run"

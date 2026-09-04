@@ -25,7 +25,7 @@ def configure_logging(level: str = "INFO") -> None:
     fmt = (
         "<green>{time:HH:mm:ss}</green> "
         "<level>{level:<8}</level> "
-        "<cyan>{name}:{line}</cyan> - "
+        "<cyan>{extra[component]}:{line}</cyan> - "
         "{message}"
     )
 
@@ -33,11 +33,11 @@ def configure_logging(level: str = "INFO") -> None:
         sys.stderr,
         level=level,
         format=fmt,
-        colorize=True,
+        colorize=sys.stderr.isatty(),
         enqueue=True,
     )
 
 
 def get_logger(name: str) -> Logger:
     """Get a logger instance with the given name."""
-    return logger.bind(name=name)
+    return logger.bind(component=name)

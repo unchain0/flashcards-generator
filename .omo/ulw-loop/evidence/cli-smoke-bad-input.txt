@@ -1,0 +1,7 @@
+Command:
+uv run flashcards generate --input-dir /tmp/ulw-missing-input-20260904 --skip-auth-check
+
+Result: PASS (expected rejection, exit code 1)
+
+Observed:
+12:00:38 ERROR cli:238 - Diretório não existe: /tmp/ulw-missing-input-20260904

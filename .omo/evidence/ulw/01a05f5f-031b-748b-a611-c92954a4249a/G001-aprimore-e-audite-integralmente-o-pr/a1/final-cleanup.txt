@@ -1,0 +1,8 @@
+Final cleanup evidence:
+
+- Fresh QA temporary roots remaining: 0.
+- `notebooklm` processes remaining: 0.
+- Provider/corrupt CSV and resume-state residue: none.
+- Repository build artifacts and caches were removed after validation.
+- Tracked `.coverage` remains at HEAD hash
+  `6a218c7dcdb1b0cee25ac34c553d0126d1093082`, mode 0755.

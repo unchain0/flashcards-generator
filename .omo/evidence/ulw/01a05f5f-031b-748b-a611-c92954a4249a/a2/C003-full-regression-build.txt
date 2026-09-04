@@ -1,0 +1,29 @@
+C003 - full regression, dependency, build, and cleanup evidence
+Working directory: /home/avell/Projects/unchain0/flashcards-generator
+
+GREEN evidence:
+- COVERAGE_FILE=<disposable-temp-file> uv run pytest: exit 0, 426 passed.
+- uv run pip check: exit 0, No broken requirements found.
+- uv build: exit 0; produced the 1.0.0 wheel and source distribution.
+- Wheel inspection found 35 files, __main__.py, interfaces/cli.py, and the
+  flashcards console_scripts entry point.
+- sdist inspection found README.md, pyproject.toml, and packaged source.
+- uv run pre-commit run --all-files --show-diff-on-failure: exit 0; every
+  configured hook passed, including Ruff, Gitleaks, and Python 3.10 check.
+- git diff --check: exit 0 with no output.
+- uv run task quality-gate: exit 1 because the repository's existing strict
+  B(6) complexity threshold reports central workflow/document/adapter/test
+  functions. This supplemental failure is disclosed, not suppressed, and is
+  not one of the four named C001 commands.
+
+Cleanup:
+- Disposable coverage path, fake CLI, PDFs, outputs, and probe paths were
+  removed by traps.
+- dist/, build/, src/flashcards_generator.egg-info/, pytest/mypy/ruff caches,
+  htmlcov/, and coverage.xml were removed after inspection.
+- The tracked .coverage artifact was restored to HEAD hash
+  6a218c7dcdb1b0cee25ac34c553d0126d1093082 and mode 755.
+- No commit was created; pyproject.toml and uv.lock user changes remain.
+
+PASS: required C003 checks are green; the supplemental complexity debt is
+explicitly recorded as residual.

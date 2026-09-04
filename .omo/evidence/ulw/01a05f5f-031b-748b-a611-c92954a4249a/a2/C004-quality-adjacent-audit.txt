@@ -1,0 +1,36 @@
+C004 - adjacent quality, architecture, and observability audit
+Working directory: /home/avell/Projects/unchain0/flashcards-generator
+
+RED-to-GREEN lane evidence is preserved in:
+- a2/L1-contracts.md
+- a2/L2-generation-state.md
+- a2/L3-exports.md
+- a2/L4-pdf.md
+- a2/L4-semantic-logging.md
+- a2/L5-adapter.md
+- a2/L6-cli-docs.md
+
+Independent GREEN checks:
+- LSP diagnostics on src/flashcards_generator scanned 30 Python files:
+  zero errors and zero total diagnostics.
+- Ruff lint, Ruff format, mypy, pre-commit, and 426-test regression suite:
+  all exit 0.
+- Current production fixes include runtime GenerationResult import safety,
+  finite dedup thresholds, basename validation, no-follow source snapshots,
+  atomic/locked resume state, PDF range/resource handling, token/page
+  preservation, bounded similarity pair memory, typed subprocess responses,
+  TSV quoting, and truthful CLI errors.
+- README, CI coverage enforcement, package entry points, and real CLI help
+  were inspected and exercised.
+
+Residuals with evidence:
+- uv run task quality-gate remains exit 1 for strict complexity
+  debt; no threshold was weakened.
+- logging_config.py retains global Loguru sink removal as a documented
+  embedding-host risk.
+- live NotebookLM 0.8.1 authentication/provider compatibility remains
+  intentionally unverified by scope.
+
+PASS with documented residuals: no changed-file diagnostics or regression
+failures remain; the supplemental complexity failure is explicitly retained
+as an architectural debt item rather than hidden.

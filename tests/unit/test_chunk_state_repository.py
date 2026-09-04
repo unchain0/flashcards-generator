@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 
 import pytest
@@ -104,20 +105,20 @@ class TestFileSystemChunkStateRepository:
         state_path = tmp_path / "manifest.json"
         state_path.write_text("original-content")
 
-        original_replace = type(state_path).replace
+        original_replace = os.replace
 
-        def failing_replace(self, target):
-            if self.name.endswith(".tmp"):
+        def failing_replace(source, target, **kwargs):
+            if str(source).endswith(".tmp"):
                 raise OSError("replace failed")
-            return original_replace(self, target)
+            return original_replace(source, target, **kwargs)
 
-        monkeypatch.setattr(type(state_path), "replace", failing_replace)
+        monkeypatch.setattr(os, "replace", failing_replace)
 
         with pytest.raises(OSError, match="replace failed"):
             repository.save_manifest(state_path, sample_manifest)
 
         assert state_path.read_text() == "original-content"
-        assert not state_path.with_name("manifest.json.tmp").exists()
+        assert not list(state_path.parent.glob(".manifest.json.*.tmp"))
 
     def test_missing_manifest_returns_none(
         self,
@@ -169,3 +170,50 @@ class TestFileSystemChunkStateRepository:
 
         with pytest.raises(ValidationError):
             loader(path)
+
+    def test_symlinked_temp_does_not_modify_victim(
+        self,
+        repository: FileSystemChunkStateRepository,
+        sample_manifest: ChunkResumeManifest,
+        tmp_path,
+    ) -> None:
+        state_path = tmp_path / "state.json"
+        victim = tmp_path / "victim"
+        victim.write_text("KEEP")
+        state_path.with_name("state.json.tmp").symlink_to(victim)
+
+        repository.save_manifest(state_path, sample_manifest)
+
+        assert victim.read_text() == "KEEP"
+        assert state_path.exists()
+
+    def test_state_files_are_private_and_durable(
+        self,
+        repository: FileSystemChunkStateRepository,
+        sample_manifest: ChunkResumeManifest,
+        tmp_path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        state_path = tmp_path / "resume" / "state.json"
+        fsync_calls: list[int] = []
+        monkeypatch.setattr(os, "fsync", lambda fd: fsync_calls.append(fd))
+
+        repository.save_manifest(state_path, sample_manifest)
+
+        assert fsync_calls
+        assert state_path.stat().st_mode & 0o777 == 0o600
+        assert state_path.parent.stat().st_mode & 0o777 == 0o700
+
+    def test_resume_lock_rejects_concurrent_owner(
+        self,
+        repository: FileSystemChunkStateRepository,
+        tmp_path,
+    ) -> None:
+        resume_dir = tmp_path / "resume"
+
+        with repository.resume_lock(resume_dir) as first_owner:
+            assert first_owner is True
+            with FileSystemChunkStateRepository().resume_lock(
+                resume_dir
+            ) as second_owner:
+                assert second_owner is False

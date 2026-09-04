@@ -34,30 +34,30 @@ uv run notebooklm login
 
 ```bash
 # Gerar de todos os PDFs na pasta input
-uv run main.py generate -i ./input -o ./output
+uv run flashcards generate -i ./input -o ./output
 
 # Gerar sem aguardar processamento (modo rápido)
-uv run main.py generate -i ./input -o ./output --no-wait
+uv run flashcards generate -i ./input -o ./output --no-wait
 
 # Especificar timeout (padrão: 15 minutos)
-uv run main.py generate -i ./input -o ./output --timeout 900
+uv run flashcards generate -i ./input -o ./output --timeout 900
 ```
 
 ### Mesclar arquivos CSV
 
 ```bash
 # Combinar todos os CSVs em uma pasta
-uv run main.py merge ./output/Tema1
+uv run flashcards merge --folder ./output/Tema1
 
 # Combinar e remover duplicatas
-uv run main.py merge ./output/Tema1 --deduplicate
+uv run flashcards merge --folder ./output/Tema1 --deduplicate
 ```
 
 ### Limpar notebooks do NotebookLM
 
 ```bash
 # Limpar todos os notebooks criados
-uv run main.py cleanup --all
+uv run flashcards cleanup --all
 ```
 
 ## Estrutura de Diretórios
@@ -79,6 +79,36 @@ output/                         # Flashcards serão gerados aqui
 ```
 
 ## Importação no Anki
+
+### Importação direta via AnkiConnect
+
+Com o Anki aberto e o AnkiConnect habilitado, importe os cards diretamente
+para um deck (inclusive decks hierárquicos):
+
+```bash
+uv run flashcards generate \
+  --input-dir ./input \
+  --output-dir ./output \
+  --anki-deck "Estácio::Disciplina::Unidade 1"
+```
+
+O endpoint padrão é `http://127.0.0.1:8765`. Para uma instalação
+customizada, informe a URL e, se necessário, a chave da API:
+
+```bash
+uv run flashcards generate \
+  --input-dir ./input \
+  --anki-deck "Estácio::Disciplina::Unidade 1" \
+  --anki-connect-url "http://127.0.0.1:8765" \
+  --anki-api-key "$ANKI_API_KEY"
+```
+
+O comando cria o deck caso necessário e envia as notas usando o modelo
+Cloze. A geração do CSV continua ativa; sem `--anki-deck`, nenhuma chamada
+ao AnkiConnect é feita. Se o AnkiConnect falhar, o comando termina com código
+não-zero e mantém os CSVs gerados para importação manual.
+
+### Importação manual via CSV
 
 1. Abra o Anki
 2. Arquivo → Importar → Selecione o arquivo `.csv` gerado
@@ -121,19 +151,6 @@ Dicas para melhores resultados:
 - Contexto é sempre incluído na frente
 - Listas usam clozes progressivos: `{{c1::itemA}} {{c2::itemB}}`
 
-## Configuração
-
-### Variáveis de Ambiente
-
-```bash
-# Timeout para geração de flashcards (segundos)
-export FLASHCARDS_TIMEOUT=900
-
-# Diretórios padrão
-export FLASHCARDS_INPUT_DIR=./input
-export FLASHCARDS_OUTPUT_DIR=./output
-```
-
 ## Limitações
 
 - Requer conexão com internet (usa API do NotebookLM)
@@ -156,7 +173,7 @@ uv run notebooklm login
 
 ```bash
 # Aumente o timeout
-uv run main.py generate -i ./input -o ./output --timeout 1800
+uv run flashcards generate -i ./input -o ./output --timeout 1800
 ```
 
 ### Flashcards duplicados

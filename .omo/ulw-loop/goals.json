@@ -2,7 +2,7 @@
   "version": 1,
   "evidenceLayoutVersion": 2,
   "createdAt": "2026-09-04T15:16:01.608Z",
-  "updatedAt": "2026-09-04T20:20:57.172Z",
+  "updatedAt": "2026-09-05T00:21:19.247Z",
   "briefPath": ".omo/ulw-loop/brief.md",
   "goalsPath": ".omo/ulw-loop/goals.json",
   "ledgerPath": ".omo/ulw-loop/ledger.jsonl",
@@ -12,7 +12,17 @@
       "id": "G001-migrate-home-avell-projects-unchain0",
       "title": "Migrate /home/avell/Projects/unchain0/flashcards-generator to a produ...",
       "objective": "Migrate /home/avell/Projects/unchain0/flashcards-generator to a production-quality Textual TUI on Python 3.10. The commands 'flashcards' and 'python -m flashcards_generator' launch the TUI; secondary 'flashcards-cli' preserves non-interactive generate/merge/cleanup. Reuse existing domain/application/infrastructure/adapters and current AnkiConnect, CSV, NotebookLM behavior; do not duplicate business logic in screens/widgets. Deliver responsive Generate input/file discovery and in-terminal PDF/PPTX picker, settings/advanced options, real background generation with progress events, safe cancellation and subprocess cleanup, Results with CSV/cards/merge/open/copy/new-run actions, Merge, NotebookLM auth/language/cleanup with explicit all confirmation, XDG-persistent Settings, integrated logs, keyboard footer/help, and Linux terminal UX. Extract UI-independent composition, progress, and cancellation contracts where needed; preserve resumable chunk state and partial failure behavior; keep imports one-way and the existing CLI tested. Tier HEAVY: primary-interface migration, runtime UI framework, composition boundaries, concurrency/cancellation, persistent settings, and broad user-facing behavior. C001 shell/entrypoints: exact commands 'uv run flashcards --help' and 'uv run python -m flashcards_generator --help' must start the TUI under a real PTY or expose its Textual app test surface without traceback; 'uv run flashcards-cli generate --help', merge, and cleanup remain available. C002 Generate/progress: Textual Pilot with fake NotebookLM selects PDF/PPTX, builds real GenerateFlashcardsRequest, starts exactly one worker, receives progress/result state, and cancellation leaves no worker/process; capture RED before and GREEN after. C003 Results/Merge: Pilot executes real CsvMerger/MergeCsvRequest and shows valid output/counts, while completed generation exposes CSV paths/cards; no business logic is reimplemented in UI. C004 NotebookLM/Settings/Picker: Pilot covers auth state, login delegation, cleanup-all confirmation, XDG load/save/invalid fallback, and keyboard directory navigation including Unicode/spaces/empty folders. C005 usability/manual surface: real xterm.js-rendered TUI screenshots/transcript at wide and narrow terminal sizes prove visible tabs/footer/shortcuts, no overflow, and no log dumping; exercise happy, invalid, and cancel actions. C006 regression/quality: full existing suite plus TUI tests, ruff/format, mypy, build, and project quality gates exit zero. Every behavioral criterion needs failing-first Textual Pilot/integration or real PTY evidence; documentation gets review/read QA. Stop only when all criteria are RED-to-GREEN, manual artifacts and cleanup receipts exist, final quality is green, independent audit is complete, and ulw-loop marks this objective complete.",
-      "status": "pending",
+      "status": "complete",
+      "completionEvidence": {
+        "criteria": "C001-C006 PASS; independent whole-objective audit approved without blockers.",
+        "audit": ".omo/evidence/final-objective-audit.md",
+        "validation": ".omo/evidence/final-global-validation.md",
+        "manualQA": ".omo/evidence/xterm-final/st_01a06edc-manual-qa.md",
+        "surfaceEvidence": ".omo/evidence/xterm-final/",
+        "sourceDiffSha256": "fef37591bc3dc2da76c2f512bc193cd4f7baf62eb5d88b41343acfc777bd3ceb",
+        "testsPassed": 507,
+        "completedAt": "2026-09-05T00:21:19.247Z"
+      },
       "successCriteria": [
         {
           "id": "C001",
@@ -50,7 +60,7 @@
       ],
       "attempt": 0,
       "createdAt": "2026-09-04T15:16:01.608Z",
-      "updatedAt": "2026-09-04T15:23:48.196Z"
+      "updatedAt": "2026-09-05T00:21:19.247Z"
     }
   ],
   "codexObjective": "Complete the durable ulw-loop plan in .omo/ulw-loop/goals.json, including later accepted/appended stories, under the original brief constraints; use .omo/ulw-loop/ledger.jsonl as the audit trail."

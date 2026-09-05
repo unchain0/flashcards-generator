@@ -30,6 +30,9 @@ from flashcards_generator.application.dto.generate_request import (
     GenerateFlashcardsRequest,
 )
 from flashcards_generator.interfaces.tui.contracts import WorkflowServices
+from flashcards_generator.interfaces.tui.screens.generation_validation import (
+    GenerationValidationScreen,
+)
 from flashcards_generator.interfaces.tui.widgets.shortcut_input import (
     ShortcutInput as Input,
 )
@@ -262,7 +265,9 @@ class GeneratePanel(Vertical):
         try:
             request = self._request_from_form()
         except (TypeError, ValueError) as error:
-            self._progress.show_status(f"Invalid generation options: {error}")
+            message = f"Invalid generation options: {error}"
+            self._progress.show_status(message)
+            self.app.push_screen(GenerationValidationScreen(str(error)))
             return
         self._token = CancellationToken()
         self._progress.begin()

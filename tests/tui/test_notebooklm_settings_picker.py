@@ -8,6 +8,7 @@ from threading import Event
 import anyio
 import pytest
 from textual.app import App, ComposeResult
+from textual.widgets import Input, Select
 
 from flashcards_generator.application.dto.workflow import (
     AuthStatus,
@@ -218,7 +219,12 @@ async def test_settings_panel_persists_edited_preferences(
 
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.press("s")
-        app.query_one("#settings-language").value = "en"
+        language = app.query_one("#settings-language", Input)
+        difficulty = app.query_one("#settings-difficulty", Select)
+        quantity = app.query_one("#settings-quantity", Select)
+        language.value = "en_US"
+        difficulty.value = "hard"
+        quantity.value = "more"
         app.query_one("#settings-input-dir").value = "docs"
         app.query_one("#settings-output-dir").value = "decks"
         app.query_one("#settings-timeout").value = "120"
@@ -229,9 +235,11 @@ async def test_settings_panel_persists_edited_preferences(
 
     saved = repository.load()
     assert saved == Settings(
-        language="en",
+        language="en_US",
         input_dir=Path("docs"),
         output_dir=Path("decks"),
+        difficulty="hard",
+        quantity="more",
         timeout=120,
         include_pattern="*.pdf",
         exclude_pattern="draft",

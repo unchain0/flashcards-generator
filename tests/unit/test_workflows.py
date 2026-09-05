@@ -1,7 +1,9 @@
 """Focused tests for the UI-independent workflow facade."""
 
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Event
 from unittest.mock import patch
 
 import pytest
@@ -28,6 +30,7 @@ from flashcards_generator.application.dto.workflow import (
 )
 from flashcards_generator.application.workflows import ApplicationWorkflows
 from flashcards_generator.domain.entities import Deck, Flashcard
+from flashcards_generator.domain.exceptions import OperationCancelled
 from flashcards_generator.infrastructure.settings import SettingsRepository
 from flashcards_generator.interfaces.composition import (
     ApplicationServices,
@@ -76,7 +79,11 @@ class FakeNotebookLM:
         self.language = language
         return True
 
-    def cleanup(self, *, days: int | None) -> CleanupOutcome:
+    def cleanup(
+        self, *, days: int | None, check_auth: bool = False
+    ) -> CleanupOutcome:
+        if check_auth and not self.authenticated:
+            raise PermissionError("NotebookLM authentication is required")
         self.cleanup_days.append(days)
         return CleanupOutcome(deleted=2, failed=0)
 
@@ -296,6 +303,156 @@ def test_login_does_not_follow_cancelled_successful_login() -> None:
 
     assert status == AuthStatus(False, "login cancelled")
     assert calls == [["login"]]
+
+
+def test_cleanup_cancelled_during_adapter_construction_does_not_delete() -> (
+    None
+):
+    factory_entered = Event()
+    release_factory = Event()
+    destructive_cleanup_started = Event()
+
+    class RecordingAdapter(NotebookLMAdapter):
+        def delete_all_notebooks(
+            self, days: int | None = None, show_progress: bool = False
+        ) -> tuple[int, int]:
+            destructive_cleanup_started.set()
+            return 1, 0
+
+    adapters = [
+        RecordingAdapter("notebooklm"),
+        RecordingAdapter("notebooklm"),
+    ]
+
+    def create_adapter(timeout: int) -> NotebookLMAdapter:
+        factory_entered.set()
+        release_factory.wait(1)
+        return adapters.pop(0)
+
+    manager = NotebookLMManagement("notebooklm", create_adapter)
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        first_cleanup = executor.submit(manager.cleanup, days=None)
+        assert factory_entered.wait(1)
+
+        manager.cancel_active()
+        release_factory.set()
+
+        with pytest.raises(OperationCancelled):
+            first_cleanup.result(timeout=1)
+
+    assert not destructive_cleanup_started.is_set()
+
+    destructive_cleanup_started.clear()
+    outcome = manager.cleanup(days=None)
+
+    assert outcome == CleanupOutcome(deleted=1, failed=0)
+    assert destructive_cleanup_started.is_set()
+
+
+def test_cleanup_cancellation_during_auth_does_not_construct_adapter() -> None:
+    auth_started = Event()
+    release_auth = Event()
+    adapter_constructed = Event()
+
+    def create_adapter(timeout: int) -> NotebookLMAdapter:
+        adapter_constructed.set()
+        return NotebookLMAdapter("notebooklm", timeout=timeout)
+
+    manager = NotebookLMManagement("notebooklm", create_adapter)
+    facade = _facade(notebooklm=manager)
+
+    def run_auth(
+        arguments: list[str], *, timeout: float | None
+    ) -> subprocess.CompletedProcess[str]:
+        auth_started.set()
+        if not release_auth.wait(1):
+            raise TimeoutError("authentication was not released")
+        return subprocess.CompletedProcess(arguments, 0, "", "")
+
+    with (
+        patch.object(manager, "_run", side_effect=run_auth),
+        ThreadPoolExecutor(max_workers=1) as executor,
+    ):
+        cleanup = executor.submit(facade.cleanup_all, confirmed=True)
+        assert auth_started.wait(1)
+
+        facade.cancel_management()
+        release_auth.set()
+
+        with pytest.raises(OperationCancelled):
+            cleanup.result(timeout=1)
+
+    assert not adapter_constructed.is_set()
+
+
+def test_concurrent_management_operation_does_not_replace_first_cancellation() -> (
+    None
+):
+    factory_entered = Event()
+    release_factory = Event()
+    destructive_cleanup_started = Event()
+
+    class RecordingAdapter(NotebookLMAdapter):
+        def delete_all_notebooks(
+            self, days: int | None = None, show_progress: bool = False
+        ) -> tuple[int, int]:
+            destructive_cleanup_started.set()
+            return 1, 0
+
+    def create_adapter(timeout: int) -> NotebookLMAdapter:
+        factory_entered.set()
+        release_factory.wait(1)
+        return RecordingAdapter("notebooklm", timeout=timeout)
+
+    manager = NotebookLMManagement("/bin/true", create_adapter)
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        first_cleanup = executor.submit(manager.cleanup, days=None)
+        assert factory_entered.wait(1)
+
+        with pytest.raises(RuntimeError, match="already active"):
+            manager.auth_status()
+
+        manager.cancel_active()
+        release_factory.set()
+
+        with pytest.raises(OperationCancelled):
+            first_cleanup.result(timeout=1)
+
+    assert not destructive_cleanup_started.is_set()
+
+
+def test_cleanup_cancellation_after_adapter_registration_stops_adapter() -> (
+    None
+):
+    cleanup_started = Event()
+    adapter_stopped = Event()
+
+    class BlockingAdapter(NotebookLMAdapter):
+        def delete_all_notebooks(
+            self, days: int | None = None, show_progress: bool = False
+        ) -> tuple[int, int]:
+            cleanup_started.set()
+            if not adapter_stopped.wait(1):
+                raise TimeoutError("adapter was not stopped")
+            return 0, 1
+
+        def cancel_active(self) -> None:
+            adapter_stopped.set()
+
+    manager = NotebookLMManagement(
+        "notebooklm", lambda timeout: BlockingAdapter("notebooklm")
+    )
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        cleanup = executor.submit(manager.cleanup, days=None)
+        assert cleanup_started.wait(1)
+
+        manager.cancel_active()
+
+        assert cleanup.result(timeout=1) == CleanupOutcome(deleted=0, failed=1)
+
+    assert adapter_stopped.is_set()
 
 
 def test_cleanup_all_requires_explicit_confirmation_before_auth() -> None:

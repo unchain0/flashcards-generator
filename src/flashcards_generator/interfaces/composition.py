@@ -5,7 +5,8 @@ from __future__ import annotations
 import os
 import signal
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from threading import Lock
 from time import monotonic
@@ -161,13 +162,16 @@ class NotebookLMManagement:
         self._adapter_factory = adapter_factory
         self._cleanup_show_progress = cleanup_show_progress
         self._active_lock = Lock()
-        self._active_process: subprocess.Popen[str] | None = None
-        self._active_adapter: NotebookLMAdapter | None = None
-        self._cancel_requested = False
+        self._active_token: CancellationToken | None = None
 
     def auth_status(self) -> AuthStatus:
         """Check authentication through the NotebookLM executable."""
+        with self._operation() as token:
+            return self._auth_status(token)
+
+    def _auth_status(self, token: CancellationToken) -> AuthStatus:
         result = self._run(["auth", "check"], timeout=10)
+        token.raise_if_cancelled()
         if result is None:
             return AuthStatus(False, "unable to check authentication")
         if result.returncode == 0:
@@ -178,54 +182,60 @@ class NotebookLMManagement:
 
     def login(self) -> AuthStatus:
         """Run the NotebookLM login command and return the resulting status."""
-        result = self._run(["login"], timeout=None)
-        if result is None:
-            return AuthStatus(False, "unable to start login")
-        if result.returncode != 0:
-            return AuthStatus(
-                False, self._failure_message(result, "login failed")
-            )
-        if self._was_cancelled():
-            return AuthStatus(False, "login cancelled")
-        return AuthStatus(True, "authenticated")
+        with self._operation() as token:
+            result = self._run(["login"], timeout=None)
+            if result is None:
+                if token.is_cancelled:
+                    return AuthStatus(False, "login cancelled")
+                return AuthStatus(False, "unable to start login")
+            if result.returncode != 0:
+                return AuthStatus(
+                    False, self._failure_message(result, "login failed")
+                )
+            if token.is_cancelled:
+                return AuthStatus(False, "login cancelled")
+            return AuthStatus(True, "authenticated")
 
     def set_language(self, language: str) -> bool:
         """Set the NotebookLM language, returning command success."""
         if not language.strip():
             raise ValueError("language must not be empty")
-        result = self._run(["language", "set", language], timeout=10)
-        return result is not None and result.returncode == 0
+        with self._operation():
+            result = self._run(["language", "set", language], timeout=10)
+            return result is not None and result.returncode == 0
 
-    def cleanup(self, *, days: int | None) -> CleanupOutcome:
+    def cleanup(
+        self, *, days: int | None, check_auth: bool = False
+    ) -> CleanupOutcome:
         """Delete notebooks without rendering adapter-owned terminal progress."""
-        adapter = self._adapter_factory(900)
-        with self._active_lock:
-            self._active_adapter = adapter
-        try:
-            if days is None:
-                deleted, failed = adapter.delete_all_notebooks(
-                    show_progress=self._cleanup_show_progress
-                )
-            else:
-                deleted, failed = adapter.delete_all_notebooks(
-                    days=days,
-                    show_progress=self._cleanup_show_progress,
-                )
-        finally:
-            with self._active_lock:
-                self._active_adapter = None
-        return CleanupOutcome(deleted=deleted, failed=failed)
+        with self._operation() as token:
+            if check_auth and not self._auth_status(token).authenticated:
+                raise PermissionError("NotebookLM authentication is required")
+            token.raise_if_cancelled()
+            adapter = self._adapter_factory(900)
+            unregister = token.register(adapter.cancel_active)
+            try:
+                with adapter.cancellation_scope(token):
+                    token.raise_if_cancelled()
+                    if days is None:
+                        deleted, failed = adapter.delete_all_notebooks(
+                            show_progress=self._cleanup_show_progress
+                        )
+                    else:
+                        deleted, failed = adapter.delete_all_notebooks(
+                            days=days,
+                            show_progress=self._cleanup_show_progress,
+                        )
+            finally:
+                unregister()
+            return CleanupOutcome(deleted=deleted, failed=failed)
 
     def cancel_active(self) -> None:
         """Stop a direct command or adapter command in progress."""
         with self._active_lock:
-            self._cancel_requested = True
-            process = self._active_process
-            adapter = self._active_adapter
-        if adapter is not None:
-            adapter.cancel_active()
-        if process is not None:
-            self._stop_process(process)
+            token = self._active_token
+        if token is not None:
+            token.cancel()
 
     def _run(
         self,
@@ -234,8 +244,12 @@ class NotebookLMManagement:
         timeout: float | None,
     ) -> subprocess.CompletedProcess[str] | None:
         process: subprocess.Popen[str] | None = None
+        unregister: Callable[[], None] = lambda: None
         with self._active_lock:
-            self._cancel_requested = False
+            token = self._active_token
+        if token is None:
+            raise RuntimeError("management operation is not active")
+        token.raise_if_cancelled()
         try:
             process = subprocess.Popen(
                 [self._executable, *arguments],
@@ -244,21 +258,15 @@ class NotebookLMManagement:
                 text=True,
                 start_new_session=True,
             )
-            with self._active_lock:
-                self._active_process = process
-                cancelled_before_tracking = self._cancel_requested
-            if cancelled_before_tracking:
-                self._stop_process(process)
+            unregister = token.register(lambda: self._stop_process(process))
             stdout, stderr = process.communicate(timeout=timeout)
         except (OSError, subprocess.SubprocessError):
             if process is not None:
                 self._stop_process(process)
             return None
         finally:
-            with self._active_lock:
-                if self._active_process is process:
-                    self._active_process = None
-        if self._was_cancelled():
+            unregister()
+        if token.is_cancelled:
             return None
         return subprocess.CompletedProcess(
             [self._executable, *arguments],
@@ -267,10 +275,20 @@ class NotebookLMManagement:
             stderr,
         )
 
-    def _was_cancelled(self) -> bool:
-        """Return whether the active management operation was cancelled."""
+    @contextmanager
+    def _operation(self) -> Iterator[CancellationToken]:
+        """Publish one fresh cancellation identity for an operation."""
+        token = CancellationToken()
         with self._active_lock:
-            return self._cancel_requested
+            if self._active_token is not None:
+                raise RuntimeError("management operation already active")
+            self._active_token = token
+        try:
+            yield token
+        finally:
+            with self._active_lock:
+                if self._active_token is token:
+                    self._active_token = None
 
     @staticmethod
     def _stop_process(process: subprocess.Popen[str]) -> None:

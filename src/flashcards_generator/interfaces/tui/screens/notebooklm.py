@@ -98,6 +98,8 @@ class NotebookLMPanel(Vertical):
     def _run(self, operation: ManagementOperation) -> None:
         if self.services is None:
             return
+        if self._worker is not None and not self._worker.is_finished:
+            return
         self._operation = operation
         self.query_one("#notebooklm-auth-status", Static).update(
             "Checking" if operation == "status" else f"Running {operation}"

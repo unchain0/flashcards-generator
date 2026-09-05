@@ -7,6 +7,7 @@ from threading import Event
 
 import anyio
 import pytest
+from textual.widgets import Button
 
 from flashcards_generator.application.contracts import (
     CancellationToken,
@@ -215,20 +216,55 @@ async def test_generate_form_maps_advanced_options_to_real_request(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("size", [(52, 24), (120, 40)])
 async def test_generate_rejects_invalid_advanced_option_without_worker(
-    tmp_path: Path,
+    tmp_path: Path, size: tuple[int, int]
 ) -> None:
-    """Given an invalid timeout, the TUI reports validation and does not run."""
+    """Enter on Start keeps invalid feedback visible without provider work."""
     service = ImmediateGenerationService()
     app = FlashcardsApp(services=GenerationServices(service))
 
-    async with app.run_test(size=(120, 40)) as pilot:
+    async with app.run_test(size=size) as pilot:
         app.query_one("#generate-input-dir").value = str(tmp_path)
-        app.query_one("#generate-timeout").value = "not-a-number"
-        await pilot.click("#generate-start")
+        app.query_one("#generate-difficulty").value = "unsupported"
+        start = app.query_one("#generate-start", Button)
+        start.focus()
 
-        assert service.calls == 0
+        await pilot.press("enter")
+        await app.screen.wait_for_refresh()
+
+        message = app.screen.query_one("#generation-validation-message")
+        dismiss = app.screen.query_one("#dismiss-generation-validation")
+        status = app.query_one("#progress-status")
         assert (
-            "invalid"
-            in str(app.query_one("#progress-status").render()).lower()
-        )
+            service.calls,
+            app.generation_worker_count,
+            app.active_generation_worker,
+            "difficulty must be easy" in str(message.render()),
+            "invalid" in str(status.render()).lower(),
+            app.screen.focused is dismiss,
+            message.region.y >= 0,
+            message.region.bottom <= app.size.height,
+        ) == (0, 0, False, True, True, True, True, True)
+
+
+@pytest.mark.anyio
+async def test_escape_closes_generation_validation_modal(
+    tmp_path: Path,
+) -> None:
+    service = ImmediateGenerationService()
+    app = FlashcardsApp(services=GenerationServices(service))
+
+    async with app.run_test(size=(52, 24)) as pilot:
+        app.query_one("#generate-input-dir").value = str(tmp_path)
+        app.query_one("#generate-difficulty").value = "unsupported"
+        app.query_one("#generate-start", Button).focus()
+        await pilot.press("enter")
+        await app.screen.wait_for_refresh()
+        validation_screen = app.screen
+
+        await pilot.press("escape")
+        await app.screen.wait_for_refresh()
+
+        assert app.screen is not validation_screen
+        assert not app.screen.query("#generation-validation-message")

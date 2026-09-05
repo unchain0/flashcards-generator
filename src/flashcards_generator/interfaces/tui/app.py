@@ -226,7 +226,7 @@ class FlashcardsApp(App[None]):
 
     def action_cancel(self) -> None:
         """Cancel only the active generation workflow."""
-        if isinstance(self.screen, HelpScreen):
+        if isinstance(self.screen, ModalScreen):
             self.pop_screen()
             return
         panel = self.query_one("#generate-panel", GeneratePanel)

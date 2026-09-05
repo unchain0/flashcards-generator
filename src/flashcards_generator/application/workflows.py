@@ -55,8 +55,10 @@ class NotebookLMManagementPort(Protocol):
         """Set the provider output language."""
         ...
 
-    def cleanup(self, *, days: int | None) -> CleanupOutcome:
-        """Delete notebooks selected by age, or all when days is None."""
+    def cleanup(
+        self, *, days: int | None, check_auth: bool = False
+    ) -> CleanupOutcome:
+        """Authenticate and delete selected notebooks as one operation."""
         ...
 
     def cancel_active(self) -> None:
@@ -132,9 +134,9 @@ class ApplicationWorkflows:
         """Delete selected notebooks, requiring confirmation for delete-all."""
         if request.days is None and not confirmed:
             raise ValueError("cleanup-all requires explicit confirmation")
-        if request.check_auth and not self.auth_status().authenticated:
-            raise PermissionError("NotebookLM authentication is required")
-        return self._notebooklm.cleanup(days=request.days)
+        return self._notebooklm.cleanup(
+            days=request.days, check_auth=request.check_auth
+        )
 
     def cleanup_all(self, *, confirmed: bool) -> CleanupOutcome:
         """Delete every notebook only after explicit caller confirmation."""

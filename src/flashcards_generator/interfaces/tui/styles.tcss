@@ -64,6 +64,17 @@ TabPane {
     color: $text-muted;
 }
 
+.field-hint {
+    height: auto;
+    margin-left: 1;
+    color: $text-muted;
+}
+
+.workflow-panel Input,
+.workflow-panel Select {
+    width: 1fr;
+}
+
 .section-title {
     text-style: bold;
     color: $accent;

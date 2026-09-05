@@ -49,6 +49,7 @@ class HelpScreen(ModalScreen[None]):
         with Container(id="help-dialog"):
             yield Label("Keyboard shortcuts", id="help-title")
             yield Static(
+                "Outside text fields:\n"
                 "q  Quit\n"
                 "g  Generate\n"
                 "r  Results\n"

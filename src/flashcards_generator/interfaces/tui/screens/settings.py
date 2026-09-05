@@ -45,7 +45,7 @@ class SettingsPanel(Vertical):
     def compose(self) -> ComposeResult:
         yield Label("Settings", classes="workflow-title")
         yield Static(
-            "Generation defaults. Tab through fields; shell shortcuts stay active.",
+            "Generation defaults. Shell shortcuts resume outside text fields.",
             classes="workflow-description",
         )
         with Horizontal(classes="action-row"):

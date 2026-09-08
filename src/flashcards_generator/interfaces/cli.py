@@ -364,6 +364,7 @@ class CLI:
             input_dir=args.input_dir,
             output_dir=args.output_dir,
             difficulty=args.difficulty,
+            language=args.language,
             quantity=args.quantity,
             instructions=args.instructions or "",
             wait_for_completion=not args.no_wait,
@@ -404,7 +405,6 @@ class CLI:
         if not self._authenticate(args.skip_auth_check):
             return 1
 
-        self._set_language(args.language)
         return self._run_generation_pipeline(args)
 
     def _run_generation_pipeline(self, args: argparse.Namespace) -> int:

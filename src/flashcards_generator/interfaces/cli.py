@@ -31,6 +31,7 @@ from flashcards_generator.application.use_cases import (
 from flashcards_generator.domain.exceptions import (
     AnkiConnectError,
     CSVMergeError,
+    LanguageConfigurationError,
 )
 from flashcards_generator.infrastructure.chunk_state_repository import (
     FileSystemChunkStateRepository,
@@ -420,6 +421,9 @@ class CLI:
                 NullProgressReporter(),
                 CancellationToken(),
             )
+        except LanguageConfigurationError as error:
+            logger.error(str(error))
+            return 1
         except KeyboardInterrupt:
             logger.info("\n⚠️  Operation cancelled by user")
             return 130

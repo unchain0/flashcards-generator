@@ -24,6 +24,7 @@ from flashcards_generator.application.dto.workflow import (
     MergeOutcome,
 )
 from flashcards_generator.domain.entities import Deck
+from flashcards_generator.domain.exceptions import LanguageConfigurationError
 from flashcards_generator.domain.ports.anki_exporter import AnkiExporterPort
 
 
@@ -96,7 +97,7 @@ class ApplicationWorkflows:
         if request.language.strip() and not self.set_language(
             request.language
         ):
-            raise RuntimeError("Unable to set NotebookLM output language")
+            raise LanguageConfigurationError(request.language)
         return self._generation.generate(request, reporter, token)
 
     def merge(self, request: MergeCsvRequest) -> MergeOutcome:

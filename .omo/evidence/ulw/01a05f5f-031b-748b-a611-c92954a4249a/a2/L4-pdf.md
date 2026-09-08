@@ -145,7 +145,7 @@ __ TestPDFChunker.test_fixed_size_ranges_use_single_overlap_and_close_reader ___
 tests/unit/test_pdf_utils.py:245: in test_fixed_size_ranges_use_single_overlap_and_close_reader
     assert [
 E   assert [[0, 1, 2, 3,..., 48, 49, 50]] == [[0, 1, 2, 3,... 29, 30, ...]]
-E     
+E
 E     At index 1 diff: [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49] != [25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
 E     Left contains one more item: [45, 46, 47, 48, 49, 50]
 E     Use -v to get more diff
@@ -179,7 +179,7 @@ __________ TestPDFChunker.test_chapter_chunk_preserves_leading_pages ___________
 tests/unit/test_pdf_utils.py:268: in test_chapter_chunk_preserves_leading_pages
     assert [call.args[0] for call in writer.add_page.call_args_list] == list(
 E   assert [5, 6, 7, 8, 9] == [0, 1, 2, 3, 4, 5, ...]
-E     
+E
 E     At index 0 diff: 5 != 0
 E     Right contains 5 more items, first extra item: 5
 E     Use -v to get more diff

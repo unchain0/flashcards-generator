@@ -56,7 +56,7 @@ _ TestSemanticChunkerRegressions.test_extract_text_skips_none_page_without_losin
 tests/test_semantic_chunking.py:311: in test_extract_text_skips_none_page_without_losing_later_page
     assert chunker.extract_text_from_pdf(tmp_path / "sample.pdf") == [
 E   AssertionError: assert [] == [TextSegment(...undary=False)]
-E     
+E
 E     Right contains one more item: TextSegment(text='retained page', start_page=2, end_page=2, token_count=3, is_sentence_boundary=False)
 ----------------------------- Captured stderr call -----------------------------
 2026-09-01 21:51:22.557 | ERROR | flashcards_generator.infrastructure.semantic_chunker:extract_text_from_pdf:103 - Failed to extract text from /tmp/pytest-of-avell/pytest-495/test_extract_text_skips_none_p0/sample.pdf: 'NoneType' object has no attribute 'strip'
@@ -64,25 +64,25 @@ _ TestSemanticChunkerRegressions.test_short_and_oversized_text_is_preserved_with
 tests/test_semantic_chunking.py:329: in test_short_and_oversized_text_is_preserved_within_max_tokens
     assert [token for text, _, _ in chunks for token in text.split()] == tokens
 E   AssertionError: assert [] == ['sentinel_0'...tinel_5', ...]
-E     
+E
 E     Right contains 22 more items, first extra item: 'sentinel_0'
 _ TestSemanticChunkerRegressions.test_boundary_chunk_starts_at_first_represented_page _
 tests/test_semantic_chunking.py:350: in test_boundary_chunk_starts_at_first_represented_page
     assert [(start, end) for _, start, end in chunks] == [(1, 2), (3, 3)]
 E   assert [(1, 2), (2, 3)] == [(1, 2), (3, 3)]
-E     
+E
 E     At index 1 diff: (2, 3) != (3, 3)
 _ TestSemanticChunkerRegressions.test_overlap_chunk_metadata_includes_the_overlapped_page _
 tests/test_semantic_chunking.py:368: in test_overlap_chunk_metadata_includes_the_overlapped_page
     assert chunks == [
 E   AssertionError: assert [('Alpha. Bet...elta.', 2, 2)] == [('Alpha. Bet...elta.', 1, 2)]
-E     
+E
 E     At index 1 diff: ('Gamma. Delta.', 2, 2) != ('Gamma. Delta.', 1, 2)
 _ TestQualityFilterRegressions.test_stop_word_duplicate_is_detected_when_tfidf_has_no_vocabulary _
 tests/test_semantic_chunking.py:382: in test_stop_word_duplicate_is_detected_when_tfidf_has_no_vocabulary
     assert QualityFilter().find_similar_cards(cards) == [(0, 1, 1.0)]
 E   assert [] == [(0, 1, 1.0)]
-E     
+E
 E     Right contains one more item: (0, 1, 1.0)
 _ TestQualityFilterRegressions.test_similarity_filter_does_not_materialize_a_dense_matrix _
 tests/test_semantic_chunking.py:400: in test_similarity_filter_does_not_materialize_a_dense_matrix

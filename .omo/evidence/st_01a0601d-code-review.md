@@ -9,9 +9,9 @@
 
 ## Result
 
-**Security/concurrency audit: FAIL**  
-**Confidence: high**  
-**codeQualityStatus: BLOCK**  
+**Security/concurrency audit: FAIL**
+**Confidence: high**
+**codeQualityStatus: BLOCK**
 **recommendation: REQUEST_CHANGES**
 
 ## Skill-perspective check

@@ -117,7 +117,7 @@ ___ TestDeckExporter.test_exporters_preserve_delimited_fields_as_two_columns ___
 tests/unit/test_exporter.py:64: in test_exporters_preserve_delimited_fields_as_two_columns
     assert [row for row in anki_rows if len(row) == 2] == [[front, back]]
 E   AssertionError: assert [] == [['Question\t...swer line 2']]
-E     
+E
 E     Right contains one more item: ['Question\tcontinued', 'Answer line 1\nAnswer line 2']
 E     Use -v to get more diff
 =========================== short test summary info ============================

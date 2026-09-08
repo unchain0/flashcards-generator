@@ -66,8 +66,11 @@ def test_cli_stops_generation_when_language_configuration_fails(tmp_path):
                 "--skip-auth-check",
             ],
         ),
-        pytest.raises(RuntimeError, match="Unable to set NotebookLM"),
+        patch("flashcards_generator.interfaces.cli.logger") as logger,
     ):
-        CLI().run()
+        assert CLI().run() == 1
+
+    logger.error.assert_called_once()
+    assert "Unable to set NotebookLM" in logger.error.call_args.args[0]
 
     use_case.assert_not_called()

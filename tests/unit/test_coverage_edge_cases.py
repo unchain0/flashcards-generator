@@ -263,7 +263,11 @@ class TestCLIEdgeCases:
     @patch("flashcards_generator.interfaces.cli.GenerateFlashcardsUseCase")
     @patch("flashcards_generator.interfaces.cli.CLI._validate_input")
     @patch("flashcards_generator.interfaces.cli.CLI._authenticate")
-    @patch("flashcards_generator.interfaces.cli.CLI._set_language")
+    @patch(
+        "flashcards_generator.interfaces.composition."
+        "NotebookLMManagement.set_language",
+        return_value=True,
+    )
     def test_run_keyboard_interrupt_in_execute(
         self,
         mock_set_language,
@@ -586,6 +590,7 @@ class TestCLICoverage:
         mock_args.include = None
         mock_args.exclude = None
         mock_args.files = "file1.pdf,file2.pdf,file3.pdf"
+        mock_args.language = "pt_BR"
 
         request = cli._create_request(mock_args)
 

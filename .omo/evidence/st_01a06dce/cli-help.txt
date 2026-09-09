@@ -88,4 +88,3 @@ options:
   --skip-auth-check
 
 exit_code=0
-

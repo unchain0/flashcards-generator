@@ -20,7 +20,7 @@ ______ test_results_preview_and_actions_are_wired_to_navigation[asyncio] _______
 tests/tui/test_results_merge.py:126: in test_results_preview_and_actions_are_wired_to_navigation
     assert app.query_one("#main-tabs").active == "merge"
 E   AssertionError: assert 'results' == 'merge'
-E     
+E
 E     - merge
 E     + results
 =========================== short test summary info ============================

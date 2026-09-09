@@ -16,7 +16,7 @@ _ TestGenerationSafetyRegressions.test_explicit_files_apply_discovery_safety_bou
 tests/unit/test_use_cases_edge_cases.py:163: in test_explicit_files_apply_discovery_safety_boundary
     assert selected == [selected_pdf.resolve()]
 E   AssertionError: assert [PosixPath('/...elected.pdf')] == [PosixPath('/...elected.pdf')]
-E     
+E
 E     At index 0 diff: PosixPath('/tmp/tmp837ypyrp/input/../outside.pdf') != PosixPath('/tmp/tmp837ypyrp/input/selected.pdf')
 E     Left contains 2 more items, first extra item: PosixPath('/tmp/tmp837ypyrp/input/notes.txt')
 E     Use -v to get more diff
@@ -122,14 +122,14 @@ _ TestFileSystemChunkStateRepository.test_symlinked_temp_does_not_modify_victim 
 tests/unit/test_chunk_state_repository.py:187: in test_symlinked_temp_does_not_modify_victim
     assert victim.read_text() == "KEEP"
 E   assert '{\n  "source...0.988023Z"\n}' == 'KEEP'
-E     
+E
 E     - KEEP
 E     + {
 E     +   "source_pdf": "/tmp/source.pdf",
 E     +   "source_signature": "abc123",
 E     +   "deck_name": "Sample Deck",
 E     +   "total_chunks": 2,...
-E     
+E
 E     ...Full output truncated (25 lines hidden), use '-vv' to show
 ----------------------------- Captured stderr call -----------------------------
 2026-09-01 21:59:30.988 | DEBUG    | flashcards_generator.infrastructure.chunk_state_repository:save_manifest:34 - Saving manifest to /tmp/pytest-of-avell/pytest-513/test_symlinked_temp_does_not_m0/state.json

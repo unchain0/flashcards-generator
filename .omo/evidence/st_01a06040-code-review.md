@@ -2,8 +2,8 @@
 
 ## Verdict
 
-**PASS** (high confidence) for the five requested behavioral properties.  
-**Code quality status:** WATCH  
+**PASS** (high confidence) for the five requested behavioral properties.
+**Code quality status:** WATCH
 **Recommendation:** APPROVE
 
 The task-local `omo-agent-toolkit ulw-loop status --json` lookup returned `ULW_LOOP_PLAN_MISSING`; therefore this report uses the required fallback artifact path rather than an attempt directory. The shared root ULW plan was inspected separately at `.omo/ulw-loop/01a05f5f-031b-748b-a611-c92954a4249a/goals.json`.

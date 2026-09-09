@@ -130,7 +130,11 @@ class TestCLI:
 
         assert result is False
 
-    @patch.object(CLI, "_set_language")
+    @patch(
+        "flashcards_generator.interfaces.composition."
+        "NotebookLMManagement.set_language",
+        return_value=True,
+    )
     @patch.object(CLI, "check_auth")
     @patch("flashcards_generator.interfaces.cli.GenerateFlashcardsUseCase")
     def test_run_success(
@@ -197,7 +201,11 @@ class TestCLI:
 
         assert result == 1
 
-    @patch.object(CLI, "_set_language")
+    @patch(
+        "flashcards_generator.interfaces.composition."
+        "NotebookLMManagement.set_language",
+        return_value=True,
+    )
     @patch.object(CLI, "check_auth")
     @patch("flashcards_generator.interfaces.cli.GenerateFlashcardsUseCase")
     def test_run_authenticated_success(
@@ -227,7 +235,11 @@ class TestCLI:
         assert result == 0
         mock_check_auth.assert_called_once()
 
-    @patch.object(CLI, "_set_language")
+    @patch(
+        "flashcards_generator.interfaces.composition."
+        "NotebookLMManagement.set_language",
+        return_value=True,
+    )
     @patch.object(CLI, "check_auth")
     @patch("flashcards_generator.interfaces.cli.GenerateFlashcardsUseCase")
     def test_run_generate_returns_failure_for_processing_errors(
@@ -255,7 +267,11 @@ class TestCLI:
 
         assert result == 1
 
-    @patch.object(CLI, "_set_language")
+    @patch(
+        "flashcards_generator.interfaces.composition."
+        "NotebookLMManagement.set_language",
+        return_value=True,
+    )
     @patch.object(CLI, "check_auth")
     @patch("flashcards_generator.interfaces.cli.GenerateFlashcardsUseCase")
     def test_run_with_custom_options(
@@ -318,7 +334,11 @@ class TestCLI:
         assert request.wait_for_completion is False
         mock_set_language.assert_called_once_with("en_US")
 
-    @patch.object(CLI, "_set_language")
+    @patch(
+        "flashcards_generator.interfaces.composition."
+        "NotebookLMManagement.set_language",
+        return_value=True,
+    )
     @patch.object(CLI, "check_auth")
     @patch("flashcards_generator.interfaces.cli.GenerateFlashcardsUseCase")
     def test_run_empty_decks(
@@ -350,7 +370,11 @@ class TestCLI:
 
         assert result == 0
 
-    @patch.object(CLI, "_set_language")
+    @patch(
+        "flashcards_generator.interfaces.composition."
+        "NotebookLMManagement.set_language",
+        return_value=True,
+    )
     @patch.object(CLI, "check_auth")
     @patch("flashcards_generator.interfaces.cli.GenerateFlashcardsUseCase")
     def test_run_deck_without_flashcards(

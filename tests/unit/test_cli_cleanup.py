@@ -179,7 +179,11 @@ class TestCLINoCommand:
 
         assert result == 1
 
-    @patch.object(CLI, "_set_language")
+    @patch(
+        "flashcards_generator.interfaces.composition."
+        "NotebookLMManagement.set_language",
+        return_value=True,
+    )
     @patch.object(CLI, "check_auth")
     @patch("flashcards_generator.interfaces.cli.GenerateFlashcardsUseCase")
     def test_default_to_generate_with_args(

@@ -1,10 +1,10 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
-from flashcards_generator.domain.entities import Deck, Flashcard
-from flashcards_generator.domain.value_objects import Config, SourceInfo
+from flashcards_generator.domain_models.entities import Deck, Flashcard
+from flashcards_generator.domain_models.value_objects import Config, SourceInfo
 
 
 @pytest.fixture
@@ -23,7 +23,7 @@ def sample_deck():
         name="Geografia",
         description="Deck de geografia",
         notebook_id="nb123",
-        created_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        created_at=datetime(2024, 1, 1, tzinfo=UTC),
     )
 
 

@@ -9,19 +9,31 @@ wheels/
 
 # Virtual environments
 .venv
+node_modules/
+frontend/coverage/
+frontend/playwright-report/
+frontend/test-results/
 
 # Output and temporary files
+.coverage.*
 *.csv
 *.pdf
 *_raw.json
 outputs/
 output/
 .temp_chunks/
+/reports/
+/.impeccable/hook.cache.json
 
 # Input directories
 pdfs/
 inputs/
 input/
+
+# Local app data, including browser authentication profiles
+/data/
+/flashcards.db
+/.env
 
 # OMO runtime task logs (ephemeral local orchestration state)
 .omo/senpi-task/

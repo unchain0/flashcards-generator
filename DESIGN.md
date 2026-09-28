@@ -1,71 +1,70 @@
-# Flashcards Generator TUI Design System
+# Flashcards Generator Web Design System
 
-## 1. Atmosphere & Identity
+## Product Surface
 
-A compact, dependable terminal workspace. The signature is a single bordered workflow surface with muted supporting copy and accent-colored hierarchy, optimized for keyboard use rather than decoration.
+The application is operated in the browser. The design centers on the real
+task: upload source material, configure generation, follow its job, and
+download CSV artifacts. NotebookLM authentication and generation run in the
+local companion on the user's computer; the interface enables uploads only
+after that local profile is authenticated.
 
-## 2. Color
+## Web Generator Design System
 
-The TUI uses Textual semantic theme tokens exclusively.
+The Litestar dashboard is an operate-mode generation workspace. Its visual
+voice is deep blue night surfaces with a single acid-green action accent,
+using tonal separation instead of stacked card shadows. The type stack favors
+a humanist sans voice over the generic Inter default. The page is organized
+around the real task: upload source material, configure the generation, follow
+the local job, and download its CSV artifacts.
 
-| Role | Token | Usage |
-|---|---|---|
-| App surface | `$surface` | Screen, status wells, nested panels |
-| Raised surface | `$panel` | Header and workflow panel |
-| Primary text | `$text` | Body and control content |
-| Supporting text | `$text-muted` | Labels and inline guidance |
-| Accent | `$accent` | Titles and section emphasis |
-| Border | `$primary-darken-2` | Non-destructive panel outlines |
-| Destructive | `$error` | Destructive actions and confirmations |
+The browser sends documents directly to the Flashcards Companion running on
+the user's computer. The companion uses that user's local NotebookLM session,
+keeps inputs in a private temporary workspace, and returns generated CSV files
+to the browser without sending source documents to the web server.
 
-No raw colors are introduced in TUI CSS.
+Design Read: a browser workbench for learners turning source documents into
+their own review workflow, with ENERGY 2 / RHYTHM 2 / MOTION 1. The night-blue
+surfaces give the generator a distinct identity, the acid-green accent marks
+the primary action, the humanist sans keeps instructions easy to scan, and the
+content order follows the actual generation flow. Borders and tonal surfaces
+separate working areas without decorative elevation; motion stays on direct
+control feedback.
 
-## 3. Typography
+### Tokens
 
-Terminal cell metrics and the user's terminal font own type size and family. Hierarchy uses Textual `text-style: bold` for workflow and section titles; body, labels, and hints remain regular weight.
+| Role | Token | Value |
+| --- | --- | --- |
+| Canvas | `--canvas` | `#08111f` |
+| Panel | `--surface` | `#102238` |
+| Raised surface | `--surface-raised` | `#162d45` |
+| Input surface | `--surface-input` | `#0d1b2b` |
+| Primary text | `--text` | `#edf4fb` |
+| Supporting text | `--supporting` | `#c8d7e5` |
+| Accent | `--accent` | `#9be15d` |
+| Accent hover | `--accent-hover` | `#b4ed7d` |
+| Accent ink | `--accent-ink` | `#102016` |
+| Error state | `--error` | `#ff9888` |
+| Panel border | `--border` | `#557793` |
+| Input border | `--border-input` | `#557793` |
+| Body type | `--font-body` | `Avenir Next`, `Trebuchet MS`, `Segoe UI`, sans-serif |
+| Type scale | `--font-*` | Body `1rem`, label `0.9rem`, lede `1.125rem`, section `1.5rem`, display `2rem–4rem` |
+| Spacing scale | `--space-1`–`--space-7` | `0.25rem`, `0.5rem`, `0.75rem`, `1rem`, `1.5rem`, `2rem`, `2.5rem` |
+| Shell spacing | `--space-shell-top`, `--space-5`, `--space-shell-bottom` | `4.5rem 1.5rem 5rem` |
+| Compact shell | `--space-shell-top-compact` | `2.8rem` |
+| Content measure | `--content-max`, `--hero-copy-max`, `--heading-measure`, `--lede-measure` | `70rem`, `45rem`, `20ch`, `65ch` |
+| Component measures | `--auth-panel-max`, `--workspace-status-min`, `--status-panel-min-height`, `--control-min-height` | `28.75rem`, `18.75rem`, `17.5rem`, `2.75rem` |
+| Focus and borders | `--border-width`, `--focus-ring-width`, `--focus-ring-offset` | `1px`, `3px`, `3px` |
+| Control radius | `--radius-control` | `10px` |
+| Panel radius | `--radius-panel` | `16px` |
+| Responsive breakpoints | media-query values | `820px`, `620px`, `360px`; kept literal because CSS custom properties cannot be used reliably in media queries |
 
-## 4. Spacing & Layout
+### Components and states
 
-Textual cell units form the spacing scale: `1` cell for related controls and `2` cells for section padding. The screen shell fixes Header, tab navigation, and Footer; each `TabPane` owns vertical scrolling. Workflow panels use the available width and never require horizontal scrolling at 52 columns.
-
-## 5. Components
-
-### Workflow Panel
-- **Structure:** title, controls, status.
-- **Spacing:** 2-cell vertical and 3-cell horizontal padding; related rows use 1 cell.
-- **States:** normal, focused child, validation error, saved/success.
-- **Accessibility:** source-order keyboard navigation; visible Textual focus states.
-- **Layout:** vertical stack inside the scrolling `TabPane`.
-
-### Field Block
-- **Structure:** label, control, optional persistent hint.
-- **Variants:** text input, closed-set select, checkbox.
-- **Spacing:** 1 cell before each label; hint sits directly below its control.
-- **States:** empty/placeholder, focused, selected, invalid through the panel status.
-- **Accessibility:** labels precede controls; guidance remains visible without hover.
-
-### Action Row
-- **Structure:** related buttons and checkboxes.
-- **Spacing:** one cell above; controls share available width.
-- **States:** Textual default, hover, focus, active, disabled.
-- **Accessibility:** keyboard reachable; global shell shortcuts retain priority.
-
-## 6. Motion & Interaction
-
-Use Textual's built-in focus, press, select, and tab transitions only. No decorative motion. Shell shortcuts remain available while form controls are focused.
-
-## 7. Depth & Surface
-
-Borders plus tonal shift: `$panel` separates the workflow from `$surface`, and `round $primary-darken-2` outlines functional containers. No shadows or decorative layers.
-
-## 8. Accessibility Constraints & Accepted Debt
-
-### Constraints
-- Full keyboard operation at 52x24 and larger.
-- Persistent guidance must not depend on mouse hover.
-- Closed values use selection controls; open provider codes remain editable.
-- No horizontal overflow; the tab pane is the only settings scroll owner.
-
-### Accepted Debt
-
-None for the Settings guidance work.
+- Panels use one border and a tonal background; no stacked shadow treatment.
+- Controls expose hover, pressed, disabled, and `:focus-visible` states.
+- The heading carries the page hierarchy directly; standalone eyebrow/kicker
+  labels are not used above headings.
+- Empty, loading, error, running, completed, and download states are visible
+  in the status panel.
+- The layout collapses to one column below `820px` without horizontal scroll.
+- Reduced-motion users receive the same states without transitions.

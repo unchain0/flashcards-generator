@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-flashcards}
+      POSTGRES_USER: ${POSTGRES_USER:-flashcards}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - flashcards-data:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: .
+    environment:
+      FLASHCARDS_ENVIRONMENT: production
+      FLASHCARDS_SESSION_SECRET: ${FLASHCARDS_SESSION_SECRET:?FLASHCARDS_SESSION_SECRET must be set}
+      FLASHCARDS_AUTH_LOOKUP_SECRET: ${FLASHCARDS_AUTH_LOOKUP_SECRET:?FLASHCARDS_AUTH_LOOKUP_SECRET must be set}
+      FLASHCARDS_BOOTSTRAP_PASSWORD: ${FLASHCARDS_BOOTSTRAP_PASSWORD:-}
+      FLASHCARDS_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-flashcards}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:-flashcards}
+      FLASHCARDS_AUTO_CREATE_SCHEMA: "false"
+      FLASHCARDS_DATA_DIR: /app/data
+      FLASHCARDS_CORS_ORIGINS: ${FLASHCARDS_CORS_ORIGINS:-[]}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    ports:
+      - "127.0.0.1:${FLASHCARDS_PORT:-8000}:8000"
+    volumes:
+      - flashcards-app-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  flashcards-data:
+  flashcards-app-data:

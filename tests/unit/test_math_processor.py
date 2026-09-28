@@ -1,4 +1,4 @@
-from flashcards_generator.application.math_processor import (
+from flashcards_generator.engines.math import (
     MathProcessor,
     convert_to_anki_math_format,
     create_cloze_with_math,

@@ -1,9 +1,33 @@
-from flashcards_generator.application.use_cases import (
-    GenerateFlashcardsUseCase,
-)
+import pytest
+
+from tests.fixtures.use_case_fixtures import make_use_case
 
 
 class TestPathScenarios:
+    def test_output_symlink_escape_is_rejected_before_external_creation(
+        self, tmp_path, mock_generator
+    ):
+        input_dir = tmp_path / "input"
+        pdf_dir = input_dir / "tema" / "sub"
+        pdf_dir.mkdir(parents=True)
+        pdf_file = pdf_dir / "documento.pdf"
+        pdf_file.write_text("PDF content")
+
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        external_dir = tmp_path / "external"
+        external_dir.mkdir()
+        (output_dir / "tema").symlink_to(
+            external_dir, target_is_directory=True
+        )
+
+        use_case = make_use_case(generator=mock_generator())
+
+        with pytest.raises(OSError, match="escaped result root"):
+            use_case._get_output_subdir(pdf_file, input_dir, output_dir)
+
+        assert not (external_dir / "sub").exists()
+
     def test_nested_source_preserves_full_relative_path(
         self, tmp_path, mock_generator
     ):
@@ -17,7 +41,7 @@ class TestPathScenarios:
         pdf_file = pdf_dir / "Aula 01.pdf"
         pdf_file.write_text("PDF content")
 
-        use_case = GenerateFlashcardsUseCase(generator=mock_generator())
+        use_case = make_use_case(generator=mock_generator())
 
         result = use_case._get_output_subdir(pdf_file, input_dir, output_dir)
 
@@ -40,7 +64,7 @@ class TestPathScenarios:
         pdf_file = pdf_dir / "file.pdf"
         pdf_file.write_text("PDF content")
 
-        use_case = GenerateFlashcardsUseCase(generator=mock_generator())
+        use_case = make_use_case(generator=mock_generator())
 
         result = use_case._get_output_subdir(pdf_file, input_dir, output_dir)
 
@@ -67,7 +91,7 @@ class TestPathScenarios:
         pdf_file = course_dir / "file.pdf"
         pdf_file.write_text("PDF content")
 
-        use_case = GenerateFlashcardsUseCase(generator=mock_generator())
+        use_case = make_use_case(generator=mock_generator())
 
         result = use_case._get_output_subdir(pdf_file, input_dir, output_dir)
 
@@ -82,7 +106,7 @@ class TestPathScenarios:
         pdf_file = input_dir / "file.pdf"
         pdf_file.write_text("PDF content")
 
-        use_case = GenerateFlashcardsUseCase(generator=mock_generator())
+        use_case = make_use_case(generator=mock_generator())
 
         result = use_case._get_output_subdir(pdf_file, input_dir, output_dir)
 
@@ -99,7 +123,7 @@ class TestPathScenarios:
         pdf_file = special_dir / "file.pdf"
         pdf_file.write_text("PDF content")
 
-        use_case = GenerateFlashcardsUseCase(generator=mock_generator())
+        use_case = make_use_case(generator=mock_generator())
 
         result = use_case._get_output_subdir(pdf_file, input_dir, output_dir)
 
@@ -116,7 +140,7 @@ class TestPathScenarios:
         pdf_file = unicode_dir / "file.pdf"
         pdf_file.write_text("PDF content")
 
-        use_case = GenerateFlashcardsUseCase(generator=mock_generator())
+        use_case = make_use_case(generator=mock_generator())
 
         result = use_case._get_output_subdir(pdf_file, input_dir, output_dir)
 
@@ -134,7 +158,7 @@ class TestPathScenarios:
         pdf_file = pdf_dir / "file.pdf"
         pdf_file.write_text("PDF content")
 
-        use_case = GenerateFlashcardsUseCase(generator=mock_generator())
+        use_case = make_use_case(generator=mock_generator())
 
         result = use_case._get_output_subdir(pdf_file, input_dir, output_dir)
 
@@ -153,7 +177,7 @@ class TestPathScenarios:
         pdf_file = mixed_dir / "file.pdf"
         pdf_file.write_text("PDF content")
 
-        use_case = GenerateFlashcardsUseCase(generator=mock_generator())
+        use_case = make_use_case(generator=mock_generator())
 
         result = use_case._get_output_subdir(pdf_file, input_dir, output_dir)
 
@@ -170,7 +194,7 @@ class TestPathScenarios:
         pdf_file = numeric_dir / "file.pdf"
         pdf_file.write_text("PDF content")
 
-        use_case = GenerateFlashcardsUseCase(generator=mock_generator())
+        use_case = make_use_case(generator=mock_generator())
 
         result = use_case._get_output_subdir(pdf_file, input_dir, output_dir)
 
@@ -187,7 +211,7 @@ class TestPathScenarios:
         pdf_file = dots_dir / "lesson.pdf"
         pdf_file.write_text("PDF content")
 
-        use_case = GenerateFlashcardsUseCase(generator=mock_generator())
+        use_case = make_use_case(generator=mock_generator())
 
         result = use_case._get_output_subdir(pdf_file, input_dir, output_dir)
 
@@ -204,7 +228,7 @@ class TestPathScenarios:
         pdf_file = hyphen_dir / "file.pdf"
         pdf_file.write_text("PDF content")
 
-        use_case = GenerateFlashcardsUseCase(generator=mock_generator())
+        use_case = make_use_case(generator=mock_generator())
 
         result = use_case._get_output_subdir(pdf_file, input_dir, output_dir)
 
@@ -225,7 +249,7 @@ class TestPathScenarios:
         pdf2 = course_dir / "lesson2.pdf"
         pdf2.write_text("PDF 2")
 
-        use_case = GenerateFlashcardsUseCase(generator=mock_generator())
+        use_case = make_use_case(generator=mock_generator())
 
         result1 = use_case._get_output_subdir(pdf1, input_dir, output_dir)
         result2 = use_case._get_output_subdir(pdf2, input_dir, output_dir)

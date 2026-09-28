@@ -8,25 +8,28 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pypdf import PdfWriter
 
-from flashcards_generator.adapters.notebooklm_adapter import NotebookLMAdapter
-from flashcards_generator.application.contracts import (
+from flashcards_generator.domain_models.entities import Deck, Flashcard
+from flashcards_generator.domain_models.exceptions import OperationCancelled
+from flashcards_generator.integrations.chunk_state_repository import (
+    FileSystemChunkStateRepository,
+)
+from flashcards_generator.integrations.notebooklm.gateway import (
+    NotebookLMAdapter,
+)
+from flashcards_generator.services.contracts import (
     CancellationToken,
     ProgressEvent,
     ProgressStage,
     ProgressState,
 )
-from flashcards_generator.application.dto.generate_request import (
+from flashcards_generator.services.dto.generate_request import (
     GenerateFlashcardsRequest,
 )
-from flashcards_generator.application.use_cases import (
-    GenerateFlashcardsUseCase,
+from flashcards_generator.services.use_cases import (
     _ChunkRun,
+    _ChunkTask,
 )
-from flashcards_generator.domain.entities import Deck, Flashcard
-from flashcards_generator.domain.exceptions import OperationCancelled
-from flashcards_generator.infrastructure.chunk_state_repository import (
-    FileSystemChunkStateRepository,
-)
+from tests.fixtures.use_case_fixtures import make_use_case
 
 
 class RecordingReporter:
@@ -53,7 +56,7 @@ def test_regular_generation_reports_workflow_boundaries(
     source = input_dir / "lesson.pdf"
     _write_pdf(source)
     reporter = RecordingReporter()
-    use_case = GenerateFlashcardsUseCase(
+    use_case = make_use_case(
         generator=mock_generator(flashcards=sample_flashcards)
     )
     use_case.pdf_chunker.needs_chunking = MagicMock(return_value=False)
@@ -78,9 +81,19 @@ def test_regular_generation_reports_workflow_boundaries(
         (ProgressStage.EXPORT, ProgressState.COMPLETED),
     }
     cleanup = [(event.stage, event.state) for event in reporter.events[-2:]]
+    export_messages = [
+        (event.state, event.message)
+        for event in reporter.events
+        if event.stage == ProgressStage.EXPORT
+    ]
     assert (
         len(decks) == 1
         and expected <= transitions
+        and export_messages
+        == [
+            (ProgressState.STARTED, "Exporting deck"),
+            (ProgressState.COMPLETED, "Deck exported"),
+        ]
         and cleanup
         == [
             (ProgressStage.CLEANUP, ProgressState.STARTED),
@@ -95,7 +108,7 @@ def test_cancelled_inter_chunk_wait_preserves_completed_resume_chunk(
     repository = FileSystemChunkStateRepository()
     token = CancellationToken()
     reporter = RecordingReporter()
-    use_case = GenerateFlashcardsUseCase(
+    use_case = make_use_case(
         generator=MagicMock(), chunk_state_repository=repository
     )
     use_case._token = token
@@ -152,7 +165,9 @@ def test_cancelled_inter_chunk_wait_preserves_completed_resume_chunk(
     )
 
 
-@patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+@patch(
+    "flashcards_generator.integrations.notebooklm.process_runner.subprocess.Popen"
+)
 def test_cancelled_chunk_generation_deletes_notebook_and_reaps_commands(
     mock_popen: MagicMock, tmp_path: Path
 ) -> None:
@@ -180,7 +195,7 @@ def test_cancelled_chunk_generation_deletes_notebook_and_reaps_commands(
     commands = [create, add_source, wait_for_source, generate, delete]
     mock_popen.side_effect = commands
     adapter = NotebookLMAdapter("notebooklm")
-    use_case = GenerateFlashcardsUseCase(generator=adapter)
+    use_case = make_use_case(generator=adapter)
     chunk_path = tmp_path / "chunk.pdf"
     chunk_path.touch()
     output_path = tmp_path / "output"
@@ -195,12 +210,14 @@ def test_cancelled_chunk_generation_deletes_notebook_and_reaps_commands(
         pytest.raises(OperationCancelled),
     ):
         use_case._process_chunk_internal(
-            chunk_path,
-            "deck",
-            output_path,
-            request,
-            chunk_index=1,
-            total_chunks=1,
+            _ChunkTask(
+                chunk_path=chunk_path,
+                deck_name="deck",
+                pdf_output_path=output_path,
+                request=request,
+                chunk_index=1,
+                total_chunks=1,
+            )
         )
 
     assert mock_popen.call_count == 5

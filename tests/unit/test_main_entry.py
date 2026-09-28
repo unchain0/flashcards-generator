@@ -16,7 +16,7 @@ class TestMainEntryPoint:
         # Verify it has the expected structure
         assert hasattr(__main__, "main")
 
-    @patch("flashcards_generator.interfaces.main.main")
+    @patch("flashcards_generator.delivery.main.main")
     def test_main_execution(self, mock_main):
         """Test that module execution calls the primary dispatcher."""
         sys.modules.pop("flashcards_generator.__main__", None)

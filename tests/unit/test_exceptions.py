@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from flashcards_generator.domain.exceptions import (
+from flashcards_generator.domain_models.exceptions import (
     ArtifactDownloadError,
     FlashcardsGeneratorError,
     GenerationError,
@@ -52,7 +52,7 @@ class TestExceptions:
 
 class TestAbstractPorts:
     def test_deck_repository_port_save_not_implemented(self):
-        from flashcards_generator.domain.ports.deck_repository import (
+        from flashcards_generator.services.ports.deck_repository import (
             DeckRepositoryPort,
         )
 
@@ -63,7 +63,7 @@ class TestAbstractPorts:
             ConcreteRepo()
 
     def test_flashcard_generator_port_not_implemented(self):
-        from flashcards_generator.domain.ports.flashcard_generator import (
+        from flashcards_generator.services.ports.flashcard_generator import (
             FlashcardGeneratorPort,
         )
 

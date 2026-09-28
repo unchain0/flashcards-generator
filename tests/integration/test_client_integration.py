@@ -5,12 +5,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from flashcards_generator.adapters.notebooklm_adapter import NotebookLMAdapter
-from flashcards_generator.domain.ports.flashcard_generator import (
-    GenerationConfig,
-)
-from flashcards_generator.infrastructure.notebooklm_client import (
+from flashcards_generator.integrations.notebooklm.client import (
     NotebookLMClient,
+)
+from flashcards_generator.integrations.notebooklm.gateway import (
+    NotebookLMAdapter,
+)
+from flashcards_generator.services.ports.flashcard_generator import (
+    GenerationConfig,
 )
 
 
@@ -50,7 +52,7 @@ def _assert_fake_cli_calls(recorded: list[list[str]]) -> None:
 class TestNotebookLMClientIntegration:
     @patch("subprocess.run")
     def test_create_notebook(self, mock_run):
-        from flashcards_generator.infrastructure.notebooklm_client import (
+        from flashcards_generator.integrations.notebooklm.client import (
             NotebookLMClient,
         )
 

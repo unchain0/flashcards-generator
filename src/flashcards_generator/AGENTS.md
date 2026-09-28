@@ -1,80 +1,47 @@
 # PACKAGE KNOWLEDGE BASE
 
-## OVERVIEW
+Root `AGENTS.md` owns project-wide policy. This file maps the installable
+package and its MASA boundaries.
 
-Installable `flashcards_generator` package. Implements document discovery,
-NotebookLM generation, chunk resume, card cleanup, and Anki-oriented export.
-Root `AGENTS.md` owns project-wide tooling and style; this file narrows package
-boundaries and symbol locations.
-
-## STRUCTURE
+## LIVE MAP
 
 ```text
 flashcards_generator/
-├── domain/          # Pydantic entities, exceptions, value objects, ABC ports
-├── application/     # Requests, orchestration, conversion, export, CSV merge
-├── adapters/        # FlashcardGeneratorPort -> NotebookLM CLI adapter
-├── infrastructure/  # PDF/PPTX, resume storage, logging, paths, client helpers
-├── interfaces/      # argparse surface and dependency composition
-├── __main__.py      # `python -m flashcards_generator`
-└── __init__.py      # package metadata only
+├── domain_models/  # Pydantic entities, value objects, domain exceptions
+├── engines/        # Pure cloze, math, and quality transformations
+├── services/       # DTOs, ports, use cases, workflows, local jobs
+├── integrations/   # NotebookLM, Anki, PDF/PPTX, filesystem, SQLAlchemy
+├── delivery/       # Web/companion Litestar apps and composition
+├── __main__.py     # hosted web entrypoint
+└── __init__.py
 ```
 
-## WHERE TO LOOK
+## OWNERSHIP
 
-| Change | Primary location | Package-specific note |
-|--------|------------------|-----------------------|
-| Card/deck schema | `domain/entities.py` | `Flashcard`, `Deck` |
-| Chunk resume schema | `domain/entities.py` | `ChunkStatus`, `ChunkState`, `ChunkResumeManifest` |
-| Generator contract | `domain/ports/flashcard_generator.py` | `GenerationConfig`, `GenerationResult`, `FlashcardGeneratorPort` |
-| Resume contract | `domain/ports/chunk_state.py` | `ChunkStatePort` |
-| Deck persistence contract | `domain/ports/deck_repository.py` | Declared port; not wired by the CLI |
-| Generate request validation | `application/dto/generate_request.py` | Include/exclude/explicit-file inputs |
-| Merge request validation | `application/dto/merge_request.py` | CSV merge inputs |
-| Generation lifecycle | `application/use_cases.py` | Discovery, chunking, retry, resume, cleanup |
-| Card/output transforms | `application/converter.py`, `exporter.py`, `math_processor.py` | Cloze and Anki formatting |
-| CSV-only merge | `application/csv_merger.py` | Independent of NotebookLM generation |
-| NotebookLM workflow | `adapters/notebooklm_adapter.py` | Concrete generator port implementation |
-| Resume persistence | `infrastructure/chunk_state_repository.py` | Atomic manifest/result JSON writes |
-| Document helpers | `infrastructure/pdf_utils.py`, `semantic_chunker.py` | Page chunks, PPTX conversion, quality filter |
-| CLI behavior and wiring | `interfaces/cli.py` | Parser, auth/language setup, exit codes |
+- `domain_models`: stable business data and failures only.
+- `engines`: deterministic computation with no filesystem, network, process, or
+  database access.
+- `services`: orchestration and ports; never imports `integrations` or
+  `delivery`.
+- `integrations`: concrete I/O and implementations of service ports.
+- `delivery`: transport validation, HTTP translation, process lifecycle, and
+  concrete dependency composition.
 
-## BOUNDARIES / CONVENTIONS
+## ENTRYPOINTS
 
-- Domain may use Pydantic and standard-library types; it must not import outer
-  package layers.
-- Domain ports are ABCs: `FlashcardGeneratorPort`, `ChunkStatePort`, and
-  `DeckRepositoryPort`. Put external contracts there, implementations outside.
-- Application DTOs cross the CLI/use-case boundary; domain entities represent
-  generated cards, decks, and persisted chunk state.
-- `interfaces/cli.py` is the composition root. It constructs
-  `NotebookLMAdapter`, `FileSystemChunkStateRepository`, requests, and use cases.
-- `main.py`, package `__main__.py`, and the installed `flashcards` script all
-  converge on `flashcards_generator.interfaces.cli:main`.
-- `NotebookLMAdapter` owns the active command workflow. `NotebookLMClient` is a
-  lower-level infrastructure helper and is not wired into the CLI path.
-- Resume storage serializes domain models; keep manifest and per-chunk result
-  changes compatible across `ChunkStatePort`, repository, and use case.
-- Known debt: `application/use_cases.py` imports infrastructure logging,
-  `PDFChunker`, and `QualityFilter`; it also provides concrete fallbacks. Do not
-  treat these dependency inversions as the pattern for new services.
-- Nested `application/`, `domain/`, and `infrastructure/` guides add local
-  context only; source and this package guide win when their examples are stale.
+- `flashcards-web` / `python -m flashcards_generator`: hosted Litestar app.
+- `flashcards-companion`: loopback-only local NotebookLM and generation app.
+- `python -m flashcards_generator.delivery.web.user_admin create`: operational
+  password provisioning after migrations.
 
-## ANTI-PATTERNS
+## CHANGE RULES
 
-- Do not resurrect stale `PDFDocument`, `FlashcardDeck`, `ClozeBlock`,
-  `FlashcardSide`, or `MergeFlashcardsUseCase` names; those symbols do not exist.
-- Do not construct a new external integration inside application code. Define a
-  domain port and wire the adapter in `interfaces/cli.py`.
-- Do not move argparse, terminal presentation, authentication, or process exit
-  decisions below `interfaces/`.
-- Do not collapse `adapters/` and `infrastructure/`: the active NotebookLM port
-  adapter and technical helpers have distinct responsibilities.
-- Do not claim `tests/integration/` exercises live NotebookLM; current coverage
-  uses isolated fakes/mocks.
-
-## PARENT
-
-Follow repository-root `AGENTS.md` first for global architecture, commands,
-quality gates, and worktree rules.
+- Keep generation behavior reachable through service ports and workflows.
+- Keep HTTP concepts in `delivery`; keep SQLAlchemy, pypdf, subprocesses, and
+  filesystem implementations in `integrations`.
+- Add pure transformations to `engines` only when they have no I/O.
+- Coordinate persisted resume-model changes across `domain_models`, service
+  ports, the filesystem repository, and tests.
+- Preserve the local-companion boundary: hosted routes never receive source
+  documents or Google credentials.
+- Do not recreate removed legacy packages or end-user CLI/TUI surfaces.

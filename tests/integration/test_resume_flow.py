@@ -4,33 +4,34 @@ from __future__ import annotations
 
 import csv
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 from pypdf import PdfWriter
 
-from flashcards_generator.application.dto.generate_request import (
-    GenerateFlashcardsRequest,
-)
-from flashcards_generator.application.use_cases import (
-    GenerateFlashcardsUseCase,
-)
-from flashcards_generator.domain.entities import (
+from flashcards_generator.domain_models.entities import (
     ChunkResumeManifest,
     ChunkState,
     ChunkStatus,
     Deck,
     Flashcard,
 )
-from flashcards_generator.domain.ports.flashcard_generator import (
+from flashcards_generator.integrations.chunk_state_repository import (
+    FileSystemChunkStateRepository,
+)
+from flashcards_generator.services.dto.generate_request import (
+    GenerateFlashcardsRequest,
+)
+from flashcards_generator.services.ports.flashcard_generator import (
     FlashcardGeneratorPort,
     GenerationConfig,
 )
-from flashcards_generator.infrastructure.chunk_state_repository import (
-    FileSystemChunkStateRepository,
+from flashcards_generator.services.use_cases import (
+    GenerateFlashcardsUseCase,
 )
+from tests.fixtures.use_case_fixtures import make_use_case
 
 pytestmark = pytest.mark.integration
 
@@ -109,7 +110,7 @@ class ScriptedChunkGenerator(FlashcardGeneratorPort):
 @pytest.fixture(autouse=True)
 def patch_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "flashcards_generator.application.use_cases.time.sleep",
+        "flashcards_generator.services.use_cases.time.sleep",
         lambda _seconds: None,
     )
 
@@ -158,7 +159,7 @@ def _build_use_case(
     repository: FileSystemChunkStateRepository,
     chunk_paths: list[Path],
 ) -> GenerateFlashcardsUseCase:
-    use_case = GenerateFlashcardsUseCase(
+    use_case = make_use_case(
         generator=generator,
         chunk_state_repository=repository,
     )
@@ -203,7 +204,7 @@ def _build_manifest(
     source_signature: str,
     chunks: list[ChunkState],
 ) -> ChunkResumeManifest:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return ChunkResumeManifest(
         source_pdf=str(pdf_path),
         source_signature=source_signature,
@@ -227,7 +228,7 @@ def _save_chunk_result(
             name=name,
             description=name,
             flashcards=cards,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         ),
     )
 
@@ -402,7 +403,7 @@ def test_resume_restarts_from_scratch_when_source_signature_changes(
                 status=ChunkStatus.COMPLETED,
                 card_count=1,
                 result_path=str(saved_chunk_path),
-                updated_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(UTC),
             )
         ],
     )
@@ -537,14 +538,14 @@ def test_resume_cleans_up_when_all_chunks_are_already_complete(
                     status=ChunkStatus.COMPLETED,
                     card_count=1,
                     result_path=str(chunk_one_result),
-                    updated_at=datetime.now(timezone.utc),
+                    updated_at=datetime.now(UTC),
                 ),
                 ChunkState(
                     chunk_index=2,
                     status=ChunkStatus.COMPLETED,
                     card_count=1,
                     result_path=str(chunk_two_result),
-                    updated_at=datetime.now(timezone.utc),
+                    updated_at=datetime.now(UTC),
                 ),
             ],
         ),

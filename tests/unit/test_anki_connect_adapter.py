@@ -8,11 +8,11 @@ from unittest.mock import Mock
 import httpx
 import pytest
 
-from flashcards_generator.adapters.anki_connect_adapter import (
+from flashcards_generator.domain_models.entities import Deck, Flashcard
+from flashcards_generator.domain_models.exceptions import AnkiConnectError
+from flashcards_generator.integrations.anki.connect import (
     AnkiConnectAdapter,
 )
-from flashcards_generator.domain.entities import Deck, Flashcard
-from flashcards_generator.domain.exceptions import AnkiConnectError
 
 
 def _response_for(request: httpx.Request) -> httpx.Response:

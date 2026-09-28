@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "frontend/index.html"
+        ],
+        "createdAt": "2026-09-23T03:22:54.756Z",
+        "reason": "Agent: linked CSS sets a clear scale; rendered desktop sizes are H1 64px, H2 24px, body 16px."
+      }
+    ]
+  }
+}

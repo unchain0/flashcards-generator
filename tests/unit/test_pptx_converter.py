@@ -5,7 +5,9 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from flashcards_generator.infrastructure.pdf_utils import PPTXConverter
+import pytest
+
+from flashcards_generator.integrations.pdf_utils import PPTXConverter
 
 
 class TestPPTXConverter:
@@ -188,17 +190,17 @@ class TestPPTXConverter:
 
         with (
             patch(
-                "flashcards_generator.infrastructure.pdf_utils.subprocess.Popen",
+                "flashcards_generator.integrations.pptx_converter.subprocess.Popen",
                 return_value=process,
             ) as popen,
             patch(
-                "flashcards_generator.infrastructure.pdf_utils.subprocess.run",
+                "flashcards_generator.integrations.pptx_converter.subprocess.run",
                 side_effect=AssertionError(
                     "conversion must use a process handle"
                 ),
             ),
             patch(
-                "flashcards_generator.infrastructure.pdf_utils.os.killpg"
+                "flashcards_generator.integrations.pptx_converter.os.killpg"
             ) as killpg,
         ):
             result = converter.convert(pptx_path, output_dir)
@@ -207,3 +209,64 @@ class TestPPTXConverter:
         popen.assert_called_once()
         assert popen.call_args.kwargs["start_new_session"] is True
         killpg.assert_called_once_with(process.pid, signal.SIGTERM)
+
+    def test_run_conversion_returns_the_reaped_process_result(self) -> None:
+        converter = PPTXConverter.__new__(PPTXConverter)
+        command = ["soffice", "--headless"]
+        process = MagicMock()
+        process.communicate.return_value = ("converted", "")
+        process.returncode = 0
+
+        with patch(
+            "flashcards_generator.integrations.pptx_converter.subprocess.Popen",
+            return_value=process,
+        ) as popen:
+            result = converter._run_conversion(command)
+
+        assert result.args == command
+        assert result.returncode == 0
+        assert result.stdout == "converted"
+        assert result.stderr == ""
+        process.communicate.assert_called_once_with(timeout=120)
+        assert popen.call_args.kwargs["start_new_session"] is True
+
+    def test_stop_process_escalates_to_sigkill_after_sigterm_timeout(
+        self,
+    ) -> None:
+        converter = PPTXConverter.__new__(PPTXConverter)
+        process = MagicMock()
+        process.pid = 4321
+        process.communicate.side_effect = [
+            subprocess.TimeoutExpired("soffice", 5),
+            ("", ""),
+        ]
+
+        with patch(
+            "flashcards_generator.integrations.pptx_converter.os.killpg"
+        ) as killpg:
+            converter._stop_process(process)
+
+        assert [call.args for call in killpg.call_args_list] == [
+            (process.pid, signal.SIGTERM),
+            (process.pid, signal.SIGKILL),
+        ]
+        assert process.communicate.call_count == 2
+
+    @pytest.mark.parametrize(
+        ("signal_number", "fallback"),
+        [(signal.SIGTERM, "terminate"), (signal.SIGKILL, "kill")],
+    )
+    def test_signal_falls_back_to_process_leader_when_group_is_gone(
+        self, signal_number: int, fallback: str
+    ) -> None:
+        converter = PPTXConverter.__new__(PPTXConverter)
+        process = MagicMock()
+        process.pid = 4321
+
+        with patch(
+            "flashcards_generator.integrations.pptx_converter.os.killpg",
+            side_effect=ProcessLookupError,
+        ):
+            converter._signal_process(process, signal_number)
+
+        getattr(process, fallback).assert_called_once_with()

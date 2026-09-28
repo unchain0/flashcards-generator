@@ -1,6 +1,6 @@
 """Tests for safe filename helper function."""
 
-from flashcards_generator.application.use_cases import _safe_filename
+from flashcards_generator.services.use_cases import _safe_filename
 
 
 class TestSafeFilename:

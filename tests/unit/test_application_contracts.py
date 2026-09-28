@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from flashcards_generator.application.contracts import (
+from flashcards_generator.domain_models.entities import Deck
+from flashcards_generator.services.contracts import (
     GenerationOutcome,
     NullProgressReporter,
     ProgressEvent,
@@ -13,10 +14,10 @@ from flashcards_generator.application.contracts import (
     ProgressState,
     SourceFailure,
 )
-from flashcards_generator.application.dto.generate_request import (
+from flashcards_generator.services.dto.generate_request import (
     GenerateFlashcardsRequest,
 )
-from flashcards_generator.application.dto.workflow import (
+from flashcards_generator.services.dto.workflow import (
     AnkiExportOptions,
     AuthStatus,
     CleanupOutcome,
@@ -24,7 +25,6 @@ from flashcards_generator.application.dto.workflow import (
     GenerateWorkflowRequest,
     MergeOutcome,
 )
-from flashcards_generator.domain.entities import Deck
 
 
 def test_progress_event_is_immutable_and_framework_neutral() -> None:

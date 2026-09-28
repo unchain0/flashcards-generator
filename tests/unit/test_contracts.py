@@ -6,7 +6,7 @@ import sys
 import pytest
 from pydantic import ValidationError
 
-from flashcards_generator.application.dto.merge_request import MergeCsvRequest
+from flashcards_generator.services.dto.merge_request import MergeCsvRequest
 
 
 def test_generation_result_constructs_from_clean_import():
@@ -15,7 +15,7 @@ def test_generation_result_constructs_from_clean_import():
             sys.executable,
             "-c",
             (
-                "from flashcards_generator.domain.ports.flashcard_generator "
+                "from flashcards_generator.services.ports.flashcard_generator "
                 "import GenerationResult; "
                 "assert GenerationResult(deck={'name': 'audit'}).deck.name == "
                 "'audit'"

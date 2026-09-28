@@ -4,9 +4,9 @@ from unittest.mock import patch
 
 import pytest
 
-from flashcards_generator.application.csv_merger import CsvMerger
-from flashcards_generator.application.dto.merge_request import MergeCsvRequest
-from flashcards_generator.domain.exceptions import CSVMergeError
+from flashcards_generator.domain_models.exceptions import CSVMergeError
+from flashcards_generator.services.csv_merger import CsvMerger
+from flashcards_generator.services.dto.merge_request import MergeCsvRequest
 
 
 def _assert_merged_csv(output: Path, expected_rows: list[list[str]]) -> None:
@@ -18,6 +18,9 @@ def _assert_merged_csv(output: Path, expected_rows: list[list[str]]) -> None:
 
 
 class TestCsvMerger:
+    def test_non_recursive_pattern_limits_sources_to_the_folder(self) -> None:
+        assert CsvMerger._source_pattern(recursive=False) == "*.csv"
+
     def test_merge_single_file(self, tmp_path):
         csv_file = tmp_path / "flashcards.csv"
         with open(csv_file, "w", newline="", encoding="utf-8") as f:
@@ -238,7 +241,7 @@ class TestCsvMerger:
         request = MergeCsvRequest(folder_path=tmp_path)
 
         with patch(
-            "flashcards_generator.application.csv_merger.csv.reader"
+            "flashcards_generator.services.csv_merger.csv.reader"
         ) as mock_reader:
             mock_reader.side_effect = Exception("Unexpected CSV error")
 
@@ -268,3 +271,30 @@ class TestCsvMerger:
             CsvMerger.merge(MergeCsvRequest(folder_path=tmp_path))
 
         assert output.read_text(encoding="utf-8") == "previous result\n"
+
+    def test_recursive_merge_preserves_order_and_deduplicates(self, tmp_path):
+        nested = tmp_path / "nested"
+        nested.mkdir()
+        (tmp_path / "one.csv").write_text(
+            '"Question 1","Answer 1"\n', encoding="utf-8"
+        )
+        (nested / "two.csv").write_text(
+            '"Question 1","Answer 1"\n"Question 2","Answer 2"\n',
+            encoding="utf-8",
+        )
+
+        result = CsvMerger.merge_detailed(
+            MergeCsvRequest(
+                folder_path=tmp_path,
+                deduplicate=True,
+                recursive=True,
+            )
+        )
+
+        assert result.rows_before == 3
+        assert result.rows_written == 2
+        assert result.duplicates_removed == 1
+        _assert_merged_csv(
+            tmp_path / "merged_flashcards.csv",
+            [["Question 1", "Answer 1"], ["Question 2", "Answer 2"]],
+        )

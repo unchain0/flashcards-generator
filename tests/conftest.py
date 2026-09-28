@@ -13,6 +13,7 @@ pytest_plugins = [
     "tests.fixtures.domain_fixtures",
     "tests.fixtures.infrastructure_fixtures",
     "tests.fixtures.adapter_fixtures",
+    "tests.integration.companion_generation_support",
 ]
 
 

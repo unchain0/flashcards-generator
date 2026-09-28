@@ -11,7 +11,13 @@ tests/
 ├── fixtures/                   # Python pytest fixture modules
 ├── integration/                # Cross-layer isolated boundary tests
 ├── unit/                       # Main module-level test suite
-└── test_semantic_chunking.py   # Semantic chunker/filter coverage
+│   ├── test_notebooklm_client.py # NotebookLM subprocess and lifecycle behavior
+│   ├── test_notebooklm_client_parsing.py # Response schemas and bounds
+│   ├── test_notebooklm_adapter_boundaries.py # Profile, process, retry, parsing boundaries
+│   └── test_anki_connect_adapter_errors.py # HTTP transport and protocol errors
+├── test_semantic_chunking.py   # Semantic chunker basics
+├── test_semantic_chunking_regressions.py # Page, token, overlap, and logging contracts
+└── test_quality_filter.py      # Triviality, similarity, removal, and statistics
 ```
 
 - `fixtures/` contains Python modules, not checked-in sample PDFs or JSON.
@@ -27,8 +33,8 @@ tests/
 - Unit tests isolate subprocesses and NotebookLM through mocks, fakes, or port
   test doubles. Keep external calls deterministic and offline.
 - Current integration tests do not call the live NotebookLM API.
-- `test_client_integration.py` patches `subprocess.run` and checks parsing plus
-  command-boundary behavior.
+- `test_client_integration.py` patches `subprocess.run` and checks the external
+  NotebookLM command protocol plus artifact parsing.
 - `test_resume_flow.py` combines a fake generator with real temporary files,
   generated PDFs, CSV output, and filesystem-backed resume state.
 - Use `tmp_path` for ordinary filesystem tests. Use `temp_dirs` only when the
@@ -42,19 +48,25 @@ tests/
   orchestration coverage.
 - `unit/test_use_cases_resume.py`: focused resume manifest behavior.
 - `integration/test_resume_flow.py`: end-to-end resume across persisted files.
-- `unit/test_notebooklm_adapter.py` and `unit/test_notebooklm_client.py`:
-  subprocess protocol, parsing, retries, timeouts, and cleanup.
-- `unit/test_cli.py`, `unit/test_cli_cleanup.py`, `unit/test_cli_merge.py`:
-  argparse wiring, exit paths, cleanup, and merge commands.
+- `unit/test_notebooklm_adapter.py` and
+  `unit/test_notebooklm_adapter_boundaries.py`: subprocess protocol, profile
+  environment, retries, timeouts, cancellation, and cleanup.
+- `unit/test_anki_connect_adapter.py` and
+  `unit/test_anki_connect_adapter_errors.py`: export protocol, transport
+  bounds, validation, and error translation.
+- `unit/test_notebooklm_client_parsing.py`: NotebookLM response aliases,
+  identifier and card validation, and JSON/card-count bounds.
+- `integration/test_entrypoints.py` verifies that the web and local companion
+  launchers are installed and that the module wrapper delegates to the web
+  server.
 - `unit/test_pdf_utils.py` and `test_semantic_chunking.py`: PDF and semantic
   processing seams.
 
 ## CONVENTIONS
 
 - Pytest discovers `test_*.py`, `Test*`, and `test_*` under `tests/`.
-- The initial discovery baseline was 361 tests; the current suite contains
-  427 tests (`uv run pytest --collect-only`). Intentional additions or
-  removals must explain collection-count changes.
+- End-user generation is browser-only. The `web.user_admin` command is limited
+  to operational user provisioning, not generation.
 - Pytest runs with `--strict-markers`; only `unit` and `integration` are
   registered in `pyproject.toml`. Register a new marker before using it.
 - Prefer behavior assertions and externally visible state over private-call

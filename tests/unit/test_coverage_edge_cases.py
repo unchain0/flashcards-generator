@@ -3,29 +3,30 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from flashcards_generator.application.converter import ClozeConverter
-from flashcards_generator.application.dto.generate_request import (
-    GenerateFlashcardsRequest,
-)
-from flashcards_generator.application.use_cases import (
-    GenerateFlashcardsUseCase,
-)
-from flashcards_generator.infrastructure.notebooklm_client import (
+from flashcards_generator.engines.cloze import ClozeConverter
+from flashcards_generator.integrations.notebooklm.client import (
     NotebookLMClient,
 )
-from flashcards_generator.infrastructure.pdf_utils import PDFChunker
-from flashcards_generator.interfaces.cli import CLI
+from flashcards_generator.integrations.pdf_utils import PDFChunker
+from flashcards_generator.services.dto.generate_request import (
+    GenerateFlashcardsRequest,
+)
+from tests.fixtures.use_case_fixtures import make_use_case
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class TestQualityConfiguration:
     """Test CI-enforced quality thresholds."""
 
-    def test_ci_enforces_coverage_baseline(self):
-        workflow = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
+    def test_ci_enforces_full_backend_coverage(self):
+        workflow = (PROJECT_ROOT / ".github/workflows/ci.yml").read_text(
+            encoding="utf-8"
+        )
 
-        assert "--cov-fail-under=80" in workflow
+        assert "--cov=flashcards_generator" in workflow
+        assert "--cov-fail-under=100" in workflow
+        assert "--cov-report=json:coverage.json" in workflow
 
 
 class TestConverterEdgeCases:
@@ -53,7 +54,7 @@ class TestUseCasesEdgeCases:
         input_dir, output_dir = temp_dirs
 
         generator = mock_generator()
-        use_case = GenerateFlashcardsUseCase(generator=generator)
+        use_case = make_use_case(generator=generator)
 
         # Test with a file directly in input_dir (no subdirectory)
         pdf_path = input_dir / "file.pdf"
@@ -74,7 +75,7 @@ class TestUseCasesEdgeCases:
         raw_file.write_text("{}")
 
         generator = mock_generator()
-        use_case = GenerateFlashcardsUseCase(generator=generator)
+        use_case = make_use_case(generator=generator)
 
         # Should successfully delete the file
         use_case._cleanup_orphaned_raw_files(output_dir)
@@ -99,7 +100,7 @@ class TestUseCasesEdgeCases:
         monkeypatch.setattr(Path, "unlink", mock_unlink)
 
         generator = mock_generator()
-        use_case = GenerateFlashcardsUseCase(generator=generator)
+        use_case = make_use_case(generator=generator)
 
         # Should not raise exception
         use_case._cleanup_orphaned_raw_files(output_dir)
@@ -116,7 +117,7 @@ class TestUseCasesEdgeCases:
         pdf_file.write_text("PDF content")
 
         generator = mock_generator()
-        use_case = GenerateFlashcardsUseCase(generator=generator)
+        use_case = make_use_case(generator=generator)
 
         # Ensure needs_chunking returns False to go to the else branch
         use_case.pdf_chunker.needs_chunking = MagicMock(return_value=False)
@@ -144,7 +145,7 @@ class TestUseCasesEdgeCases:
         pdf_file.write_text("PDF content")
 
         generator = mock_generator()
-        use_case = GenerateFlashcardsUseCase(generator=generator)
+        use_case = make_use_case(generator=generator)
 
         # Mock needs_chunking to return True to trigger large PDF path
         use_case.pdf_chunker.needs_chunking = MagicMock(return_value=True)
@@ -173,7 +174,7 @@ class TestUseCasesEdgeCases:
         pdf_file.touch()
 
         generator = mock_generator()
-        use_case = GenerateFlashcardsUseCase(generator=generator)
+        use_case = make_use_case(generator=generator)
 
         result = use_case._is_safe_file_path(pdf_file, input_dir)
 
@@ -257,64 +258,6 @@ class TestPDFUtilsEdgeCases:
         chunker.cleanup_chunks([chunk_file])
 
 
-class TestCLIEdgeCases:
-    """Test CLI edge cases for 100% coverage."""
-
-    @patch("flashcards_generator.interfaces.cli.GenerateFlashcardsUseCase")
-    @patch("flashcards_generator.interfaces.cli.CLI._validate_input")
-    @patch("flashcards_generator.interfaces.cli.CLI._authenticate")
-    @patch("flashcards_generator.interfaces.cli.CLI._set_language")
-    def test_run_keyboard_interrupt_in_execute(
-        self,
-        mock_set_language,
-        mock_authenticate,
-        mock_validate,
-        mock_use_case_class,
-    ):
-        """Test KeyboardInterrupt handling in run method (lines 194-196)."""
-        mock_validate.return_value = True
-        mock_authenticate.return_value = True
-
-        mock_use_case = MagicMock()
-        mock_use_case.execute.side_effect = KeyboardInterrupt()
-        mock_use_case_class.return_value = mock_use_case
-
-        cli = CLI()
-        # Mock parser.parse_args to return valid args
-        mock_args = MagicMock()
-        mock_args.command = "generate"
-        mock_args.input_dir = Path("/tmp/input")
-        mock_args.output_dir = Path("/tmp/output")
-        mock_args.language = "pt_BR"
-        mock_args.skip_auth_check = True
-        mock_args.log_level = "INFO"
-        mock_args.timeout = 900
-        mock_args.no_wait = False
-        mock_args.difficulty = "medium"
-        mock_args.quantity = "standard"
-        mock_args.instructions = ""
-        mock_args.include = None
-        mock_args.exclude = None
-        mock_args.files = None
-        cli.parser.parse_args = MagicMock(return_value=mock_args)
-
-        result = cli.run()
-
-        assert result == 130
-
-    @patch("flashcards_generator.interfaces.cli.CLI.run")
-    def test_main_keyboard_interrupt(self, mock_run):
-        """Test KeyboardInterrupt handling in main function (lines 208-209)."""
-        mock_run.side_effect = KeyboardInterrupt()
-
-        with pytest.raises(SystemExit) as exc_info:
-            from flashcards_generator.interfaces.cli import main
-
-            main()
-
-        assert exc_info.value.code == 130
-
-
 class TestPDFSelectionFilters:
     """Test PDF selection and filtering options."""
 
@@ -330,7 +273,7 @@ class TestPDFSelectionFilters:
         (input_dir / "notas.pdf").write_text("PDF content")
 
         generator = mock_generator()
-        use_case = GenerateFlashcardsUseCase(generator=generator)
+        use_case = make_use_case(generator=generator)
 
         request = GenerateFlashcardsRequest(
             input_dir=input_dir,
@@ -354,7 +297,7 @@ class TestPDFSelectionFilters:
         (input_dir / "file2.pdf").write_text("PDF content")
 
         generator = mock_generator()
-        use_case = GenerateFlashcardsUseCase(generator=generator)
+        use_case = make_use_case(generator=generator)
 
         request = GenerateFlashcardsRequest(
             input_dir=input_dir,
@@ -378,7 +321,7 @@ class TestPDFSelectionFilters:
         (input_dir / "ignored.pdf").write_text("PDF content")
 
         generator = mock_generator()
-        use_case = GenerateFlashcardsUseCase(generator=generator)
+        use_case = make_use_case(generator=generator)
 
         request = GenerateFlashcardsRequest(
             input_dir=input_dir,
@@ -397,7 +340,7 @@ class TestPDFSelectionFilters:
         input_dir, output_dir = temp_dirs
 
         generator = mock_generator()
-        use_case = GenerateFlashcardsUseCase(generator=generator)
+        use_case = make_use_case(generator=generator)
 
         request = GenerateFlashcardsRequest(
             input_dir=input_dir,
@@ -410,22 +353,6 @@ class TestPDFSelectionFilters:
         assert len(result) == 0
 
 
-class TestCLIKeyboardInterrupt:
-    """Test KeyboardInterrupt handling in CLI main."""
-
-    @patch("flashcards_generator.interfaces.cli.logger")
-    def test_main_keyboard_interrupt_direct(self, mock_logger):
-        """Test KeyboardInterrupt in main function - line 207."""
-        from flashcards_generator.interfaces.cli import main
-
-        # Patch CLI.run to raise KeyboardInterrupt
-        with patch.object(CLI, "run", side_effect=KeyboardInterrupt()):
-            with pytest.raises(SystemExit) as exc_info:
-                main()
-
-            assert exc_info.value.code == 130
-
-
 class TestUseCasesExceptionHandling:
     """Test exception handling in use cases."""
 
@@ -434,7 +361,7 @@ class TestUseCasesExceptionHandling:
         input_dir, _output_dir = temp_dirs
 
         generator = mock_generator()
-        use_case = GenerateFlashcardsUseCase(generator=generator)
+        use_case = make_use_case(generator=generator)
 
         with patch.object(
             Path, "resolve", side_effect=ValueError("Invalid path")
@@ -456,7 +383,7 @@ class TestUseCasesExceptionCoverage:
         input_dir, output_dir = temp_dirs
 
         generator = mock_generator()
-        use_case = GenerateFlashcardsUseCase(generator=generator)
+        use_case = make_use_case(generator=generator)
 
         chunk_file = output_dir / ".temp_chunks" / "large_chunk_001.pdf"
         chunk_file.parent.mkdir(parents=True, exist_ok=True)
@@ -490,7 +417,7 @@ class TestUseCasesExceptionCoverage:
 
         generator = mock_generator()
         generator.generate_flashcards = MagicMock(return_value=None)
-        use_case = GenerateFlashcardsUseCase(generator=generator)
+        use_case = make_use_case(generator=generator)
 
         notebook_id = use_case._create_notebook("test_deck")
         request = GenerateFlashcardsRequest(
@@ -515,7 +442,7 @@ class TestTempFileCleanupErrors:
         input_dir, output_dir = temp_dirs
 
         generator = mock_generator()
-        use_case = GenerateFlashcardsUseCase(generator=generator)
+        use_case = make_use_case(generator=generator)
 
         chunk_file = output_dir / ".temp_chunks" / "large_chunk_001.pdf"
         chunk_file.parent.mkdir(parents=True, exist_ok=True)
@@ -547,7 +474,7 @@ class TestTempFileCleanupErrors:
         _input_dir, output_dir = temp_dirs
 
         generator = mock_generator()
-        use_case = GenerateFlashcardsUseCase(generator=generator)
+        use_case = make_use_case(generator=generator)
 
         # Mock unlink to raise OSError
         def mock_unlink(*args, **kwargs):
@@ -564,34 +491,3 @@ class TestTempFileCleanupErrors:
 
         assert result is not None
         assert result.name == "test_deck"
-
-
-class TestCLICoverage:
-    """Test CLI coverage for 100%."""
-
-    def test_create_request_with_files(self, temp_dirs):
-        """Test _create_request with explicit files - line 160."""
-        from flashcards_generator.interfaces.cli import CLI
-
-        cli = CLI()
-
-        mock_args = MagicMock()
-        mock_args.input_dir = temp_dirs[0]
-        mock_args.output_dir = temp_dirs[1]
-        mock_args.difficulty = "medium"
-        mock_args.quantity = "standard"
-        mock_args.instructions = ""
-        mock_args.no_wait = False
-        mock_args.timeout = 900
-        mock_args.include = None
-        mock_args.exclude = None
-        mock_args.files = "file1.pdf,file2.pdf,file3.pdf"
-
-        request = cli._create_request(mock_args)
-
-        assert len(request.explicit_files) == 3
-        assert request.explicit_files == [
-            "file1.pdf",
-            "file2.pdf",
-            "file3.pdf",
-        ]

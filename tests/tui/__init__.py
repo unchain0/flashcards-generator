@@ -1,1 +1,0 @@
-"""Textual Pilot acceptance tests."""

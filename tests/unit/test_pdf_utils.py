@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 import pytest
 from pypdf.errors import EmptyFileError
 
-from flashcards_generator.infrastructure.pdf_utils import PDFChunker
+from flashcards_generator.integrations.pdf_utils import PDFChunker
 
 
 class TestPDFChunker:
@@ -24,7 +24,7 @@ class TestPDFChunker:
         assert chunker.overlap_pages == 3
 
     @patch(
-        "flashcards_generator.infrastructure.pdf_utils.PDFChunker._check_pypdf"
+        "flashcards_generator.integrations.pdf_utils.PDFChunker._check_pypdf"
     )
     def test_check_pypdf_available(self, mock_check):
         mock_check.return_value = True
@@ -32,7 +32,7 @@ class TestPDFChunker:
         assert chunker._has_pypdf is True
 
     @patch(
-        "flashcards_generator.infrastructure.pdf_utils.PDFChunker._check_pypdf"
+        "flashcards_generator.integrations.pdf_utils.PDFChunker._check_pypdf"
     )
     def test_check_pypdf_unavailable(self, mock_check):
         mock_check.return_value = False
@@ -56,7 +56,7 @@ class TestPDFChunker:
             chunker.count_pages(pdf_path)
 
     @patch(
-        "flashcards_generator.infrastructure.pdf_utils.PDFChunker.count_pages"
+        "flashcards_generator.integrations.pdf_utils.PDFChunker.count_pages"
     )
     def test_needs_chunking_no_pypdf(self, mock_count, tmp_path):
         chunker = PDFChunker()
@@ -66,7 +66,7 @@ class TestPDFChunker:
         mock_count.assert_not_called()
 
     @patch(
-        "flashcards_generator.infrastructure.pdf_utils.PDFChunker.count_pages"
+        "flashcards_generator.integrations.pdf_utils.PDFChunker.count_pages"
     )
     def test_needs_chunking_below_threshold(self, mock_count, tmp_path):
         chunker = PDFChunker()
@@ -76,7 +76,7 @@ class TestPDFChunker:
         assert chunker.needs_chunking(pdf_path) is False
 
     @patch(
-        "flashcards_generator.infrastructure.pdf_utils.PDFChunker.count_pages"
+        "flashcards_generator.integrations.pdf_utils.PDFChunker.count_pages"
     )
     def test_needs_chunking_above_threshold(self, mock_count, tmp_path):
         chunker = PDFChunker()
@@ -86,7 +86,7 @@ class TestPDFChunker:
         assert chunker.needs_chunking(pdf_path) is True
 
     @patch(
-        "flashcards_generator.infrastructure.pdf_utils.PDFChunker.count_pages"
+        "flashcards_generator.integrations.pdf_utils.PDFChunker.count_pages"
     )
     def test_needs_chunking_zero_pages(self, mock_count, tmp_path):
         chunker = PDFChunker()
@@ -167,16 +167,30 @@ class TestPDFChunker:
 
             assert chunker.count_pages(pdf_path) == 0
 
+    def test_count_pages_returns_page_count_and_closes_reader(
+        self, tmp_path: Path
+    ) -> None:
+        chunker = PDFChunker()
+        chunker._has_pypdf = True
+        pdf_path = tmp_path / "valid.pdf"
+        pdf_path.touch()
+        reader = Mock(pages=[Mock(), Mock()])
+
+        with patch("pypdf.PdfReader", return_value=reader):
+            assert chunker.count_pages(pdf_path) == 2
+
+        reader.stream.close.assert_called_once_with()
+
     def test_cleanup_chunks_exception(self, tmp_path):
         chunker = PDFChunker()
 
-        # Create a mock path that raises exception on exists()
         mock_path = Mock(spec=Path)
         mock_path.name = "test_chunk_001.pdf"
-        mock_path.exists.side_effect = PermissionError("Access denied")
+        mock_path.unlink.side_effect = PermissionError("Access denied")
 
-        # Should not raise error
         chunker.cleanup_chunks([mock_path])
+
+        mock_path.unlink.assert_called_once_with(missing_ok=True)
 
     def test_check_pypdf_import_error(self):
         with patch(
@@ -332,3 +346,131 @@ class TestPDFChunker:
         assert chapters[0] == (0, 1, "Chapter 1")
         assert chapters[1] == (1, 3, "Chapter 2")
         mock_reader_class.assert_called_once_with(str(pdf_path), strict=False)
+
+    def test_count_pages_rejects_page_count_above_limit(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        pdf_path = tmp_path / "too-many-pages.pdf"
+        pdf_path.touch()
+        monkeypatch.setattr(PDFChunker, "MAX_PDF_PAGES", 1)
+        chunker = PDFChunker()
+        reader = Mock(pages=[Mock(), Mock()])
+        chunker._create_reader = Mock(return_value=reader)
+
+        with pytest.raises(ValueError, match="maximum page count"):
+            chunker.count_pages(pdf_path)
+
+        reader.stream.close.assert_called_once_with()
+
+    @patch("pypdf.PdfReader")
+    def test_chapter_boundaries_skip_invalid_items_and_end_at_page_limit(
+        self, mock_reader_class: Mock, tmp_path: Path
+    ) -> None:
+        chunker = PDFChunker()
+        chunker._has_pypdf = True
+        valid_page = Mock()
+        reader = Mock()
+        reader.pages = [Mock(), Mock()]
+        reader.outline = [
+            "section label",
+            {"/Title": "missing page"},
+            {"/Title": "unmapped", "/Page": Mock()},
+            {"/Title": "Chapter", "/Page": valid_page},
+            "section end",
+        ]
+        reader.get_page_number.side_effect = lambda page: (
+            0 if page is valid_page else None
+        )
+        mock_reader_class.return_value = reader
+        pdf_path = tmp_path / "outlined.pdf"
+        pdf_path.touch()
+
+        assert chunker.get_chapter_boundaries(pdf_path) == [(0, 2, "Chapter")]
+
+        reader.stream.close.assert_called_once_with()
+
+    def test_chunk_pdf_uses_chapters_and_filters_irrelevant_chunks(
+        self, tmp_path: Path
+    ) -> None:
+        chunker = PDFChunker(chunk_size=2, overlap_pages=0)
+        chunker._has_pypdf = True
+        chapters = [
+            (0, 2, "Chapter 1"),
+            (2, 4, "Chapter 2"),
+            (4, 6, "Index"),
+        ]
+        chunker.get_chapter_boundaries = Mock(return_value=chapters)
+        reader = Mock(pages=list(range(6)))
+        chunker._create_reader = Mock(return_value=reader)
+        writers: list[Mock] = []
+
+        def create_writer() -> Mock:
+            writer = Mock()
+            writers.append(writer)
+            return writer
+
+        source = tmp_path / "source.pdf"
+        source.touch()
+        output_dir = tmp_path / "chunks"
+        with patch("pypdf.PdfWriter", side_effect=create_writer):
+            chunks = list(chunker.chunk_pdf(source, output_dir))
+
+        assert [chunk.name for chunk in chunks] == [
+            "source_chunk_001.pdf",
+            "source_chunk_002.pdf",
+        ]
+        assert [
+            [call.args[0] for call in writer.add_page.call_args_list]
+            for writer in writers
+        ] == [[0, 1], [2, 3], [4, 5]]
+        assert [writer.write.call_count for writer in writers] == [1, 1, 0]
+        reader.stream.close.assert_called_once_with()
+
+    def test_chapter_chunks_reuse_only_the_configured_relevant_overlap(
+        self, tmp_path: Path
+    ) -> None:
+        chunker = PDFChunker(chunk_size=2, overlap_pages=1)
+        reader = Mock(pages=list(range(4)))
+        chunker._create_reader = Mock(return_value=reader)
+        writers: list[Mock] = []
+
+        def create_writer() -> Mock:
+            writer = Mock()
+            writers.append(writer)
+            return writer
+
+        with patch("pypdf.PdfWriter", side_effect=create_writer):
+            chunks = list(
+                chunker._chunk_by_chapters(
+                    tmp_path / "source.pdf",
+                    tmp_path / "chunks",
+                    [(0, 2, "Chapter 1"), (2, 4, "Chapter 2")],
+                    use_overlap=True,
+                )
+            )
+
+        assert len(chunks) == 2
+        assert [
+            [call.args[0] for call in writer.add_page.call_args_list]
+            for writer in writers
+        ] == [[0, 1], [1, 2, 3]]
+
+    def test_empty_chapter_list_produces_no_empty_chunk(
+        self, tmp_path: Path
+    ) -> None:
+        chunker = PDFChunker()
+        reader = Mock(pages=[Mock()])
+        chunker._create_reader = Mock(return_value=reader)
+
+        assert (
+            list(
+                chunker._chunk_by_chapters(
+                    tmp_path / "source.pdf", tmp_path / "chunks", []
+                )
+            )
+            == []
+        )
+
+        reader.stream.close.assert_called_once_with()

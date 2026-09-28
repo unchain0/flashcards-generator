@@ -1,20 +1,21 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
 
-from flashcards_generator.domain.entities import (
+from flashcards_generator.domain_models.entities import (
     ChunkResumeManifest,
     ChunkState,
     ChunkStatus,
     Deck,
     Flashcard,
 )
-from flashcards_generator.infrastructure.chunk_state_repository import (
+from flashcards_generator.integrations.chunk_state_repository import (
     FileSystemChunkStateRepository,
+    suppress_os_error,
 )
 
 
@@ -25,7 +26,7 @@ def repository() -> FileSystemChunkStateRepository:
 
 @pytest.fixture
 def sample_manifest() -> ChunkResumeManifest:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return ChunkResumeManifest(
         source_pdf="/tmp/source.pdf",
         source_signature="abc123",
@@ -56,7 +57,7 @@ def sample_manifest() -> ChunkResumeManifest:
 
 @pytest.fixture
 def sample_deck() -> Deck:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return Deck(
         name="Chunk Deck",
         description="Saved chunk output",
@@ -69,6 +70,75 @@ def sample_deck() -> Deck:
 
 
 class TestFileSystemChunkStateRepository:
+    def test_delete_missing_manifest_is_idempotent(
+        self,
+        repository: FileSystemChunkStateRepository,
+        tmp_path,
+    ) -> None:
+        repository.delete_manifest(tmp_path / "missing.json")
+
+    def test_delete_chunk_results_removes_only_a_symlink(
+        self,
+        repository: FileSystemChunkStateRepository,
+        tmp_path,
+    ) -> None:
+        target = tmp_path / "target"
+        target.mkdir()
+        results = tmp_path / "results"
+        results.symlink_to(target, target_is_directory=True)
+
+        repository.delete_chunk_results(results)
+
+        assert not results.exists()
+        assert target.is_dir()
+
+    def test_read_rejects_a_directory_and_closes_its_descriptor(
+        self,
+        repository: FileSystemChunkStateRepository,
+        tmp_path,
+    ) -> None:
+        with pytest.raises(OSError, match="not a regular file"):
+            repository.load_chunk_result(tmp_path)
+
+    def test_atomic_write_closes_temporary_descriptor_on_fchmod_failure(
+        self,
+        repository: FileSystemChunkStateRepository,
+        sample_manifest: ChunkResumeManifest,
+        tmp_path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def fail_fchmod(_descriptor: int, _mode: int) -> None:
+            raise OSError("fchmod failed")
+
+        monkeypatch.setattr(
+            "flashcards_generator.integrations.chunk_state_repository.os.fchmod",
+            fail_fchmod,
+        )
+
+        with pytest.raises(OSError, match="fchmod failed"):
+            repository.save_manifest(
+                tmp_path / "manifest.json", sample_manifest
+            )
+
+        assert list(tmp_path.glob(".manifest.json.*.tmp")) == []
+
+    def test_read_rejects_symlink_parent_directories(
+        self,
+        repository: FileSystemChunkStateRepository,
+        tmp_path,
+    ) -> None:
+        target = tmp_path / "target"
+        target.mkdir()
+        linked_parent = tmp_path / "linked"
+        linked_parent.symlink_to(target, target_is_directory=True)
+
+        with pytest.raises(OSError, match="not a real directory"):
+            repository.load_chunk_result(linked_parent / "result.json")
+
+    def test_suppress_os_error_handles_cleanup_failure(self) -> None:
+        with suppress_os_error():
+            raise OSError("cleanup failed")
+
     def test_save_load_manifest_roundtrip(
         self,
         repository: FileSystemChunkStateRepository,
@@ -186,6 +256,25 @@ class TestFileSystemChunkStateRepository:
 
         assert victim.read_text() == "KEEP"
         assert state_path.exists()
+
+    def test_symlinked_parent_directory_is_rejected(
+        self,
+        repository: FileSystemChunkStateRepository,
+        sample_manifest: ChunkResumeManifest,
+        tmp_path,
+    ) -> None:
+        target_dir = tmp_path / "target"
+        target_dir.mkdir()
+        symlink_dir = tmp_path / "linked"
+        symlink_dir.symlink_to(target_dir, target_is_directory=True)
+        state_path = symlink_dir / "nested" / "manifest.json"
+
+        with pytest.raises(
+            OSError, match="State directory is not a real directory"
+        ):
+            repository.save_manifest(state_path, sample_manifest)
+
+        assert not (target_dir / "nested").exists()
 
     def test_state_files_are_private_and_durable(
         self,

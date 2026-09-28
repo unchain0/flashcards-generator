@@ -45,7 +45,7 @@ class TestDeck:
         assert sample_deck.flashcards == original_cards
 
     def test_deduplicate_no_duplicates(self, sample_deck):
-        from flashcards_generator.domain.entities import Flashcard
+        from flashcards_generator.domain_models.entities import Flashcard
 
         card1 = Flashcard(
             front="What is Python?", back="A programming language"
@@ -59,7 +59,7 @@ class TestDeck:
         assert sample_deck.total_cards == 2
 
     def test_deduplicate_exact_duplicates(self, sample_deck):
-        from flashcards_generator.domain.entities import Flashcard
+        from flashcards_generator.domain_models.entities import Flashcard
 
         card1 = Flashcard(front="What is Python?", back="A language")
         card2 = Flashcard(
@@ -73,7 +73,7 @@ class TestDeck:
         assert sample_deck.total_cards == 1
 
     def test_deduplicate_similar_duplicates(self, sample_deck):
-        from flashcards_generator.domain.entities import Flashcard
+        from flashcards_generator.domain_models.entities import Flashcard
 
         card1 = Flashcard(
             front="The Python programming language was created by Guido",
@@ -90,8 +90,25 @@ class TestDeck:
         assert removed == 1
         assert sample_deck.total_cards == 1
 
+    def test_deduplicate_preserves_first_match_and_card_order(
+        self, sample_deck
+    ):
+        from flashcards_generator.domain_models.entities import Flashcard
+
+        first = Flashcard(front="What is Python?", back="First answer")
+        duplicate = Flashcard(
+            front="  what   is Python? ", back="Second answer"
+        )
+        other = Flashcard(front="What is Java?", back="Another language")
+        sample_deck.flashcards = [first, duplicate, other]
+
+        removed = sample_deck.deduplicate()
+
+        assert removed == 1
+        assert sample_deck.flashcards == [first, other]
+
     def test_deduplicate_different_cards(self, sample_deck):
-        from flashcards_generator.domain.entities import Flashcard
+        from flashcards_generator.domain_models.entities import Flashcard
 
         card1 = Flashcard(front="Python is a language", back="Yes")
         card2 = Flashcard(front="Java is a language", back="Yes")

@@ -4,11 +4,11 @@ from threading import Event, Thread
 
 import pytest
 
-from flashcards_generator.application.contracts import CancellationToken
-from flashcards_generator.domain.exceptions import (
+from flashcards_generator.domain_models.exceptions import (
     FlashcardsGeneratorError,
     OperationCancelled,
 )
+from flashcards_generator.services.contracts import CancellationToken
 
 
 def test_operation_cancelled_is_distinct_from_runtime_error() -> None:

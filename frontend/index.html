@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#08111f" />
+    <meta name="description" content="Gere flashcards a partir de PDFs e apresentações." />
+    <title>Gerador de flashcards</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Pular para o conteúdo</a>
+    <main class="shell" id="main-content">
+      <header class="hero">
+        <div>
+          <h1>Gere flashcards do seu material.</h1>
+          <p class="lede">
+            Envie PDFs ou apresentações e receba arquivos CSV prontos para revisar no seu fluxo de
+            estudos.
+          </p>
+        </div>
+        <button id="logout-button" class="button-secondary" type="button" hidden>Sair</button>
+      </header>
+
+      <section class="panel auth-panel" id="auth-panel">
+        <h2>Acesse o gerador</h2>
+        <p class="supporting">Use sua senha de acesso. O gerador não pede nome ou e-mail.</p>
+        <form id="auth-form" class="stack-form">
+          <label for="access-password">Senha de acesso</label>
+          <input
+            id="access-password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required
+          />
+          <button id="login-button" type="submit">Entrar</button>
+        </form>
+        <p id="auth-status" class="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="dashboard" id="dashboard" hidden>
+        <section class="panel notebook-panel" aria-labelledby="notebook-heading">
+          <div>
+            <h2 id="notebook-heading">Conexão com&nbsp;o NotebookLM</h2>
+            <p class="supporting">
+              Inicie o Flashcards Companion neste computador para usar sua sessão do NotebookLM.
+            </p>
+            <p id="notebook-status" class="status" role="status" aria-live="polite">
+              Clique em Conectar para verificar sua sessão local do NotebookLM.
+            </p>
+          </div>
+          <button id="connect-notebooklm" type="button">Conectar NotebookLM</button>
+        </section>
+
+        <div class="workspace-grid">
+          <section class="panel">
+            <h2>Nova geração</h2>
+            <form id="generation-form">
+              <fieldset id="generation-fields" class="stack-form generation-fields" disabled>
+                <legend id="generation-legend" class="supporting">
+                  Conecte o NotebookLM neste computador para habilitar a geração.
+                </legend>
+                <p class="supporting">
+                  O navegador envia os arquivos diretamente ao Flashcards Companion local, não ao
+                  servidor deste site.
+                </p>
+                <label for="files">Arquivos PDF ou PPTX</label>
+                <div class="file-control">
+                  <input
+                    id="files"
+                    class="file-control__input"
+                    name="files"
+                    type="file"
+                    accept=".pdf,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                    aria-describedby="file-summary file-error"
+                    multiple
+                    required
+                  />
+                  <label class="file-control__trigger" for="files">Selecionar arquivos</label>
+                  <span class="file-control__summary" id="file-summary" aria-live="polite">
+                    Nenhum arquivo selecionado
+                  </span>
+                </div>
+                <p class="file-error" id="file-error" role="alert" hidden></p>
+                <div class="form-grid">
+                  <div>
+                    <label for="language">Idioma dos cartões</label>
+                    <input id="language" name="language" value="pt_BR" required />
+                  </div>
+                  <div>
+                    <label for="difficulty">Dificuldade</label>
+                    <select id="difficulty" name="difficulty">
+                      <option value="easy">Menos complexos</option>
+                      <option value="medium" selected>Média</option>
+                      <option value="hard">Mais desafiadores</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="quantity">Quantidade</label>
+                    <select id="quantity" name="quantity">
+                      <option value="fewer">Menos cartões</option>
+                      <option value="standard" selected>Padrão</option>
+                      <option value="more">Mais cartões</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="timeout">Limite por arquivo (segundos)</label>
+                    <input
+                      id="timeout"
+                      name="timeout"
+                      type="number"
+                      min="30"
+                      max="7200"
+                      value="900"
+                      required
+                    />
+                  </div>
+                </div>
+                <label for="study-profile">Perfil de geração</label>
+                <select
+                  id="study-profile"
+                  name="study_profile"
+                  aria-describedby="study-profile-help"
+                >
+                  <option value="general" selected>Geração geral</option>
+                  <option value="english-context">Inglês</option>
+                </select>
+                <p class="supporting" id="study-profile-help">
+                  No perfil de inglês, cada cartão preserva uma frase do material e destaca uma
+                  expressão. Informe seu nível ou palavras que já conhece nas instruções adicionais.
+                </p>
+                <label for="instructions">Instruções adicionais (opcional)</label>
+                <textarea
+                  id="instructions"
+                  name="instructions"
+                  maxlength="10000"
+                  placeholder="Ex.: destaque definições e relações de causa e efeito."
+                ></textarea>
+                <button id="start-generation" type="submit" disabled>Gerar flashcards</button>
+              </fieldset>
+            </form>
+          </section>
+
+          <section class="panel status-panel" aria-labelledby="generation-heading">
+            <h2 id="generation-heading">Status da geração</h2>
+            <div id="job-empty" class="empty-state">
+              <p>Nenhuma geração iniciada.</p>
+              <p class="supporting">O andamento e os arquivos finais aparecerão aqui.</p>
+            </div>
+            <div id="job-status" hidden>
+              <p id="job-message" class="status" role="status" aria-live="polite"></p>
+              <progress
+                id="job-progress"
+                max="1"
+                value="0"
+                aria-label="Progresso da geração"
+              ></progress>
+              <p id="job-counts" class="supporting"></p>
+              <ul id="job-files" class="file-list"></ul>
+            </div>
+          </section>
+        </div>
+        <p id="app-status" class="status" role="status" aria-live="polite"></p>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

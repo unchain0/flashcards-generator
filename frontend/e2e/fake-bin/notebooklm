@@ -1,0 +1,61 @@
+#!/usr/bin/env node
+import { writeFileSync } from "node:fs";
+
+const args = process.argv.slice(2);
+if (process.env.FLASHCARDS_E2E_COMMAND_LOG) {
+  const log = process.env.FLASHCARDS_E2E_COMMAND_LOG;
+  writeFileSync(log, `${JSON.stringify(args)}\n`, { flag: "a" });
+}
+if (args[0] !== "--profile" || !args[1]) {
+  process.stderr.write("E2E exige perfil NotebookLM explícito.\n");
+  process.exit(2);
+}
+args.splice(0, 2);
+
+if (args[0] === "auth" && args[1] === "check") {
+  process.exit(0);
+}
+if (args[0] === "language" && args[1] === "set") {
+  process.exit(0);
+}
+if (args[0] === "create") {
+  process.stdout.write('{"id":"e2e-notebook"}\n');
+  process.exit(0);
+}
+if (args[0] === "source" && args[1] === "add") {
+  process.stdout.write('{"source_id":"e2e-source"}\n');
+  process.exit(0);
+}
+if (args[0] === "source" && args[1] === "wait") {
+  process.exit(0);
+}
+if (args[0] === "generate" && args[1] === "flashcards") {
+  process.stdout.write('{"task_id":"e2e-artifact"}\n');
+  process.exit(0);
+}
+if (args[0] === "artifact" && args[1] === "wait") {
+  process.exit(0);
+}
+if (args[0] === "download" && args[1] === "flashcards") {
+  const outputPath = args.at(-1);
+  if (!outputPath) {
+    process.stderr.write("Caminho de saída ausente.\n");
+    process.exit(2);
+  }
+  writeFileSync(
+    outputPath,
+    JSON.stringify([
+      {
+        front: "What does the source material explain?",
+        back: "The source material explains a process for transforming instructional content into study flashcards.",
+      },
+    ]),
+  );
+  process.exit(0);
+}
+if (args[0] === "delete") {
+  process.exit(0);
+}
+
+process.stderr.write(`Comando NotebookLM E2E inesperado: ${args[0] ?? "vazio"}.\n`);
+process.exit(2);

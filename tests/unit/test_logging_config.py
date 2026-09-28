@@ -5,8 +5,8 @@ import logging
 
 from loguru import logger
 
-from flashcards_generator.infrastructure import logging_config
-from flashcards_generator.infrastructure.logging_config import (
+from flashcards_generator.integrations import logging_config
+from flashcards_generator.integrations.logging_config import (
     configure_logging,
     get_logger,
 )

@@ -1,7 +1,9 @@
 import shutil
 from unittest.mock import patch
 
-from flashcards_generator.infrastructure.paths import find_notebooklm
+from flashcards_generator.integrations.notebooklm.executable import (
+    find_notebooklm,
+)
 
 
 class TestFindNotebooklm:

@@ -2,11 +2,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from flashcards_generator.application.converter import ClozeConverter
-from flashcards_generator.application.exporter import DeckExporter
-from flashcards_generator.infrastructure.notebooklm_client import (
+from flashcards_generator.engines.cloze import ClozeConverter
+from flashcards_generator.integrations.notebooklm.client import (
     NotebookLMClient,
 )
+from flashcards_generator.services.exporter import DeckExporter
 
 
 @pytest.fixture

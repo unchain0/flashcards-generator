@@ -9,7 +9,6 @@ Gera flashcards Anki em formato Cloze Deletion a partir de PDFs e PPTX usando o 
 - **Filtragem de qualidade**: Remove automaticamente flashcards triviais, duplicados e com baixo valor educacional
 - **Detecção de capítulos**: Identifica capítulos no PDF e filtra seções irrelevantes (Copyright, Índice, etc.)
 - **Suporte a PPTX**: Converte apresentações PowerPoint para flashcards
-- **Merge de CSV**: Combine múltiplos arquivos CSV gerados em um único arquivo
 
 ## Instalação
 
@@ -18,105 +17,106 @@ Gera flashcards Anki em formato Cloze Deletion a partir de PDFs e PPTX usando o 
 git clone <repo-url>
 cd flashcards-generator
 
-# Instale a aplicação no ambiente Python 3.10
-uv sync
+# Instale a aplicação no ambiente Python 3.14.7
+uv sync --all-extras --dev
+
+# Instale e compile a interface web Vite+
+cd frontend
+pnpm install --frozen-lockfile
+pnpm run build
+cd ..
 
 # Instale o Chromium do Playwright
 uv run playwright install chromium
 
-# Faça login no NotebookLM
-uv run notebooklm login
 ```
 
 ## Uso
 
-### Interface interativa
+O painel web Litestar serve a interface Vite+ compilada no mesmo domínio:
 
 ```bash
-# Abrir a TUI principal
-uv run flashcards
-
-# Também é possível iniciar a TUI pelo módulo
-uv run python -m flashcards_generator
+uv run flashcards-web
 ```
 
-### Gerar flashcards
+`uv run python -m flashcards_generator` e `uv run python main.py` também iniciam
+esse mesmo servidor web.
+
+Abra `http://127.0.0.1:8000` e entre com a senha provisionada. O auxiliar
+NotebookLM precisa rodar no computador do usuário. Em outro terminal, informe
+a origem exata da aplicação e inicie o auxiliar:
 
 ```bash
-# Gerar de todos os PDFs na pasta input
-uv run flashcards-cli generate -i ./input -o ./output
-
-# Gerar sem aguardar processamento (modo rápido)
-uv run flashcards-cli generate -i ./input -o ./output --no-wait
-
-# Especificar timeout (padrão: 15 minutos)
-uv run flashcards-cli generate -i ./input -o ./output --timeout 900
+FLASHCARDS_COMPANION_WEB_ORIGIN=http://127.0.0.1:8000 \
+  uv run flashcards-companion
 ```
 
-### Mesclar arquivos CSV
+Na tela web, clique em **Conectar NotebookLM** para conferir a sessão ou fazer
+login. O auxiliar mantém um perfil local separado por usuário. Ele recebe uma
+capacidade temporária vinculada à sessão web; não recebe o cookie da aplicação.
+Em produção, configure `FLASHCARDS_COMPANION_WEB_ORIGIN` com a origem HTTPS
+exata da aplicação. O navegador pode pedir autorização para a conexão local.
+Não execute `notebooklm login` no servidor web.
+
+O fluxo pelo navegador está completo: os arquivos seguem diretamente para o
+companion local, que executa chunking, retomada, retries, filtragem de qualidade
+e exportação compatível com o Anki. Os documentos e a sessão Google não passam
+pelo servidor web.
+
+O acesso usa senha, cookie de sessão `HttpOnly` e Argon2id. Para provisionar
+outros acessos localmente, use
+`uv run python -m flashcards_generator.delivery.web.user_admin create`; o
+comando solicita a senha duas vezes e não coleta nome ou e-mail.
+
+O login Google/NotebookLM ocorre no auxiliar local, usando o perfil do usuário
+naquele computador. Não configure a sessão NotebookLM no servidor.
+
+Para testar a autenticação da API, autentique e reutilize o cookie de sessão:
 
 ```bash
-# Combinar todos os CSVs em uma pasta
-uv run flashcards-cli merge --folder ./output/Tema1
-
-# Combinar e remover duplicatas
-uv run flashcards-cli merge --folder ./output/Tema1 --deduplicate
+curl -c /tmp/flashcards-cookies \
+  -H 'Content-Type: application/json' \
+  -d '{"password":"SUA_SENHA"}' \
+  http://127.0.0.1:8000/api/v1/auth/login
 ```
 
-### Limpar notebooks do NotebookLM
+### Produção
+
+O perfil de produção usa PostgreSQL, migrações Alembic, senhas individuais e
+segredos persistentes de sessão/lookup. Configure valores próprios com pelo
+menos 32 caracteres para `FLASHCARDS_SESSION_SECRET` e
+`FLASHCARDS_AUTH_LOOKUP_SECRET`.
 
 ```bash
-# Limpar todos os notebooks criados
-uv run flashcards-cli cleanup --all
+cp .env.example .env
+docker compose up --build
 ```
 
-## Estrutura de Diretórios
+O serviço publica em `127.0.0.1:8000` por padrão, aplica `alembic upgrade head`
+antes de iniciar e persiste no PostgreSQL e no volume `flashcards-app-data`.
+Para cadastrar acessos após a inicialização, execute
+`docker compose exec app python -m flashcards_generator.delivery.web.user_admin create`.
+O proxy reverso deve fornecer
+HTTPS; a aplicação marca o cookie de sessão como `Secure` em produção.
 
-```
-input/                          # Coloque seus PDFs/PPTX aqui
-├── Livros/
-│   ├── python-basico.pdf
-│   └── sqlalchemy.pdf
-└── Apostilas/
-    └── curso-react.pptx
+Para uma migração local explícita:
 
-output/                         # Flashcards serão gerados aqui
-├── Livros/
-│   ├── python-basico.csv
-│   └── sqlalchemy.csv
-└── Apostilas/
-    └── curso-react.csv
+```bash
+FLASHCARDS_DATABASE_URL='sqlite+aiosqlite:///./flashcards.db' \
+  uv run alembic upgrade head
 ```
+
+## Fluxo pelo navegador
+
+O formulário fica desativado até o companion local confirmar uma sessão válida
+do NotebookLM. Depois da conexão, o navegador envia PDFs e PPTX diretamente ao
+companion, acompanha o job local e oferece os CSVs gerados para download.
 
 ## Importação no Anki
 
-### Importação direta via AnkiConnect
-
-Com o Anki aberto e o AnkiConnect habilitado, importe os cards diretamente
-para um deck (inclusive decks hierárquicos):
-
-```bash
-uv run flashcards-cli generate \
-  --input-dir ./input \
-  --output-dir ./output \
-  --anki-deck "Estácio::Disciplina::Unidade 1"
-```
-
-O endpoint padrão é `http://127.0.0.1:8765`. Para uma instalação
-customizada, informe a URL e, se necessário, a chave da API:
-
-```bash
-uv run flashcards-cli generate \
-  --input-dir ./input \
-  --anki-deck "Estácio::Disciplina::Unidade 1" \
-  --anki-connect-url "http://127.0.0.1:8765" \
-  --anki-api-key "$ANKI_API_KEY"
-```
-
-O comando cria o deck caso necessário e envia as notas usando o modelo
-Cloze. A geração do CSV continua ativa; sem `--anki-deck`, nenhuma chamada
-ao AnkiConnect é feita. Se o AnkiConnect falhar, o comando termina com código
-não-zero e mantém os CSVs gerados para importação manual.
+Os arquivos CSV gerados podem ser importados manualmente no Anki. O projeto
+mantém um adaptador AnkiConnect no backend, mas a importação direta ainda não é
+uma ação disponível na interface web.
 
 ### Importação manual via CSV
 
@@ -170,21 +170,12 @@ Dicas para melhores resultados:
 
 ## Solução de Problemas
 
-### Erro: "No such file or directory: 'notebooklm'"
+### NotebookLM ainda não conecta
 
-```bash
-# Sincronize o ambiente do projeto e reinstale o Chromium
-uv sync
-uv run playwright install chromium
-uv run notebooklm login
-```
-
-### Erro: "Timeout ao gerar flashcards"
-
-```bash
-# Aumente o timeout
-uv run flashcards-cli generate -i ./input -o ./output --timeout 1800
-```
+A interface web não executa o comando NotebookLM no servidor. Verifique se o
+auxiliar está aberto no computador e se `FLASHCARDS_COMPANION_WEB_ORIGIN`
+corresponde exatamente à origem da aplicação. Não use `notebooklm login` no
+servidor, pois isso armazenaria a sessão Google fora do computador do usuário.
 
 ### Flashcards duplicados
 
@@ -198,7 +189,24 @@ O sistema já remove duplicatas automaticamente. Se ainda encontrar duplicados:
 ## Desenvolvimento
 
 ```bash
-# Executar testes
+# Instalar a toolchain e dependências do navegador
+pnpm --dir frontend install --frozen-lockfile
+pnpm --dir frontend exec playwright install chromium
+uv sync --all-extras --dev
+
+# Compilar a interface antes de iniciar/testar o backend
+pnpm --dir frontend run build
+
+# Executar Vite+ em um terminal e Litestar em outro
+pnpm --dir frontend run dev
+uv run flashcards-web
+
+# Gates do frontend
+pnpm --dir frontend run check
+pnpm --dir frontend run test
+pnpm --dir frontend run e2e
+
+# Executar testes backend
 uv run pytest
 
 # Executar testes com cobertura
@@ -207,17 +215,25 @@ uv run pytest --cov=flashcards_generator --cov-report=term-missing
 # Linting
 uv run ruff check .
 uv run ruff format .
+uv run ty check src/flashcards_generator
 ```
 
 ## Arquitetura
 
-O projeto segue a **Clean Architecture** com as seguintes camadas:
+O projeto segue a arquitetura MASA em cinco áreas:
 
-- **domain/**: Entidades, objetos de valor e portas (protocolos)
-- **application/**: Casos de uso, DTOs e lógica de orquestração
-- **infrastructure/**: Implementações de serviços externos (PDF, NotebookLM)
-- **interfaces/**: CLI (linha de comando)
-- **adapters/**: Wrappers para APIs externas
+- **domain_models/**: entidades, exceções e objetos de valor puros;
+- **engines/**: transformações determinísticas de cloze, matemática e qualidade;
+- **services/**: casos de uso, DTOs, portas e orquestração;
+- **integrations/**: banco, filesystem, PDF/PPTX, NotebookLM e AnkiConnect;
+- **delivery/**: composição concreta, servidor Litestar e companion local.
+
+As dependências apontam para dentro: `services` usa portas próprias, enquanto
+`delivery` conecta implementações de `integrations` às regras de negócio.
+
+O ambiente de desenvolvimento e CI usa a stack Astral: `uv` gerencia o
+ambiente e o lockfile, `ruff` cuida de lint/format e `ty` executa a checagem de
+tipos.
 
 ## Licença
 

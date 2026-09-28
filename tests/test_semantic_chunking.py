@@ -1,14 +1,13 @@
 """Tests for semantic chunking functionality."""
 
-import sys
-from types import SimpleNamespace
 from unittest.mock import patch
 
-import pytest
 from scipy.sparse import csr_matrix
 
-from flashcards_generator.infrastructure.semantic_chunker import (
-    QualityFilter,
+from flashcards_generator.integrations import (
+    semantic_analysis as semantic_analysis_module,
+)
+from flashcards_generator.integrations.semantic_chunker import (
     SemanticChunker,
     TextSegment,
     TokenCounter,
@@ -108,7 +107,7 @@ class TestSemanticChunker:
 
         with (
             patch(
-                "flashcards_generator.infrastructure.semantic_chunker."
+                "flashcards_generator.integrations.semantic_analysis."
                 "TfidfVectorizer.fit_transform",
                 return_value=sparse_vectors,
             ),
@@ -123,93 +122,40 @@ class TestSemanticChunker:
 
         assert boundaries == [1]
 
-    def test_get_overlap_text(self):
+    def test_get_overlap_text(self, monkeypatch):
         """Test overlap text extraction."""
-        chunker = SemanticChunker(overlap_tokens=20)
-        previous = ["Short sentence.", "Another short one."]
+        chunker = SemanticChunker(overlap_tokens=2)
+        monkeypatch.setattr(
+            chunker.token_counter, "count", lambda text: len(text.split())
+        )
+        previous = ["first two", "middle two", "latest two"]
         overlap = chunker._get_overlap_text(previous)
-        assert isinstance(overlap, list)
+        assert overlap == ["latest two"]
 
 
-class TestQualityFilter:
-    """Test QualityFilter class."""
+def test_adjacent_similarity_scores_for_single_segment_are_empty() -> None:
+    assert (
+        semantic_analysis_module.SemanticAnalysis._adjacent_similarity_scores(
+            object(), 1
+        )
+        == []
+    )
 
-    def test_init(self):
-        """Test QualityFilter initialization."""
-        filter_q = QualityFilter()
-        assert hasattr(filter_q, "vectorizer")
-        assert hasattr(filter_q, "TRIVIAL_WORDS")
-        assert len(filter_q.TRIVIAL_WORDS) > 0
 
-    def test_is_trivial_valid_card(self):
-        """Test trivial detection with valid card."""
-        filter_q = QualityFilter()
-        front = "FastAPI is a {{c1::modern}} web framework."
-        back = "A Python framework"
-        assert not filter_q.is_trivial(front, back)
+def test_split_to_max_tokens_splits_long_word_without_encoding(
+    monkeypatch,
+) -> None:
+    chunker = SemanticChunker(max_tokens=2)
+    monkeypatch.setattr(chunker.token_counter, "count", lambda text: len(text))
+    monkeypatch.setattr(chunker.token_counter, "encoding", None)
 
-    def test_is_trivial_only_stopwords(self):
-        """Test trivial detection with only stopwords."""
-        filter_q = QualityFilter()
-        front = "The {{c1::the}} is a word."
-        back = "Article"
-        assert filter_q.is_trivial(front, back)
-
-    def test_is_trivial_short_back(self):
-        """Test trivial detection with very short back."""
-        filter_q = QualityFilter()
-        front = "Python is a {{c1::language}}."
-        back = "Yes"
-        assert filter_q.is_trivial(front, back)
-
-    def test_is_trivial_subjective(self):
-        """Test trivial detection with subjective words."""
-        filter_q = QualityFilter()
-        front = "This is a very {{c1::good}} solution."
-        back = "Positive"
-        assert filter_q.is_trivial(front, back)
-
-    def test_find_similar_cards_empty(self):
-        """Test similarity finding with empty list."""
-        filter_q = QualityFilter()
-        result = filter_q.find_similar_cards([])
-        assert result == []
-
-    def test_find_similar_cards_single(self):
-        """Test similarity finding with single card."""
-        filter_q = QualityFilter()
-        cards = [("Single card", "Back")]
-        result = filter_q.find_similar_cards(cards)
-        assert result == []
-
-    def test_find_similar_cards_different(self):
-        """Test similarity finding with different cards."""
-        filter_q = QualityFilter()
-        cards = [
-            ("Python is a language", "Details"),
-            ("JavaScript is different", "More details"),
-        ]
-        result = filter_q.find_similar_cards(cards, threshold=0.9)
-        # Different cards should not be similar at high threshold
-        assert len(result) == 0
-
-    def test_filter_deck(self):
-        """Test full deck filtering."""
-        filter_q = QualityFilter()
-        cards = [
-            (
-                "FastAPI is a {{c1::modern}} web framework.",
-                "A Python framework",
-            ),
-            ("{{c1::Python}} is a programming language.", "Created by Guido"),
-            ("The {{c1::the}} is a word.", "Article"),  # Trivial
-        ]
-        filtered, stats = filter_q.filter_deck(cards)
-        assert isinstance(filtered, list)
-        assert isinstance(stats, dict)
-        assert "trivial_removed" in stats
-        assert "similar_removed" in stats
-        assert "kept" in stats
+    assert chunker._split_to_max_tokens("ok abcde hi") == [
+        "ok",
+        "ab",
+        "cd",
+        "e",
+        "hi",
+    ]
 
 
 class TestTextSegment:
@@ -275,204 +221,15 @@ class TestSemanticChunkerEdgeCases:
         assert chunks == []
 
 
-class TestQualityFilterEdgeCases:
-    """Test QualityFilter edge cases."""
+def test_split_long_word_uses_token_encoding(monkeypatch):
+    class Encoding:
+        def encode(self, _text: str) -> list[int]:
+            return [0, 1, 2, 3, 4]
 
-    def test_find_similar_cards_exception(self):
-        """Test find_similar_cards handles exception."""
-        filter_q = QualityFilter()
-        # Create cards that might cause exception
-        cards = [
-            ("", ""),  # Empty strings might cause issues
-            ("", ""),
-        ]
-        # Should not raise, should return empty list
-        result = filter_q.find_similar_cards(cards)
-        assert isinstance(result, list)
+        def decode(self, token_ids: list[int]) -> str:
+            return "".join(str(token_id) for token_id in token_ids)
 
+    chunker = SemanticChunker(max_tokens=2)
+    monkeypatch.setattr(chunker.token_counter, "encoding", Encoding())
 
-class TestSemanticChunkerRegressions:
-    @staticmethod
-    def _word_count(text: str) -> int:
-        return len(text.split())
-
-    def _chunker_with_segments(
-        self,
-        monkeypatch,
-        segments: list[TextSegment],
-        *,
-        target_tokens: int = 500,
-        min_tokens: int = 200,
-        max_tokens: int = 800,
-        overlap_tokens: int = 50,
-        boundaries: list[int] | None = None,
-    ) -> SemanticChunker:
-        chunker = SemanticChunker(
-            target_tokens=target_tokens,
-            min_tokens=min_tokens,
-            max_tokens=max_tokens,
-            overlap_tokens=overlap_tokens,
-        )
-        monkeypatch.setattr(chunker.token_counter, "count", self._word_count)
-        monkeypatch.setattr(
-            chunker, "extract_text_from_pdf", lambda _path: segments
-        )
-        monkeypatch.setattr(
-            chunker,
-            "find_semantic_boundaries",
-            lambda _segments: [] if boundaries is None else boundaries,
-        )
-        return chunker
-
-    def test_extract_text_skips_none_page_without_losing_later_page(
-        self, monkeypatch, tmp_path
-    ):
-        class Page:
-            def __init__(self, text):
-                self.text = text
-
-            def extract_text(self):
-                return self.text
-
-        reader = SimpleNamespace(pages=[Page(None), Page("retained page")])
-        monkeypatch.setitem(
-            sys.modules,
-            "pypdf",
-            SimpleNamespace(PdfReader=lambda *_args, **_kwargs: reader),
-        )
-        chunker = SemanticChunker()
-
-        assert chunker.extract_text_from_pdf(tmp_path / "sample.pdf") == [
-            TextSegment(
-                "retained page",
-                2,
-                2,
-                chunker.token_counter.count("retained page"),
-            )
-        ]
-
-    def test_extract_text_rejects_oversized_pdf_before_reader(
-        self, monkeypatch, tmp_path
-    ):
-        pdf_path = tmp_path / "oversized.pdf"
-        pdf_path.write_bytes(b"012345")
-        monkeypatch.setattr(
-            SemanticChunker, "MAX_PDF_FILE_BYTES", 5, raising=False
-        )
-
-        def fail_if_reader_called(*_args, **_kwargs):
-            pytest.fail("oversized PDF reached pypdf")
-
-        monkeypatch.setitem(
-            sys.modules,
-            "pypdf",
-            SimpleNamespace(PdfReader=fail_if_reader_called),
-        )
-
-        assert SemanticChunker().extract_text_from_pdf(pdf_path) == []
-
-    def test_short_and_oversized_text_is_preserved_within_max_tokens(
-        self, monkeypatch, tmp_path
-    ):
-        tokens = [f"sentinel_{index}" for index in range(22)]
-        chunker = self._chunker_with_segments(
-            monkeypatch,
-            [TextSegment(" ".join(tokens), 1, 1, len(tokens))],
-            min_tokens=200,
-            max_tokens=10,
-            overlap_tokens=0,
-        )
-
-        chunks = list(chunker.create_semantic_chunks(tmp_path / "sample.pdf"))
-
-        assert [
-            token for text, _, _ in chunks for token in text.split()
-        ] == tokens
-        assert all(
-            chunker.token_counter.count(text) <= 10 for text, _, _ in chunks
-        )
-
-    def test_boundary_chunk_starts_at_first_represented_page(
-        self, monkeypatch, tmp_path
-    ):
-        chunker = self._chunker_with_segments(
-            monkeypatch,
-            [
-                TextSegment("one.", 1, 1, 1),
-                TextSegment("two.", 2, 2, 1),
-                TextSegment("three.", 3, 3, 1),
-            ],
-            target_tokens=2,
-            min_tokens=1,
-            max_tokens=10,
-            boundaries=[1],
-        )
-
-        chunks = list(chunker.create_semantic_chunks(tmp_path / "sample.pdf"))
-
-        assert [(start, end) for _, start, end in chunks] == [(1, 2), (3, 3)]
-
-    def test_overlap_chunk_metadata_includes_the_overlapped_page(
-        self, monkeypatch, tmp_path
-    ):
-        chunker = self._chunker_with_segments(
-            monkeypatch,
-            [
-                TextSegment("Alpha. Beta. Gamma.", 1, 1, 3),
-                TextSegment("Delta.", 2, 2, 1),
-            ],
-            min_tokens=1,
-            max_tokens=3,
-            overlap_tokens=1,
-        )
-
-        chunks = list(chunker.create_semantic_chunks(tmp_path / "sample.pdf"))
-
-        assert chunks == [
-            ("Alpha. Beta. Gamma.", 1, 1),
-            ("Gamma. Delta.", 1, 2),
-        ]
-        assert all(
-            chunker.token_counter.count(text) <= 3 for text, _, _ in chunks
-        )
-
-
-class TestQualityFilterRegressions:
-    def test_stop_word_duplicate_is_detected_when_tfidf_has_no_vocabulary(
-        self,
-    ):
-        cards = [
-            ("could would should", "first detailed answer"),
-            ("could would should", "second detailed answer"),
-        ]
-
-        assert QualityFilter().find_similar_cards(cards) == [(0, 1, 1.0)]
-
-    def test_similarity_filter_does_not_materialize_a_dense_matrix(
-        self, monkeypatch
-    ):
-        def fail_if_called(*_args, **_kwargs):
-            pytest.fail("dense cosine similarity matrix must not be created")
-
-        monkeypatch.setattr("scipy.sparse.csr_matrix.toarray", fail_if_called)
-        cards = [
-            ("alpha beta gamma", "first detailed answer"),
-            ("alpha beta gamma", "second detailed answer"),
-            ("delta epsilon zeta", "third detailed answer"),
-        ]
-
-        assert QualityFilter().find_similar_cards(cards) == [(0, 1, 1.0)]
-
-    def test_similarity_filter_bounds_pair_memory_for_dense_inputs(
-        self, monkeypatch
-    ):
-        filter_q = QualityFilter()
-        monkeypatch.setattr(filter_q, "MAX_SIMILAR_PAIRS", 3)
-        cards = [
-            (f"alpha beta gamma {index}", "first detailed answer")
-            for index in range(20)
-        ]
-
-        result = filter_q.find_similar_cards(cards)
-
-        assert len(result) <= 3
+    assert chunker._split_long_word("longword") == ["01", "23", "4"]

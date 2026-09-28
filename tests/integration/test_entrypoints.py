@@ -1,52 +1,46 @@
-"""Failing-first acceptance tests for primary entrypoint dispatch."""
-
 from __future__ import annotations
 
-import os
-import subprocess
-from pathlib import Path
-
-import pytest
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+import importlib.metadata
+import importlib.util
+from unittest.mock import patch
 
 
-def _run_primary(*arguments: str) -> subprocess.CompletedProcess[str]:
-    environment = os.environ.copy()
-    environment["TERM"] = "xterm-256color"
-    return subprocess.run(
-        ["uv", "run", "flashcards", *arguments],
-        cwd=PROJECT_ROOT,
-        env=environment,
-        capture_output=True,
-        text=True,
-        input="q\n",
-        check=False,
-        timeout=10,
+def test_web_and_local_companion_console_scripts_are_installed() -> None:
+    scripts = {
+        entry_point.name: entry_point.value
+        for entry_point in importlib.metadata.entry_points().select(
+            group="console_scripts"
+        )
+        if entry_point.name.startswith("flashcards")
+    }
+
+    assert scripts == {
+        "flashcards-companion": "flashcards_generator.delivery.companion.main:main",
+        "flashcards-web": "flashcards_generator.delivery.web.main:main",
+    }
+
+
+def test_legacy_cli_and_tui_modules_are_not_importable() -> None:
+    assert (
+        importlib.util.find_spec("flashcards_generator.delivery.cli") is None
+    )
+    assert (
+        importlib.util.find_spec("flashcards_generator.delivery.tui") is None
     )
 
 
-def _run_module(*arguments: str) -> subprocess.CompletedProcess[str]:
-    environment = os.environ.copy()
-    environment["TERM"] = "xterm-256color"
-    return subprocess.run(
-        ["uv", "run", "python", "-m", "flashcards_generator", *arguments],
-        cwd=PROJECT_ROOT,
-        env=environment,
-        capture_output=True,
-        text=True,
-        input="q\n",
-        check=False,
-        timeout=10,
+def test_primary_module_delegates_to_web_server() -> None:
+    from flashcards_generator.delivery import main
+
+    assert main.web_main.__module__ == (
+        "flashcards_generator.delivery.web.main"
     )
 
 
-@pytest.mark.parametrize("runner", [_run_primary, _run_module])
-def test_primary_help_exposes_textual_shell(runner) -> None:
-    """Given --help is requested, the primary app surface is initialized."""
-    completed = runner("--help")
+def test_primary_entrypoint_invokes_web_server() -> None:
+    from flashcards_generator.delivery import main
 
-    assert completed.returncode == 0
-    output = completed.stdout + completed.stderr
-    assert "usage:" not in output
-    assert "Traceback" not in output
+    with patch.object(main, "web_main") as web_main:
+        main.main()
+
+    web_main.assert_called_once_with()

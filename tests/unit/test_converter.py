@@ -1,6 +1,6 @@
 import pytest
 
-from flashcards_generator.domain.entities import Flashcard
+from flashcards_generator.domain_models.entities import Flashcard
 
 
 class TestClozeConverter:
@@ -45,6 +45,15 @@ class TestClozeConverter:
         assert "}}" in result.front
         assert "Processo" in result.front
 
+    def test_create_simple_cloze_keeps_question_without_question_keyword(
+        self, cloze_converter
+    ):
+        result = cloze_converter._create_simple_cloze(
+            "Define Python", "A language", 1
+        )
+
+        assert result == "Define Python {{c1::A language}}"
+
     def test_create_simple_cloze_with_what_is(self, cloze_converter):
         card = Flashcard(front="What is the capital of Italy?", back="Rome")
         result = cloze_converter.convert(card)
@@ -62,6 +71,24 @@ class TestClozeConverter:
         )
         result = cloze_converter.convert(card)
         assert result.front != card.back
+
+    def test_create_complex_cloze_limits_sentences_and_numbers(
+        self, cloze_converter
+    ):
+        answer = (
+            "The mitochondrion is an organelle responsible for cellular respiration. "
+            "Photosynthesis converts sunlight into chemical energy. "
+            "Chlorophyll absorbs light during photosynthesis. "
+            "A fourth sentence must not be included."
+        )
+
+        result = cloze_converter._create_complex_cloze(answer, 1)
+
+        assert result == (
+            "{{c1::The mitochondrion is an organelle responsible for cellular respiration}}. "
+            "Photosynthes{{c2::is converts sunlight into chemical energy}}. "
+            "{{c3::Chlorophyll absorbs light during photosynthesis}}."
+        )
 
     def test_process_sentence_short(self, cloze_converter):
         result = cloze_converter._process_sentence("Célula é a unidade", 1)
@@ -147,11 +174,29 @@ class TestClozeConverter:
         )
         assert "{{c1::Paris}}" in result
 
+    def test_create_simple_cloze_keeps_question_when_cleanup_is_empty(
+        self, cloze_converter
+    ):
+        result = cloze_converter._create_simple_cloze("What", "Paris", 1)
+
+        assert result == "What {{c1::Paris}}"
+
     def test_create_complex_cloze_single_sentence(self, cloze_converter):
         result = cloze_converter._create_complex_cloze(
             "A short sentence here.", 1
         )
         assert "{{c" in result
+
+    def test_create_complex_cloze_skips_short_sentence_without_number_gap(
+        self, cloze_converter
+    ):
+        answer = "Short. The mitochondrion is an organelle responsible for cellular respiration."
+
+        result = cloze_converter._create_complex_cloze(answer, 1)
+
+        assert result == (
+            "{{c1::The mitochondrion is an organelle responsible for cellular respiration}}."
+        )
 
     def test_create_word_cloze_no_important_word(self, cloze_converter):
         words = ["a", "the", "is"]
@@ -170,6 +215,11 @@ class TestClozeConverter:
         sentence = "a e o são importantes"
         result = cloze_converter._extract_important(sentence)
         assert result == "são importantes"
+
+    def test_extract_important_skips_match_with_only_trivial_words(
+        self, cloze_converter
+    ):
+        assert cloze_converter._extract_important("é a") == "é a"
 
     @pytest.mark.parametrize(
         ("front", "back"),

@@ -1,15 +1,27 @@
 """Focused tests for the UI-independent workflow facade."""
 
+import signal
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import Event
-from unittest.mock import patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from flashcards_generator.adapters.notebooklm_adapter import NotebookLMAdapter
-from flashcards_generator.application.contracts import (
+from flashcards_generator.delivery.composition import (
+    UseCaseGenerationWorkflow,
+    create_workflows,
+)
+from flashcards_generator.domain_models.entities import Deck, Flashcard
+from flashcards_generator.domain_models.exceptions import OperationCancelled
+from flashcards_generator.integrations.notebooklm.gateway import (
+    NotebookLMAdapter,
+)
+from flashcards_generator.integrations.notebooklm.management import (
+    NotebookLMManagement,
+)
+from flashcards_generator.services.contracts import (
     CancellationToken,
     GenerationOutcome,
     NullProgressReporter,
@@ -18,25 +30,17 @@ from flashcards_generator.application.contracts import (
     ProgressStage,
     ProgressState,
 )
-from flashcards_generator.application.dto.generate_request import (
+from flashcards_generator.services.dto.generate_request import (
     GenerateFlashcardsRequest,
 )
-from flashcards_generator.application.dto.merge_request import MergeCsvRequest
-from flashcards_generator.application.dto.workflow import (
+from flashcards_generator.services.dto.merge_request import MergeCsvRequest
+from flashcards_generator.services.dto.workflow import (
     AnkiExportOptions,
     AuthStatus,
     CleanupOutcome,
     CleanupRequest,
 )
-from flashcards_generator.application.workflows import ApplicationWorkflows
-from flashcards_generator.domain.entities import Deck, Flashcard
-from flashcards_generator.domain.exceptions import OperationCancelled
-from flashcards_generator.infrastructure.settings import SettingsRepository
-from flashcards_generator.interfaces.composition import (
-    ApplicationServices,
-    NotebookLMManagement,
-    UseCaseGenerationWorkflow,
-)
+from flashcards_generator.services.workflows import ApplicationWorkflows
 
 
 class FakeGeneration:
@@ -62,10 +66,16 @@ class FakeGeneration:
 
 
 class FakeNotebookLM:
-    def __init__(self, authenticated: bool = True) -> None:
+    def __init__(
+        self,
+        authenticated: bool = True,
+        language_result: bool = True,
+    ) -> None:
         self.authenticated = authenticated
+        self.language_result = language_result
         self.cleanup_days: list[int | None] = []
         self.language: str | None = None
+        self.language_calls: list[str] = []
         self.cancelled = False
 
     def auth_status(self) -> AuthStatus:
@@ -77,7 +87,8 @@ class FakeNotebookLM:
 
     def set_language(self, language: str) -> bool:
         self.language = language
-        return True
+        self.language_calls.append(language)
+        return self.language_result
 
     def cleanup(
         self, *, days: int | None, check_auth: bool = False
@@ -156,7 +167,7 @@ class FakeAnkiExporter:
 
 def _facade(
     generation: FakeGeneration | None = None,
-    notebooklm: FakeNotebookLM | None = None,
+    notebooklm: FakeNotebookLM | NotebookLMManagement | None = None,
     **kwargs,
 ) -> ApplicationWorkflows:
     return ApplicationWorkflows(
@@ -200,6 +211,65 @@ def test_generate_preserves_duck_typed_api_and_outcome(tmp_path: Path) -> None:
     assert result.decks[0].name == "Biology"
 
 
+def test_generate_sets_the_requested_language_once(tmp_path: Path) -> None:
+    notebooklm = FakeNotebookLM()
+    generation = FakeGeneration(
+        GenerationOutcome(
+            decks=(),
+            discovered_sources=0,
+            completed_sources=0,
+            skipped_sources=0,
+            failed_sources=(),
+        )
+    )
+    facade = _facade(generation, notebooklm)
+    request = GenerateFlashcardsRequest(
+        input_dir=tmp_path,
+        output_dir=tmp_path / "output",
+        language="en_US",
+    )
+    reporter = NullProgressReporter()
+    token = CancellationToken()
+
+    outcome = facade.generate(request, reporter, token)
+
+    assert outcome is generation.outcome
+    assert notebooklm.language_calls == ["en_US"]
+    assert generation.call == (request, reporter, token)
+
+
+def test_generate_stops_when_language_configuration_fails(
+    tmp_path: Path,
+) -> None:
+    notebooklm = FakeNotebookLM(language_result=False)
+    generation = FakeGeneration(
+        GenerationOutcome(
+            decks=(),
+            discovered_sources=0,
+            completed_sources=0,
+            skipped_sources=0,
+            failed_sources=(),
+        )
+    )
+    facade = _facade(generation, notebooklm)
+    request = GenerateFlashcardsRequest(
+        input_dir=tmp_path,
+        output_dir=tmp_path / "output",
+        language="en_US",
+    )
+    reporter = RecordingReporter()
+
+    with pytest.raises(
+        RuntimeError, match="^Unable to set NotebookLM output language$"
+    ):
+        facade.generate(request, reporter, CancellationToken())
+
+    assert notebooklm.language_calls == ["en_US"]
+    assert generation.call is None
+    assert reporter.events == []
+    assert not request.output_dir.exists()
+
+
 def test_composed_generation_adapter_returns_outcome_and_events(
     tmp_path: Path,
 ) -> None:
@@ -225,6 +295,14 @@ def test_composed_generation_adapter_returns_outcome_and_events(
         ProgressState.COMPLETED,
         ProgressState.COMPLETED,
     ]
+
+
+def test_composition_reexports_application_generation_workflow() -> None:
+    from flashcards_generator.services.generation_workflow import (
+        UseCaseGenerationWorkflow as ApplicationGenerationWorkflow,
+    )
+
+    assert UseCaseGenerationWorkflow is ApplicationGenerationWorkflow
 
 
 def test_merge_returns_machine_readable_path_and_count(tmp_path: Path) -> None:
@@ -266,19 +344,295 @@ def test_auth_login_language_and_scoped_cleanup_delegate() -> None:
     ) == (False, True, True, "en", [7], 2)
 
 
-def test_application_services_delegates_management_cancellation(
-    tmp_path: Path,
+@pytest.mark.parametrize(
+    ("returncode", "expected"),
+    [(0, True), (2, False), (None, False)],
+)
+def test_notebooklm_management_maps_language_command_status(
+    returncode: int | None,
+    expected: bool,
 ) -> None:
-    """Given composed services, cancellation reaches NotebookLM management."""
-    notebooklm = FakeNotebookLM()
-    services = ApplicationServices(
-        _facade(notebooklm=notebooklm),
-        SettingsRepository(tmp_path / "settings.json"),
+    manager = NotebookLMManagement(
+        "notebooklm",
+        lambda timeout: NotebookLMAdapter("notebooklm", timeout=timeout),
+    )
+    result: subprocess.CompletedProcess[str] | None = (
+        None
+        if returncode is None
+        else subprocess.CompletedProcess(["notebooklm"], returncode, "", "")
     )
 
-    services.cancel_management()
+    with patch.object(manager, "_run", return_value=result) as run:
+        assert manager.set_language("pt_BR") is expected
 
-    assert notebooklm.cancelled is True
+    run.assert_called_once_with(["language", "set", "pt_BR"], timeout=10)
+
+
+def test_notebooklm_management_maps_unavailable_and_failed_auth_commands() -> (
+    None
+):
+    manager = NotebookLMManagement(
+        "notebooklm",
+        lambda timeout: NotebookLMAdapter("notebooklm", timeout=timeout),
+    )
+    results: list[subprocess.CompletedProcess[str] | None] = [
+        None,
+        subprocess.CompletedProcess(["auth"], 2, "", " denied "),
+        subprocess.CompletedProcess(["login"], 2, "", ""),
+    ]
+
+    with patch.object(manager, "_run", side_effect=results):
+        assert manager.auth_status() == AuthStatus(
+            False, "unable to check authentication"
+        )
+        assert manager.auth_status() == AuthStatus(False, "denied")
+        assert manager.login() == AuthStatus(False, "login failed")
+
+
+def test_notebooklm_management_handles_missing_login_and_blank_language() -> (
+    None
+):
+    manager = NotebookLMManagement(
+        "notebooklm",
+        lambda timeout: NotebookLMAdapter("notebooklm", timeout=timeout),
+    )
+
+    with patch.object(manager, "_run", return_value=None):
+        assert manager.login() == AuthStatus(False, "unable to start login")
+
+    with pytest.raises(ValueError, match="language must not be empty"):
+        manager.set_language(" \t ")
+
+
+def test_notebooklm_management_cleanup_passes_scope_and_auth_requirements() -> (
+    None
+):
+    adapter = MagicMock(spec=NotebookLMAdapter)
+    adapter.delete_all_notebooks.return_value = (2, 1)
+    manager = NotebookLMManagement(
+        "notebooklm",
+        lambda _timeout: adapter,
+        cleanup_show_progress=True,
+    )
+
+    assert manager.cleanup(days=None) == CleanupOutcome(deleted=2, failed=1)
+    assert manager.cleanup(days=7) == CleanupOutcome(deleted=2, failed=1)
+    adapter.delete_all_notebooks.assert_has_calls([
+        call(show_progress=True),
+        call(days=7, show_progress=True),
+    ])
+
+    with (
+        patch.object(
+            manager,
+            "_run",
+            return_value=subprocess.CompletedProcess(["auth"], 1, "", ""),
+        ),
+        pytest.raises(PermissionError, match="authentication is required"),
+    ):
+        manager.cleanup(days=None, check_auth=True)
+
+
+def test_management_run_uses_profile_home_and_reaps_process_output(
+    tmp_path: Path,
+) -> None:
+    home = tmp_path / "notebooklm-home"
+    manager = NotebookLMManagement(
+        "notebooklm",
+        lambda timeout: NotebookLMAdapter("notebooklm", timeout=timeout),
+        notebooklm_profile="study",
+        notebooklm_home=home,
+    )
+    process = MagicMock()
+    process.communicate.return_value = ("authenticated", "")
+    process.returncode = 0
+
+    with patch(
+        "flashcards_generator.integrations.notebooklm.management.subprocess.Popen",
+        return_value=process,
+    ) as popen:
+        assert manager.auth_status() == AuthStatus(True, "authenticated")
+
+    assert popen.call_args.args[0] == [
+        "notebooklm",
+        "--profile",
+        "study",
+        "auth",
+        "check",
+    ]
+    assert popen.call_args.kwargs["env"]["NOTEBOOKLM_HOME"] == str(home)
+    assert popen.call_args.kwargs["start_new_session"] is True
+    process.communicate.assert_called_once_with(timeout=10)
+
+
+def test_management_run_translates_process_start_and_communication_failures() -> (
+    None
+):
+    manager = NotebookLMManagement(
+        "notebooklm",
+        lambda timeout: NotebookLMAdapter("notebooklm", timeout=timeout),
+    )
+    with patch(
+        "flashcards_generator.integrations.notebooklm.management.subprocess.Popen",
+        side_effect=FileNotFoundError,
+    ):
+        assert manager.auth_status() == AuthStatus(
+            False, "unable to check authentication"
+        )
+
+    process = MagicMock()
+    process.communicate.side_effect = subprocess.TimeoutExpired(
+        "notebooklm", 10
+    )
+    process.poll.return_value = 0
+    with patch(
+        "flashcards_generator.integrations.notebooklm.management.subprocess.Popen",
+        return_value=process,
+    ):
+        assert manager.auth_status() == AuthStatus(
+            False, "unable to check authentication"
+        )
+
+    process.wait.assert_called_once_with()
+
+
+def test_management_run_rejects_calls_without_an_active_operation() -> None:
+    manager = NotebookLMManagement(
+        "notebooklm",
+        lambda timeout: NotebookLMAdapter("notebooklm", timeout=timeout),
+    )
+
+    with pytest.raises(RuntimeError, match="operation is not active"):
+        manager._run(["auth", "check"], timeout=10)
+
+
+def test_management_run_returns_none_after_active_cancellation() -> None:
+    manager = NotebookLMManagement(
+        "notebooklm",
+        lambda timeout: NotebookLMAdapter("notebooklm", timeout=timeout),
+    )
+    process = MagicMock()
+    process.returncode = 0
+    process.poll.return_value = 0
+
+    def cancel_during_communication(
+        *, timeout: float | None
+    ) -> tuple[str, str]:
+        manager.cancel_active()
+        return "", ""
+
+    process.communicate.side_effect = cancel_during_communication
+    with (
+        patch(
+            "flashcards_generator.integrations.notebooklm.management.subprocess.Popen",
+            return_value=process,
+        ),
+        manager._operation(),
+    ):
+        assert manager._run(["auth", "check"], timeout=10) is None
+
+
+def test_stop_process_escalates_when_the_process_group_does_not_exit() -> None:
+    process = MagicMock()
+    process.pid = 4321
+    process.poll.return_value = None
+    process.wait.side_effect = [
+        subprocess.TimeoutExpired("notebooklm", 5),
+        None,
+    ]
+
+    with patch(
+        "flashcards_generator.integrations.notebooklm.management.os.killpg"
+    ) as killpg:
+        NotebookLMManagement._stop_process(process)
+
+    assert [call.args for call in killpg.call_args_list] == [
+        (process.pid, signal.SIGTERM),
+        (process.pid, signal.SIGKILL),
+    ]
+    assert process.wait.call_count == 2
+
+
+def test_signal_process_ignores_a_disappeared_process_leader() -> None:
+    process = MagicMock()
+    process.terminate.side_effect = ProcessLookupError
+
+    with patch(
+        "flashcards_generator.integrations.notebooklm.management.os.killpg",
+        side_effect=PermissionError,
+    ):
+        NotebookLMManagement._signal_process(
+            process, signal.SIGTERM, process.terminate
+        )
+
+    process.terminate.assert_called_once_with()
+
+
+def test_create_workflows_wires_default_factories_and_adapters(
+    tmp_path: Path,
+) -> None:
+    deck = Deck(name="Biology", flashcards=[Flashcard(front="Q", back="A")])
+    use_case = FakeUseCase([deck], output_name="biology.csv")
+    adapter = NotebookLMAdapter("notebooklm")
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    with (
+        patch(
+            "flashcards_generator.delivery.composition.find_notebooklm",
+            return_value="notebooklm",
+        ),
+        patch(
+            "flashcards_generator.delivery.composition.NotebookLMAdapter",
+            return_value=adapter,
+        ) as create_adapter,
+        patch(
+            "flashcards_generator.delivery.composition.GenerateFlashcardsUseCase",
+            return_value=use_case,
+        ) as create_use_case,
+    ):
+        workflows = create_workflows(
+            notebooklm_profile="study",
+            notebooklm_home=tmp_path / "profile",
+        )
+        request = GenerateFlashcardsRequest(
+            input_dir=tmp_path,
+            output_dir=output_dir,
+            language="",
+            timeout=75,
+        )
+        outcome = workflows.generate(
+            request, RecordingReporter(), CancellationToken()
+        )
+
+    assert outcome.decks == (deck,)
+    create_adapter.assert_called_once_with(
+        "notebooklm",
+        timeout=75,
+        profile="study",
+        notebooklm_home=tmp_path / "profile",
+    )
+    assert create_use_case.call_args.kwargs["generator"] is adapter
+
+    source_dir = tmp_path / "merge"
+    source_dir.mkdir()
+    (source_dir / "source.csv").write_text('"Q","A"\n', encoding="utf-8")
+    merged = workflows.merge(MergeCsvRequest(folder_path=source_dir))
+    assert merged.rows_written == 1
+    assert (source_dir / "merged_flashcards.csv").is_file()
+
+    exporter = FakeAnkiExporter()
+    with patch(
+        "flashcards_generator.delivery.composition.AnkiConnectAdapter",
+        return_value=exporter,
+    ):
+        assert (
+            workflows.export_to_anki(
+                [deck], AnkiExportOptions(deck_name="Study")
+            )
+            == 1
+        )
+    assert exporter.decks == [deck]
 
 
 def test_login_does_not_follow_cancelled_successful_login() -> None:
@@ -491,3 +845,16 @@ def test_anki_export_uses_port_and_preserves_cards() -> None:
 
     assert imported == 2
     assert exporter.decks == decks
+
+
+def test_anki_export_requires_a_configured_exporter() -> None:
+    deck = Deck(name="Study", flashcards=[Flashcard(front="Q", back="A")])
+    cards_before = list(deck.flashcards)
+
+    with pytest.raises(RuntimeError, match="^Anki export is not configured$"):
+        _facade().export_to_anki(
+            [deck],
+            AnkiExportOptions(deck_name="Study"),
+        )
+
+    assert deck.flashcards == cards_before

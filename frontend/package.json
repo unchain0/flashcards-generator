@@ -1,0 +1,25 @@
+{
+  "name": "flashcards-generator-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev --host 127.0.0.1",
+    "build": "vp build",
+    "check": "vp check && tsc --noEmit",
+    "test": "vp test run --coverage",
+    "e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "^24.13.6",
+    "@vitest/coverage-v8": "^4.1.11",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.9.3",
+    "vite-plus": "0.3.3"
+  },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "packageManager": "pnpm@12.5.1"
+}

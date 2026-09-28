@@ -1,10 +1,15 @@
 """Tests for NotebookLM adapter list and delete methods."""
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
-from flashcards_generator.adapters.notebooklm_adapter import NotebookLMAdapter
+from flashcards_generator.integrations.notebooklm.catalog import (
+    parse_notebook_datetime,
+)
+from flashcards_generator.integrations.notebooklm.gateway import (
+    NotebookLMAdapter,
+)
 
 
 class TestNotebookLMAdapterList:
@@ -32,7 +37,7 @@ class TestNotebookLMAdapterList:
         """Test listing notebooks with days filter."""
         adapter = NotebookLMAdapter("notebooklm")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         recent = now.replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
         old = (
             (now - timedelta(days=10))
@@ -135,14 +140,10 @@ class TestNotebookLMAdapterList:
 
 
 class TestNotebookLMAdapterParseDatetime:
-    """Test _parse_datetime method."""
-
     def test_parse_datetime_iso_format(self):
         """Test parsing ISO format datetime."""
-        adapter = NotebookLMAdapter("notebooklm")
-
         dt_str = "2024-01-15T10:30:00Z"
-        result = adapter._parse_datetime(dt_str)
+        result = parse_notebook_datetime(dt_str)
 
         assert result is not None
         assert result.year == 2024
@@ -151,40 +152,32 @@ class TestNotebookLMAdapterParseDatetime:
 
     def test_parse_datetime_with_microseconds(self):
         """Test parsing datetime with microseconds."""
-        adapter = NotebookLMAdapter("notebooklm")
-
         dt_str = "2024-01-15T10:30:00.123456Z"
-        result = adapter._parse_datetime(dt_str)
+        result = parse_notebook_datetime(dt_str)
 
         assert result is not None
         assert result.year == 2024
 
     def test_parse_datetime_space_format(self):
         """Test parsing space-separated datetime."""
-        adapter = NotebookLMAdapter("notebooklm")
-
         dt_str = "2024-01-15 10:30:00"
-        result = adapter._parse_datetime(dt_str)
+        result = parse_notebook_datetime(dt_str)
 
         assert result is not None
         assert result.year == 2024
 
     def test_parse_datetime_date_only(self):
         """Test parsing date-only format."""
-        adapter = NotebookLMAdapter("notebooklm")
-
         dt_str = "2024-01-15"
-        result = adapter._parse_datetime(dt_str)
+        result = parse_notebook_datetime(dt_str)
 
         assert result is not None
         assert result.year == 2024
 
     def test_parse_datetime_iso_no_timezone(self):
         """Test parsing ISO format without timezone (NotebookLM CLI format)."""
-        adapter = NotebookLMAdapter("notebooklm")
-
         dt_str = "2024-01-15T10:30:00"
-        result = adapter._parse_datetime(dt_str)
+        result = parse_notebook_datetime(dt_str)
 
         assert result is not None and (
             result.year,
@@ -196,10 +189,8 @@ class TestNotebookLMAdapterParseDatetime:
 
     def test_parse_datetime_invalid(self):
         """Test parsing invalid datetime."""
-        adapter = NotebookLMAdapter("notebooklm")
-
         dt_str = "not a date"
-        result = adapter._parse_datetime(dt_str)
+        result = parse_notebook_datetime(dt_str)
 
         assert result is None
 

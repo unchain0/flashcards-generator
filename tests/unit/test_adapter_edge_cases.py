@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from flashcards_generator.adapters.notebooklm_adapter import (
+from flashcards_generator.integrations.notebooklm.gateway import (
     GenerationConfig,
     NotebookLMAdapter,
 )
@@ -97,7 +97,9 @@ class TestNotebookLMAdapterEdgeCases:
         with patch.object(
             adapter, "_run_command", return_value=(0, "null", "")
         ):
-            from flashcards_generator.domain.exceptions import GenerationError
+            from flashcards_generator.domain_models.exceptions import (
+                GenerationError,
+            )
 
             with pytest.raises(GenerationError, match="response"):
                 adapter.create_notebook("notebook")
@@ -118,7 +120,7 @@ class TestNotebookLMAdapterEdgeCases:
                 adapter, "_run_command", return_value=(0, "SECRET_123", "")
             ),
             patch(
-                "flashcards_generator.adapters.notebooklm_adapter.logger"
+                "flashcards_generator.integrations.notebooklm.gateway.logger"
             ) as mock_logger,
         ):
             adapter._execute_with_retry(
@@ -130,12 +132,16 @@ class TestNotebookLMAdapterEdgeCases:
         assert any("operation=generate" in message for message in messages)
         assert any("status=0" in message for message in messages)
 
-    @patch("flashcards_generator.adapters.notebooklm_adapter.time.sleep")
-    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    @patch(
+        "flashcards_generator.integrations.notebooklm.process_runner.time.sleep"
+    )
+    @patch(
+        "flashcards_generator.integrations.notebooklm.process_runner.subprocess.Popen"
+    )
     def test_download_does_not_retry_permanent_auth_failure(
         self, mock_popen_class, mock_sleep
     ):
-        from flashcards_generator.domain.exceptions import (
+        from flashcards_generator.domain_models.exceptions import (
             ArtifactDownloadError,
         )
 
@@ -153,8 +159,12 @@ class TestNotebookLMAdapterEdgeCases:
         assert mock_popen_class.call_count == 1
         mock_sleep.assert_not_called()
 
-    @patch("flashcards_generator.adapters.notebooklm_adapter.time.sleep")
-    @patch("flashcards_generator.adapters.notebooklm_adapter.subprocess.Popen")
+    @patch(
+        "flashcards_generator.integrations.notebooklm.process_runner.time.sleep"
+    )
+    @patch(
+        "flashcards_generator.integrations.notebooklm.process_runner.subprocess.Popen"
+    )
     def test_generation_does_not_retry_success_with_warning_stderr(
         self, mock_popen_class, mock_sleep
     ):

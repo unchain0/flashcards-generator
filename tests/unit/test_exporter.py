@@ -1,8 +1,8 @@
 import csv
 import json
 
-from flashcards_generator.application.exporter import DeckExporter
-from flashcards_generator.domain.entities import Deck, Flashcard
+from flashcards_generator.domain_models.entities import Deck, Flashcard
+from flashcards_generator.services.exporter import DeckExporter
 
 
 class TestDeckExporter:
@@ -17,6 +17,7 @@ class TestDeckExporter:
 
     def test_export_csv(self, deck_with_cards, tmp_path):
         output_path = tmp_path / "test.csv"
+        output_path.write_bytes(b"previous export\n")
         DeckExporter.export_csv(deck_with_cards, output_path)
 
         with open(output_path, newline="", encoding="utf-8") as f:
@@ -26,6 +27,39 @@ class TestDeckExporter:
             ["Qual é a capital da França?", "Paris"],
             ["Quando foi a Revolução Francesa?", "1789"],
         ]
+
+    def test_export_csv_preserves_unicode_delimiters_and_math(self, tmp_path):
+        front = 'Qual é o valor de "x, y"?\nUse $x^2$.'
+        back = 'A resposta inclui café, "aspas" e duas linhas.\nFim.'
+        deck = Deck(
+            name="Matemática",
+            flashcards=[Flashcard(front=front, back=back)],
+        )
+        output_path = tmp_path / "math.csv"
+
+        DeckExporter.export_csv(deck, output_path)
+
+        with output_path.open(encoding="utf-8", newline="") as file_obj:
+            rows = list(csv.reader(file_obj))
+
+        assert rows == [
+            [
+                'Qual é o valor de "x, y"?\nUse \\(x^2\\).',
+                back,
+            ]
+        ]
+
+    def test_export_csv_accepts_empty_deck_and_replaces_existing_file(
+        self, tmp_path
+    ):
+        output_path = tmp_path / "empty.csv"
+        output_path.write_bytes(b"previous export\n")
+        deck = Deck(name="Empty", flashcards=[])
+
+        DeckExporter.export_csv(deck, output_path)
+
+        assert output_path.exists()
+        assert output_path.read_bytes() == b""
 
     def test_export_anki(self, deck_with_cards, tmp_path):
         output_path = tmp_path / "test.txt"

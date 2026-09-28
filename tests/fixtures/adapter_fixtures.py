@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from flashcards_generator.domain.entities import Flashcard
-from flashcards_generator.domain.exceptions import SourceProcessingError
-from flashcards_generator.domain.ports.flashcard_generator import (
+from flashcards_generator.domain_models.entities import Flashcard
+from flashcards_generator.domain_models.exceptions import SourceProcessingError
+from flashcards_generator.services.ports.flashcard_generator import (
     FlashcardGeneratorPort,
     GenerationConfig,
 )

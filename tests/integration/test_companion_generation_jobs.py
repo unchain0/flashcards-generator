@@ -111,6 +111,31 @@ async def test_generation_manager_enforces_pending_limit(
     jobs.close()
 
 
+async def test_generation_route_reports_pending_limit(
+    companion: tuple[AsyncTestClient[Litestar], WorkflowStub],
+) -> None:
+    client, _workflow = companion
+    jobs = client.app.state.jobs
+    pending = [
+        jobs._new_job(USER_ID, [f"lesson-{index}.pdf"], GenerationOptions())
+        for index in range(MAX_PENDING_JOBS)
+    ]
+
+    response = await client.post(
+        "/v1/jobs",
+        headers=auth_headers(),
+        files=[("files", ("next.pdf", b"%PDF-1.7", "application/pdf"))],
+    )
+
+    assert len(pending) == MAX_PENDING_JOBS
+    assert response.status_code == 429
+    assert (
+        response.json()["detail"]
+        == "Aguarde uma geração local terminar antes de enviar outra."
+    )
+    jobs.close()
+
+
 async def test_generation_manager_rejects_when_all_retained_jobs_are_pending(
     companion: tuple[AsyncTestClient[Litestar], WorkflowStub],
     monkeypatch: pytest.MonkeyPatch,
@@ -130,6 +155,30 @@ async def test_generation_manager_rejects_when_all_retained_jobs_are_pending(
     jobs.close()
 
 
+async def test_generation_route_reports_retained_limit(
+    companion: tuple[AsyncTestClient[Litestar], WorkflowStub],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, _workflow = companion
+    jobs = client.app.state.jobs
+    monkeypatch.setattr(job_service, "MAX_PENDING_JOBS", MAX_RETAINED_JOBS + 1)
+    retained = [
+        jobs._new_job(USER_ID, [f"lesson-{index}.pdf"], GenerationOptions())
+        for index in range(MAX_RETAINED_JOBS)
+    ]
+
+    response = await client.post(
+        "/v1/jobs",
+        headers=auth_headers(),
+        files=[("files", ("next.pdf", b"%PDF-1.7", "application/pdf"))],
+    )
+
+    assert len(retained) == MAX_RETAINED_JOBS
+    assert response.status_code == 429
+    assert response.json()["detail"] == "Limite de gerações atingido."
+    jobs.close()
+
+
 async def test_generation_manager_marks_a_pre_cancelled_job_terminal(
     companion: tuple[AsyncTestClient[Litestar], WorkflowStub],
 ) -> None:
@@ -141,6 +190,35 @@ async def test_generation_manager_marks_a_pre_cancelled_job_terminal(
     jobs._run(job)
 
     assert jobs.get(USER_ID, job.id).status == "cancelled"
+    jobs.close()
+
+
+async def test_generation_manager_marks_an_unexpected_failure_terminal(
+    companion: tuple[AsyncTestClient[Litestar], WorkflowStub],
+) -> None:
+    client, workflow = companion
+    jobs = client.app.state.jobs
+
+    def unexpected_failure(
+        _request: GenerateFlashcardsRequest,
+        _reporter: ProgressReporter,
+        _token: CancellationToken,
+    ) -> GenerationOutcome:
+        raise TypeError("unexpected generation failure")
+
+    workflow.generate_operation = unexpected_failure
+    job = jobs._new_job(USER_ID, ["lesson.pdf"], GenerationOptions())
+    workspace = Path(job.workspace.name)
+
+    with pytest.raises(TypeError, match="unexpected generation failure"):
+        jobs._run(job)
+
+    snapshot = jobs.get(USER_ID, job.id)
+    assert snapshot is not None
+    assert snapshot.status == "failed"
+    assert snapshot.message == "A geração falhou por um erro interno local."
+    assert snapshot.error == "Falha interna local."
+    assert not workspace.exists()
     jobs.close()
 
 

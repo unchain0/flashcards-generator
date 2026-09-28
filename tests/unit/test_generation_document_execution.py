@@ -1,5 +1,6 @@
 from contextlib import nullcontext
 from pathlib import Path
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -224,6 +225,26 @@ def test_document_module_honors_typed_context_skip_contract(
 
     assert result is None
     assert context.calls == ["exists"]
+
+
+def test_pdf_processing_rejects_an_unexpected_error_type(
+    mock_generator,
+) -> None:
+    context = RecordingDocumentContext(
+        output_exists=False, generator=mock_generator()
+    )
+    unexpected_error = cast(
+        GenerationError | OSError | ValueError | RuntimeError,
+        KeyError("unexpected"),
+    )
+
+    with pytest.raises(AssertionError):
+        generation_document_execution.log_pdf_processing_error(
+            context,
+            unexpected_error,
+        )
+
+    assert context._last_pdf_had_error
 
 
 def test_pdf_processing_skips_a_resume_lock_owned_by_another_worker(

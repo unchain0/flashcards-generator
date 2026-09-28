@@ -14,7 +14,10 @@ from flashcards_generator.delivery.composition import (
     create_workflows,
 )
 from flashcards_generator.domain_models.entities import Deck, Flashcard
-from flashcards_generator.domain_models.exceptions import OperationCancelled
+from flashcards_generator.domain_models.exceptions import (
+    LanguageConfigurationError,
+    OperationCancelled,
+)
 from flashcards_generator.integrations.notebooklm.gateway import (
     NotebookLMAdapter,
 )
@@ -260,10 +263,12 @@ def test_generate_stops_when_language_configuration_fails(
     reporter = RecordingReporter()
 
     with pytest.raises(
-        RuntimeError, match="^Unable to set NotebookLM output language$"
-    ):
+        LanguageConfigurationError,
+        match=("^Unable to set NotebookLM output language: en_US$"),
+    ) as error:
         facade.generate(request, reporter, CancellationToken())
 
+    assert error.value.language == "en_US"
     assert notebooklm.language_calls == ["en_US"]
     assert generation.call is None
     assert reporter.events == []

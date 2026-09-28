@@ -12,6 +12,14 @@ class FlashcardsGeneratorError(Exception):
     """Base exception for all domain errors."""
 
 
+class LanguageConfigurationError(RuntimeError, FlashcardsGeneratorError):
+    def __init__(self, language: str) -> None:
+        self.language = language
+        super().__init__(
+            f"Unable to set NotebookLM output language: {language}"
+        )
+
+
 class OperationCancelled(FlashcardsGeneratorError):
     """Raised when a cooperative application operation is cancelled."""
 

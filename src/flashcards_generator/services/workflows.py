@@ -6,6 +6,9 @@ from collections.abc import Callable, Sequence
 from typing import Protocol
 
 from flashcards_generator.domain_models.entities import Deck
+from flashcards_generator.domain_models.exceptions import (
+    LanguageConfigurationError,
+)
 from flashcards_generator.services.contracts import (
     CancellationToken,
     GenerationOutcome,
@@ -96,7 +99,7 @@ class ApplicationWorkflows:
         if request.language.strip() and not self.set_language(
             request.language
         ):
-            raise RuntimeError("Unable to set NotebookLM output language")
+            raise LanguageConfigurationError(request.language)
         return self._generation.generate(request, reporter, token)
 
     def merge(self, request: MergeCsvRequest) -> MergeOutcome:

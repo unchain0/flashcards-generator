@@ -18,6 +18,7 @@ repos:
         description: Ensure files end with a newline
       - id: check-yaml
         description: Validate YAML syntax
+        exclude: ^frontend/pnpm-lock\.yaml$
       - id: check-json
         description: Validate JSON syntax
       - id: check-toml

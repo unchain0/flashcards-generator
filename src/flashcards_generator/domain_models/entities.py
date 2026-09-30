@@ -38,6 +38,7 @@ class ChunkResumeManifest(BaseModel):
     source_signature: str
     deck_name: str
     total_chunks: int
+    single_cloze: bool
     chunks: list[ChunkState] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime

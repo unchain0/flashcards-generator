@@ -17,6 +17,8 @@ from flashcards_generator.services.ports.flashcard_generator import (
     GenerationConfig,
 )
 
+pytestmark = pytest.mark.usefixtures("mock_bounded_process_output")
+
 
 def mock_popen(returncode=0, stdout="", stderr=""):
     """Helper to create mock Popen object."""
@@ -415,7 +417,10 @@ class TestNotebookLMAdapter:
 
         mock_process.terminate.assert_called_once()
         mock_process.kill.assert_called_once()
-        assert mock_process.wait.call_args_list == [call(timeout=5), call()]
+        assert mock_process.wait.call_args_list == [
+            call(timeout=5),
+            call(timeout=5),
+        ]
 
     @patch(
         "flashcards_generator.integrations.notebooklm.process_runner.subprocess.Popen"
@@ -437,7 +442,10 @@ class TestNotebookLMAdapter:
 
         mock_process.terminate.assert_called_once()
         mock_process.kill.assert_called_once()
-        assert mock_process.wait.call_args_list == [call(timeout=5), call()]
+        assert mock_process.wait.call_args_list == [
+            call(timeout=5),
+            call(timeout=5),
+        ]
 
     @patch(
         "flashcards_generator.integrations.notebooklm.process_runner.subprocess.Popen"

@@ -10,6 +10,8 @@ from flashcards_generator.integrations.notebooklm.process_runner import (
 )
 from flashcards_generator.services.contracts import CancellationToken
 
+pytestmark = pytest.mark.usefixtures("mock_bounded_process_output")
+
 
 def test_command_token_obeys_cancellation_flags() -> None:
     runner = NotebookLMProcessRunner()
@@ -459,7 +461,7 @@ def test_stop_process_escalates_term_to_kill() -> None:
         call(123, signal.SIGTERM),
         call(123, signal.SIGKILL),
     ]
-    assert process.wait.call_args_list == [call(timeout=5), call()]
+    assert process.wait.call_args_list == [call(timeout=5), call(timeout=5)]
 
 
 @pytest.mark.parametrize(

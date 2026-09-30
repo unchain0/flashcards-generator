@@ -222,18 +222,21 @@ class ClozeConverter:
         "left",
     }
 
-    def convert(self, flashcard: Flashcard) -> Flashcard | None:
+    def convert(
+        self, flashcard: Flashcard, *, single_cloze: bool = False
+    ) -> Flashcard | None:
         """Convert a flashcard to cloze deletion format."""
         question = self._clean(flashcard.front)
         answer = self._clean(flashcard.back)
 
         if "{{c" in question:
-            front = convert_to_anki_math_format(question)
-            if not self._is_quality_valid(front):
-                return None
-            return Flashcard(front=front, back=answer, tags=flashcard.tags)
+            return self._convert_existing_cloze(
+                flashcard, question, answer, single_cloze
+            )
 
         cloze_text = self._create_cloze(question, answer, 1)
+        if single_cloze:
+            cloze_text = self._limit_to_single_cloze(cloze_text)
 
         if not self._is_quality_valid(cloze_text):
             return None
@@ -241,6 +244,34 @@ class ClozeConverter:
         return Flashcard(
             front=cloze_text, back=flashcard.back, tags=flashcard.tags
         )
+
+    def _convert_existing_cloze(
+        self,
+        flashcard: Flashcard,
+        question: str,
+        answer: str,
+        single_cloze: bool,
+    ) -> Flashcard | None:
+        if single_cloze:
+            question = self._limit_to_single_cloze(question)
+        front = convert_to_anki_math_format(question)
+        if not self._is_quality_valid(front):
+            return None
+        return Flashcard(front=front, back=answer, tags=flashcard.tags)
+
+    def _limit_to_single_cloze(self, text: str) -> str:
+        retained = False
+
+        def replace(match: re.Match[str]) -> str:
+            nonlocal retained
+            content = match.group(1)
+            answer = content.partition("::")[0]
+            if not retained and self._has_meaningful_cloze_content(answer):
+                retained = True
+                return f"{{{{c1::{content}}}}}"
+            return answer
+
+        return self.CLOZE_PATTERN.sub(replace, text)
 
     def _is_quality_valid(self, cloze_text: str) -> bool:
         if len(cloze_text) < 10:

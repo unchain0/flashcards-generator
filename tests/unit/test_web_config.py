@@ -40,6 +40,7 @@ def test_production_rejects_each_secret_below_32_characters(
     with pytest.raises(ValidationError) as error:
         WebSettings(
             environment="production",
+            database_url="postgresql+asyncpg://test:test@localhost/flashcards",
             session_secret=secrets["session_secret"],
             auth_lookup_secret=secrets["auth_lookup_secret"],
             auto_create_schema=False,
@@ -56,6 +57,7 @@ def test_production_accepts_secrets_at_exactly_32_characters() -> None:
 
     settings = WebSettings(
         environment="production",
+        database_url="postgresql+asyncpg://test:test@localhost/flashcards",
         session_secret=SecretStr(session_secret),
         auth_lookup_secret=SecretStr(lookup_secret),
         auto_create_schema=False,
@@ -64,3 +66,52 @@ def test_production_accepts_secrets_at_exactly_32_characters() -> None:
 
     assert settings.session_secret.get_secret_value() == session_secret
     assert settings.auth_lookup_secret.get_secret_value() == lookup_secret
+
+
+def test_production_rejects_reused_secrets() -> None:
+    with pytest.raises(ValidationError, match="must differ in production"):
+        WebSettings(
+            environment="production",
+            database_url="postgresql+asyncpg://test:test@localhost/flashcards",
+            session_secret=SecretStr("s" * 32),
+            auth_lookup_secret=SecretStr("s" * 32),
+            auto_create_schema=False,
+            _env_file=None,
+        )
+
+
+@pytest.mark.parametrize(
+    "database_url",
+    [
+        "sqlite+aiosqlite:///:memory:",
+        "postgresql://test:test@localhost/flashcards",
+        "postgresql+psycopg://test:test@localhost/flashcards",
+        "mysql+asyncmy://test:test@localhost/flashcards",
+        "postgresql+asyncpg-invalid://test:test@localhost/flashcards",
+        "postgresql+asyncpg",
+        "",
+    ],
+)
+def test_production_rejects_unsupported_database_drivers(
+    database_url: str,
+) -> None:
+    with pytest.raises(ValidationError, match="FLASHCARDS_DATABASE_URL"):
+        WebSettings(
+            environment="production",
+            database_url=database_url,
+            session_secret=SecretStr("s" * 32),
+            auth_lookup_secret=SecretStr("l" * 32),
+            auto_create_schema=False,
+            _env_file=None,
+        )
+
+
+def test_production_rejects_the_default_database() -> None:
+    with pytest.raises(ValidationError, match="FLASHCARDS_DATABASE_URL"):
+        WebSettings(
+            environment="production",
+            session_secret=SecretStr("s" * 32),
+            auth_lookup_secret=SecretStr("l" * 32),
+            auto_create_schema=False,
+            _env_file=None,
+        )

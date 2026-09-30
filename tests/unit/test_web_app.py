@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from litestar import Litestar
 
-from flashcards_generator.delivery.web.app import create_app
+from flashcards_generator.delivery.web.app import create_app, stop_database
 from flashcards_generator.delivery.web.config import WebSettings
 
 
@@ -56,3 +56,12 @@ def test_create_app_accepts_a_frontend_distribution(tmp_path: Path) -> None:
 
     assert isinstance(app, Litestar)
     assert app.state.settings is settings
+
+
+@pytest.mark.asyncio
+async def test_database_shutdown_before_startup_is_safe() -> None:
+    app = Litestar()
+
+    await stop_database(app)
+
+    assert not hasattr(app.state, "database")

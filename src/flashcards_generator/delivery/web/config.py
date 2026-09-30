@@ -48,6 +48,11 @@ class WebSettings(BaseSettings):
             raise ValueError(
                 "FLASHCARDS_AUTO_CREATE_SCHEMA must be false in production"
             )
+        if not self.database_url.startswith("postgresql+asyncpg://"):
+            raise ValueError(
+                "FLASHCARDS_DATABASE_URL must use postgresql+asyncpg:// "
+                "in production"
+            )
         return self
 
     def _validate_production_secrets(self) -> None:
@@ -64,6 +69,11 @@ class WebSettings(BaseSettings):
                 raise ValueError(
                     f"{env_name} must have at least 32 characters"
                 )
+        if self.session_secret == self.auth_lookup_secret:
+            raise ValueError(
+                "FLASHCARDS_SESSION_SECRET and FLASHCARDS_AUTH_LOOKUP_SECRET "
+                "must differ in production"
+            )
 
 
 @lru_cache(maxsize=1)

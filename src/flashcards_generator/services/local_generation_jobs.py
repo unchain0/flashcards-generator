@@ -177,6 +177,7 @@ class LocalGenerationJobs:
                 quantity=options.quantity,
                 language=options.language,
                 instructions=options.instructions,
+                single_cloze=options.single_cloze,
                 timeout=options.timeout,
                 resume=True,
                 explicit_files=filenames,

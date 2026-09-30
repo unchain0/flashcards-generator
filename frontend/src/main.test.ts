@@ -18,6 +18,7 @@ function pageMarkup(): string {
         <fieldset id="generation-fields" disabled>
           <legend id="generation-legend"></legend>
           <input id="files" name="files" type="file" required>
+          <input id="language" name="language" value="pt_BR" required>
           <select id="study-profile" name="study_profile">
             <option value="general" selected>Geração geral</option>
             <option value="english-context">Inglês em contexto</option>
@@ -249,9 +250,12 @@ describe("web entry point", () => {
     const generationForm = document.querySelector<HTMLFormElement>("#generation-form");
     const instructions = document.querySelector<HTMLTextAreaElement>("#instructions");
     const studyProfile = document.querySelector<HTMLSelectElement>("#study-profile");
-    if (!generationForm || !instructions || !studyProfile) {
+    const language = document.querySelector<HTMLInputElement>("#language");
+    if (!generationForm || !instructions || !studyProfile || !language) {
       throw new Error("Configurações da geração ausentes");
     }
+    language.value = "pt_PT";
+    expect(language.disabled).toBe(false);
     instructions.value = "Use linguagem simples.";
     generationForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     await vi.waitFor(() => {
@@ -260,35 +264,48 @@ describe("web entry point", () => {
     expect(submittedForms).toHaveLength(1);
     expect(submittedForms[0]?.get("instructions")).toBe("Use linguagem simples.");
     expect(submittedForms[0]?.has("study_profile")).toBe(false);
+    expect(submittedForms[0]?.has("single_cloze")).toBe(false);
 
     studyProfile.value = "english-context";
+    studyProfile.dispatchEvent(new Event("change"));
+    expect(language.disabled).toBe(true);
+    expect(language.value).toBe("pt_PT");
+    studyProfile.dispatchEvent(new Event("change"));
+    expect(language.disabled).toBe(true);
+    expect(language.value).toBe("pt_PT");
     instructions.value = "Sou intermediário e já conheço as palavras mais comuns.";
     generationForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     await vi.waitFor(() => {
       expect(submittedForms).toHaveLength(2);
     });
     expect(submittedForms[1]?.get("instructions")).toContain(
-      "frases completas e naturais em inglês",
-    );
-    expect(submittedForms[1]?.get("instructions")).toContain(
       "Sou intermediário e já conheço as palavras mais comuns.",
     );
+    expect(submittedForms[1]?.get("language")).toBe("en");
+    expect(submittedForms[1]?.get("single_cloze")).toBe("true");
     expect(submittedForms[1]?.has("study_profile")).toBe(false);
     const generateButton = document.querySelector<HTMLButtonElement>("#start-generation");
     await vi.waitFor(() => {
       expect(generateButton?.disabled).toBe(false);
     });
 
+    studyProfile.value = "general";
+    studyProfile.dispatchEvent(new Event("change"));
+    expect(language.disabled).toBe(false);
+    expect(language.value).toBe("pt_PT");
+
+    studyProfile.value = "english-context";
+    studyProfile.dispatchEvent(new Event("change"));
+
     instructions.value = "";
     generationForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     await vi.waitFor(() => {
       expect(submittedForms).toHaveLength(3);
     });
-    expect(submittedForms[2]?.get("instructions")).toContain(
-      "frases completas e naturais em inglês",
-    );
-    expect(submittedForms[2]?.get("instructions")).not.toContain(
-      "Instruções adicionais do usuário:",
+    const defaultEnglishInstructions = submittedForms[2]?.get("instructions");
+    expect(typeof defaultEnglishInstructions).toBe("string");
+    expect(defaultEnglishInstructions).not.toContain(
+      "Sou intermediário e já conheço as palavras mais comuns.",
     );
     await vi.waitFor(() => {
       expect(generateButton?.disabled).toBe(false);

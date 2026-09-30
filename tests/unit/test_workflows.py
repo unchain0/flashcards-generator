@@ -45,6 +45,8 @@ from flashcards_generator.services.dto.workflow import (
 )
 from flashcards_generator.services.workflows import ApplicationWorkflows
 
+pytestmark = pytest.mark.usefixtures("mock_bounded_process_output")
+
 
 class FakeGeneration:
     def __init__(self, outcome: GenerationOutcome) -> None:
@@ -330,6 +332,13 @@ def test_merge_returns_machine_readable_path_and_count(tmp_path: Path) -> None:
     assert outcome.duplicates_removed == 0
 
 
+def test_merge_requires_a_configured_operation(tmp_path: Path) -> None:
+    request = MergeCsvRequest(folder_path=tmp_path)
+
+    with pytest.raises(RuntimeError, match="^CSV merge is not configured$"):
+        _facade().merge(request)
+
+
 def test_auth_login_language_and_scoped_cleanup_delegate() -> None:
     notebooklm = FakeNotebookLM(authenticated=False)
     facade = _facade(notebooklm=notebooklm)
@@ -370,7 +379,7 @@ def test_notebooklm_management_maps_language_command_status(
     with patch.object(manager, "_run", return_value=result) as run:
         assert manager.set_language("pt_BR") is expected
 
-    run.assert_called_once_with(["language", "set", "pt_BR"], timeout=10)
+    run.assert_called_once_with(["language", "set", "pt_BR"], timeout=60)
 
 
 def test_notebooklm_management_maps_unavailable_and_failed_auth_commands() -> (
@@ -498,7 +507,7 @@ def test_management_run_translates_process_start_and_communication_failures() ->
             False, "unable to check authentication"
         )
 
-    process.wait.assert_called_once_with()
+    process.wait.assert_called_once_with(timeout=5)
 
 
 def test_management_run_rejects_calls_without_an_active_operation() -> None:

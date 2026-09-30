@@ -153,7 +153,7 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
                 data, "create notebook", "id", "notebook"
             )
             return notebook_id
-        except (RuntimeError, OSError, subprocess.TimeoutExpired) as error:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as error:
             raise GenerationError("", str(error)) from error
 
     def add_source(self, notebook_id: str, pdf_path: Path) -> str:
@@ -172,7 +172,7 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
             return self._extract_identifier(
                 data, "add source", "source_id", "source"
             )
-        except (RuntimeError, OSError, subprocess.TimeoutExpired) as error:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as error:
             raise SourceProcessingError(pdf_path, str(error)) from error
 
     def wait_for_source(
@@ -274,7 +274,7 @@ class NotebookLMAdapter(FlashcardGeneratorPort):
             returncode, stdout, stderr = self._execute_with_retry(
                 command, config.timeout_seconds
             )
-        except OSError, subprocess.TimeoutExpired:
+        except OSError, subprocess.SubprocessError:
             logger.error("NotebookLM generation failed before completion")
             return None
 

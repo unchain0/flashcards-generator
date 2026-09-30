@@ -154,6 +154,43 @@ class TestClozeConverter:
         assert result is not None
         assert "{{c" in result.front
 
+    def test_single_cloze_mode_keeps_first_meaningful_cloze(
+        self, cloze_converter
+    ):
+        card = Flashcard(
+            front=(
+                "{{c1::The}} transition uses "
+                "{{c2::renewable energy::target expression}} and "
+                "{{c3::solar power::second expression}}."
+            ),
+            back="A transição usa energia renovável e energia solar.",
+        )
+
+        result = cloze_converter.convert(card, single_cloze=True)
+
+        assert result is not None
+        assert result.front == (
+            "The transition uses "
+            "{{c1::renewable energy::target expression}} and solar power."
+        )
+
+    def test_single_cloze_mode_limits_generated_clozes(self, cloze_converter):
+        card = Flashcard(
+            front="Explain renewable energy",
+            back=(
+                "Solar energy is produced from sunlight. "
+                "Wind energy is produced by turbines."
+            ),
+        )
+
+        default = cloze_converter.convert(card)
+        limited = cloze_converter.convert(card, single_cloze=True)
+
+        assert default is not None
+        assert limited is not None
+        assert len(cloze_converter.CLOZE_PATTERN.findall(default.front)) == 2
+        assert len(cloze_converter.CLOZE_PATTERN.findall(limited.front)) == 1
+
     def test_convert_invalid_quality_short_text(self, cloze_converter):
         card = Flashcard(front="What?", back="X")
         result = cloze_converter.convert(card)
@@ -237,7 +274,7 @@ class TestClozeConverter:
 
     def test_convert_existing_cloze_invalid_quality(self, cloze_converter):
         card = Flashcard(front="{{c1::é}}", back="answer")
-        result = cloze_converter.convert(card)
+        result = cloze_converter.convert(card, single_cloze=True)
         assert result is None
 
     def test_is_quality_valid_trivial_word_in_cloze(self, cloze_converter):

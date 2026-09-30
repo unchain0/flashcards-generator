@@ -380,6 +380,7 @@ textarea {
 }
 
 .status-panel {
+  align-self: start;
   min-height: var(--status-panel-min-height);
 }
 

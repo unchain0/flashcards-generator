@@ -164,10 +164,10 @@ jobs:
           python-version-file: '.python-version'
 
       - name: Install dependencies
-        run: uv sync --all-extras --dev
+        run: uv sync --frozen --all-extras --dev
 
       - name: Run tests with coverage
-        run: uv run pytest --cov=flashcards_generator --cov-fail-under=100 --cov-report=xml:coverage.xml --cov-report=json:coverage.json --cov-report=term-missing -v
+        run: uv run --frozen pytest --cov=flashcards_generator --cov-branch --cov-fail-under=100 --cov-report=xml:coverage.xml --cov-report=json:coverage.json --cov-report=term-missing -v
 
       - name: Upload machine-readable coverage reports
         if: always()

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import signal
 import subprocess
+import sys
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -10,6 +11,10 @@ from threading import Lock
 
 from flashcards_generator.integrations.notebooklm.gateway import (
     NotebookLMAdapter,
+)
+from flashcards_generator.integrations.process_capture import (
+    close_process_pipes,
+    communicate_bounded,
 )
 from flashcards_generator.services.contracts import CancellationToken
 from flashcards_generator.services.dto.workflow import (
@@ -59,7 +64,7 @@ class NotebookLMManagement:
     def login(self) -> AuthStatus:
         """Run the NotebookLM login command and return the resulting status."""
         with self._operation() as token:
-            result = self._run(["login"], timeout=None)
+            result = self._run(["login"], timeout=300)
             if result is None:
                 if token.is_cancelled:
                     return AuthStatus(False, "login cancelled")
@@ -77,7 +82,7 @@ class NotebookLMManagement:
         if not language.strip():
             raise ValueError("language must not be empty")
         with self._operation():
-            result = self._run(["language", "set", language], timeout=10)
+            result = self._run(["language", "set", language], timeout=60)
             return result is not None and result.returncode == 0
 
     def cleanup(
@@ -117,7 +122,7 @@ class NotebookLMManagement:
         self,
         arguments: list[str],
         *,
-        timeout: float | None,
+        timeout: float,
     ) -> subprocess.CompletedProcess[str] | None:
         process: subprocess.Popen[str] | None = None
         unregister: Callable[[], None] = lambda: None
@@ -136,13 +141,13 @@ class NotebookLMManagement:
                 env=self._environment(),
             )
             unregister = token.register(lambda: self._stop_process(process))
-            stdout, stderr = process.communicate(timeout=timeout)
+            stdout, stderr = communicate_bounded(process, timeout=timeout)
         except OSError, subprocess.SubprocessError:
             if process is not None:
                 self._stop_process(process)
             return None
         finally:
-            unregister()
+            self._release_process(process, unregister)
         if token.is_cancelled:
             return None
         return subprocess.CompletedProcess(
@@ -151,6 +156,17 @@ class NotebookLMManagement:
             stdout,
             stderr,
         )
+
+    @staticmethod
+    def _release_process(
+        process: subprocess.Popen[str] | None,
+        unregister: Callable[[], None],
+    ) -> None:
+        try:
+            unregister()
+        finally:
+            if process is not None:
+                close_process_pipes(process, sys.exception())
 
     def _command(self, arguments: list[str]) -> list[str]:
         command = [self._executable]
@@ -185,7 +201,7 @@ class NotebookLMManagement:
     def _stop_process(process: subprocess.Popen[str]) -> None:
         """Terminate and reap one process group."""
         if process.poll() is not None:
-            process.wait()
+            process.wait(timeout=5)
             return
         NotebookLMManagement._signal_process(
             process, signal.SIGTERM, process.terminate
@@ -196,7 +212,7 @@ class NotebookLMManagement:
             NotebookLMManagement._signal_process(
                 process, signal.SIGKILL, process.kill
             )
-            process.wait()
+            process.wait(timeout=5)
 
     @staticmethod
     def _signal_process(

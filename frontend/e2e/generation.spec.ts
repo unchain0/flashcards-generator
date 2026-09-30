@@ -148,6 +148,14 @@ test("autentica, gera localmente e baixa o CSV pelo navegador", async ({ page },
 
   await expect(fileInput).toBeEnabled();
   await expect(generateButton).toBeDisabled();
+  const language = page.getByLabel("Idioma dos cartões");
+  await language.fill("pt_PT");
+  await page.getByLabel("Perfil de geração").selectOption("english-context");
+  await expect(language).toBeDisabled();
+  await expect(language).toHaveValue("pt_PT");
+  await page.getByLabel("Perfil de geração").selectOption("general");
+  await expect(language).toBeEnabled();
+  await expect(language).toHaveValue("pt_PT");
   await page.getByLabel("Perfil de geração").selectOption("english-context");
   await page
     .getByLabel("Instruções adicionais (opcional)")
@@ -167,8 +175,9 @@ test("autentica, gera localmente e baixa o CSV pelo navegador", async ({ page },
   await expect(page.locator("#job-status")).toHaveAttribute("data-status", "completed");
   await expect(page.getByRole("button", { name: "Baixar lesson.csv" })).toBeVisible();
   expect(uploadContentType).toContain("multipart/form-data; boundary=");
-  expect(generationPayload).toContain("frases completas e naturais em inglês");
   expect(generationPayload).toContain("Meu nível é iniciante; evite expressões que já conheço.");
+  expect(generationPayload).toMatch(/name="language"\r\n\r\nen\r\n/);
+  expect(generationPayload).toMatch(/name="single_cloze"\r\n\r\ntrue\r\n/);
   expect(generationPayload).not.toContain("study_profile");
   expect(remoteGenerationRequests).toEqual([]);
   expect(

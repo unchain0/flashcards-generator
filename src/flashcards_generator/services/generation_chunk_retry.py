@@ -98,19 +98,22 @@ def process_chunk_with_retry(
     context: ChunkRetryContext, task: _ChunkTask
 ) -> Deck | None:
     """Process a chunk with bounded exponential retry."""
-    delay_seconds = float(CHUNK_RETRY_INITIAL_DELAY)
     context._last_chunk_error_message = None
-
-    for attempt in range(1, CHUNK_RETRY_MAX_ATTEMPTS + 1):
+    attempt_result = context._process_chunk_attempt(
+        task, 1, float(CHUNK_RETRY_INITIAL_DELAY)
+    )
+    for attempt in range(2, CHUNK_RETRY_MAX_ATTEMPTS + 1):
+        if (
+            attempt_result.deck is not None
+            or attempt_result.next_delay_seconds is None
+        ):
+            break
         attempt_result = context._process_chunk_attempt(
-            task, attempt, delay_seconds
+            task, attempt, attempt_result.next_delay_seconds
         )
-        if attempt_result.deck is not None:
-            context._last_chunk_error_message = None
-            return attempt_result.deck
-        if attempt_result.next_delay_seconds is None:
-            return None
-        delay_seconds = attempt_result.next_delay_seconds
+    if attempt_result.deck is not None:
+        context._last_chunk_error_message = None
+    return attempt_result.deck
 
 
 def process_chunk_attempt(

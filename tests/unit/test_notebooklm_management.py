@@ -1,5 +1,7 @@
 import subprocess
-from unittest.mock import patch
+from unittest.mock import MagicMock, call, patch
+
+import pytest
 
 from flashcards_generator.integrations.notebooklm.gateway import (
     NotebookLMAdapter,
@@ -19,7 +21,7 @@ def test_login_reports_cancellation_when_command_start_fails() -> None:
     def cancel_then_fail_to_start(
         _arguments: list[str],
         *,
-        timeout: float | None,
+        timeout: float,
     ) -> subprocess.CompletedProcess[str] | None:
         manager.cancel_active()
         return None
@@ -41,4 +43,33 @@ def test_login_maps_successful_command() -> None:
     ) as run:
         assert manager.login() == AuthStatus(True, "authenticated")
 
-    run.assert_called_once_with(["login"], timeout=None)
+    run.assert_called_once_with(["login"], timeout=300)
+
+
+def test_cancelling_idle_manager_does_not_cancel_next_login() -> None:
+    manager = NotebookLMManagement(
+        "notebooklm",
+        lambda timeout: NotebookLMAdapter("notebooklm", timeout=timeout),
+    )
+    manager.cancel_active()
+
+    with patch.object(
+        manager,
+        "_run",
+        return_value=subprocess.CompletedProcess(["login"], 0, "", ""),
+    ):
+        assert manager.login().authenticated
+
+
+def test_process_cleanup_has_a_deadline_even_after_kill() -> None:
+    process = MagicMock()
+    process.poll.return_value = None
+    process.wait.side_effect = subprocess.TimeoutExpired("notebooklm", 5)
+
+    with (
+        patch.object(NotebookLMManagement, "_signal_process"),
+        pytest.raises(subprocess.TimeoutExpired),
+    ):
+        NotebookLMManagement._stop_process(process)
+
+    assert process.wait.call_args_list == [call(timeout=5), call(timeout=5)]

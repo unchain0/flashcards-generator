@@ -7,6 +7,9 @@ import tempfile
 from pathlib import Path
 
 from flashcards_generator.integrations.logging_config import get_logger
+from flashcards_generator.integrations.process_capture import (
+    communicate_bounded,
+)
 
 logger = get_logger("pdf_utils")
 
@@ -24,7 +27,8 @@ class PPTXConverter:
         try:
             result = subprocess.run(
                 ["soffice", "--version"],
-                capture_output=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
                 timeout=5,
                 check=False,
             )
@@ -73,7 +77,7 @@ class PPTXConverter:
         except subprocess.TimeoutExpired:
             logger.error(f"PPTX conversion timeout: {pptx_path.name}")
             return None
-        except OSError as e:
+        except (OSError, subprocess.SubprocessError, UnicodeError) as e:
             logger.error(f"PPTX conversion error: {e}")
             return None
 
@@ -105,9 +109,15 @@ class PPTXConverter:
             start_new_session=True,
         )
         try:
-            stdout, stderr = process.communicate(timeout=120)
-        except KeyboardInterrupt, subprocess.TimeoutExpired:
-            self._stop_process(process)
+            stdout, stderr = communicate_bounded(process, timeout=120)
+        except (Exception, KeyboardInterrupt) as error:
+            try:
+                self._stop_process(process)
+            except (OSError, subprocess.SubprocessError) as cleanup_error:
+                error.add_note(
+                    "PPTX process cleanup failed "
+                    f"({type(cleanup_error).__name__})."
+                )
             raise
 
         return subprocess.CompletedProcess(
@@ -121,10 +131,11 @@ class PPTXConverter:
         """Stop LibreOffice and reap its process group."""
         self._signal_process(process, signal.SIGTERM)
         try:
-            process.communicate(timeout=self.PROCESS_CLEANUP_TIMEOUT)
+            process.wait(timeout=self.PROCESS_CLEANUP_TIMEOUT)
         except subprocess.TimeoutExpired:
-            self._signal_process(process, signal.SIGKILL)
-            process.communicate(timeout=self.PROCESS_CLEANUP_TIMEOUT)
+            pass
+        self._signal_process(process, signal.SIGKILL)
+        process.wait(timeout=self.PROCESS_CLEANUP_TIMEOUT)
 
     @staticmethod
     def _signal_process(

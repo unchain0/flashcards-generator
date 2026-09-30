@@ -1,12 +1,17 @@
 """Tests for PDF utilities."""
 
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
+from pypdf import PdfReader, PdfWriter
 from pypdf.errors import EmptyFileError
 
-from flashcards_generator.integrations.pdf_utils import PDFChunker
+from flashcards_generator.integrations.pdf_utils import (
+    PDFChunker,
+    _ChapterAccumulator,
+)
 
 
 class TestPDFChunker:
@@ -106,8 +111,13 @@ class TestPDFChunker:
 
     @patch("pypdf.PdfReader")
     @patch("pypdf.PdfWriter")
+    @pytest.mark.parametrize("use_chapters", [True, False])
     def test_chunk_pdf_success(
-        self, mock_writer_class, mock_reader_class, tmp_path
+        self,
+        mock_writer_class,
+        mock_reader_class,
+        use_chapters,
+        tmp_path,
     ):
         chunker = PDFChunker(chunk_size=2, overlap_pages=0)
         chunker._has_pypdf = True
@@ -124,10 +134,31 @@ class TestPDFChunker:
         pdf_path.touch()
         output_dir = tmp_path / "output"
 
-        chunks = list(chunker.chunk_pdf(pdf_path, output_dir))
+        chunks = list(
+            chunker.chunk_pdf(pdf_path, output_dir, use_chapters=use_chapters)
+        )
 
         assert len(chunks) == 3
         assert mock_writer.add_page.call_count == 5
+
+    def test_duplicate_chapter_title_is_recorded_once(self) -> None:
+        source = PdfWriter()
+        source.add_blank_page(width=72, height=72)
+        source.add_blank_page(width=72, height=72)
+        stream = BytesIO()
+        source.write(stream)
+        stream.seek(0)
+        reader = PdfReader(stream)
+        accumulator = _ChapterAccumulator(PdfWriter())
+
+        PDFChunker._append_chapter(reader, accumulator, 0, 1, "Repeated", True)
+        PDFChunker._append_chapter(reader, accumulator, 1, 2, "Repeated", True)
+
+        assert accumulator.titles == ["Repeated"]
+        assert accumulator.relevant_titles == ["Repeated"]
+        assert accumulator.end == 2
+        assert accumulator.pages == 2
+        assert len(accumulator.writer.pages) == 2
 
     def test_cleanup_chunks(self, tmp_path):
         chunker = PDFChunker()

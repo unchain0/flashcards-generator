@@ -14,7 +14,6 @@ from flashcards_generator.services.contracts import (
     GenerationOutcome,
     ProgressReporter,
 )
-from flashcards_generator.services.csv_merger import CsvMerger
 from flashcards_generator.services.dto.generate_request import (
     GenerateFlashcardsRequest,
 )
@@ -81,7 +80,7 @@ class ApplicationWorkflows:
         generation: GenerationWorkflowPort,
         notebooklm: NotebookLMManagementPort,
         *,
-        merge_operation: MergeOperation = CsvMerger.merge_detailed,
+        merge_operation: MergeOperation | None = None,
         anki_exporter_factory: AnkiExporterFactory | None = None,
     ) -> None:
         self._generation = generation
@@ -104,6 +103,8 @@ class ApplicationWorkflows:
 
     def merge(self, request: MergeCsvRequest) -> MergeOutcome:
         """Merge CSV files and return both the path and row count."""
+        if self._merge_operation is None:
+            raise RuntimeError("CSV merge is not configured")
         result = self._merge_operation(request)
         details = (
             MergeDetails(result, result, 0)

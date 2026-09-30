@@ -1,11 +1,20 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 import pytest
 from litestar import Litestar
 from litestar.testing import AsyncTestClient
 
+from flashcards_generator.services.contracts import (
+    CancellationToken,
+    GenerationOutcome,
+    ProgressReporter,
+)
+from flashcards_generator.services.dto.generate_request import (
+    GenerateFlashcardsRequest,
+)
 from tests.integration.companion_generation_support import (
     WorkflowStub,
     auth_headers,
@@ -26,7 +35,17 @@ async def test_generation_stays_local_and_downloads_csv(
     tmp_path: Path,
 ) -> None:
     client, workflow = companion
-    workflow.generate_operation = successful_generation
+    requests: list[GenerateFlashcardsRequest] = []
+
+    def generate(
+        request: GenerateFlashcardsRequest,
+        reporter: ProgressReporter,
+        token: CancellationToken,
+    ) -> GenerationOutcome:
+        requests.append(request)
+        return successful_generation(request, reporter, token)
+
+    workflow.generate_operation = generate
 
     response = await client.post(
         "/v1/jobs",
@@ -37,6 +56,7 @@ async def test_generation_stays_local_and_downloads_csv(
             "quantity": "more",
             "timeout": "60",
             "instructions": "Use examples from the document.",
+            "single_cloze": "true",
         },
         files=[("files", ("../lesson.pdf", b"%PDF-1.7", "application/pdf"))],
     )
@@ -49,7 +69,10 @@ async def test_generation_stays_local_and_downloads_csv(
     assert job["status"] == "completed"
     assert job["discovered_sources"] == 1
     assert job["completed_sources"] == 1
-    artifact = job["artifacts"][0]
+    assert len(requests) == 1
+    assert requests[0].language == "en"
+    assert requests[0].single_cloze is True
+    artifact = cast(list[dict[str, str]], job["artifacts"])[0]
     downloaded = await client.get(artifact["url"], headers=auth_headers())
     assert downloaded.status_code == 200
     assert downloaded.content == b"Text,Extra\n{{c1::lesson}},review\n"
@@ -133,10 +156,17 @@ async def test_generation_rejects_malformed_form_fields(
             ("files", ("lesson.pdf", b"%PDF-1.7", "application/pdf")),
         ],
     )
+    invalid_single_cloze = await client.post(
+        "/v1/jobs",
+        headers=auth_headers(),
+        data={"single_cloze": "sometimes"},
+        files=[("files", ("lesson.pdf", b"%PDF-1.7", "application/pdf"))],
+    )
 
     assert plain_text_as_file.status_code == 400
     assert unknown_field.status_code == 400
     assert repeated_option.status_code == 400
+    assert invalid_single_cloze.status_code == 400
 
 
 async def test_companion_health_accepts_only_the_configured_origin(

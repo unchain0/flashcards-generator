@@ -2,7 +2,7 @@ import csv
 import json
 
 from flashcards_generator.domain_models.entities import Deck, Flashcard
-from flashcards_generator.services.exporter import DeckExporter
+from flashcards_generator.integrations.deck_exporter import DeckExporter
 
 
 class TestDeckExporter:

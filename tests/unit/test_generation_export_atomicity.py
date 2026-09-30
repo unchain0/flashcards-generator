@@ -8,10 +8,10 @@ import pytest
 from pypdf import PdfWriter
 
 from flashcards_generator.domain_models.entities import ChunkStatus
+from flashcards_generator.integrations import deck_exporter as exporter_module
 from flashcards_generator.integrations.chunk_state_repository import (
     FileSystemChunkStateRepository,
 )
-from flashcards_generator.services import exporter as exporter_module
 from flashcards_generator.services.contracts import (
     ProgressEvent,
     ProgressReporter,
@@ -94,9 +94,8 @@ def test_regular_generation_can_retry_after_csv_write_failure(
     )
     use_case = make_use_case(generator=generator)
     use_case.pdf_chunker.needs_chunking = MagicMock(return_value=False)
-    use_case.exporter.export_csv = MagicMock(
-        wraps=use_case.exporter.export_csv
-    )
+    export_csv = MagicMock(wraps=use_case.exporter.export_csv)
+    monkeypatch.setattr(use_case.exporter, "export_csv", export_csv)
     request = _build_request(input_dir, output_dir)
     reporter = RecordingReporter()
     original_convert = exporter_module.convert_to_anki_math_format
@@ -111,7 +110,7 @@ def test_regular_generation_can_retry_after_csv_write_failure(
 
     with monkeypatch.context() as patcher:
         patcher.setattr(
-            "flashcards_generator.services.exporter.convert_to_anki_math_format",
+            "flashcards_generator.integrations.deck_exporter.convert_to_anki_math_format",
             fail_after_first_row,
         )
         with pytest.raises(OSError, match="injected CSV write failure"):
@@ -138,7 +137,7 @@ def test_regular_generation_can_retry_after_csv_write_failure(
         [card.front, card.back] for card in result[0].flashcards
     ]
     assert generator.generate_flashcards.call_count == 2
-    assert use_case.exporter.export_csv.call_count == 2
+    assert export_csv.call_count == 2
     assert (
         sum(
             event.stage == ProgressStage.EXPORT
@@ -180,7 +179,7 @@ def test_resume_reuses_completed_chunks_after_final_csv_failure(
 
     with monkeypatch.context() as patcher:
         patcher.setattr(
-            "flashcards_generator.services.exporter.convert_to_anki_math_format",
+            "flashcards_generator.integrations.deck_exporter.convert_to_anki_math_format",
             fail_after_first_row,
         )
         with pytest.raises(OSError, match="injected CSV write failure"):
@@ -199,8 +198,9 @@ def test_resume_reuses_completed_chunks_after_final_csv_failure(
     resumed_use_case = _build_chunked_use_case(
         generator, repository, chunk_path
     )
-    resumed_use_case.exporter.export_csv = MagicMock(
-        wraps=resumed_use_case.exporter.export_csv
+    resumed_export_csv = MagicMock(wraps=resumed_use_case.exporter.export_csv)
+    monkeypatch.setattr(
+        resumed_use_case.exporter, "export_csv", resumed_export_csv
     )
     result = resumed_use_case.execute(request)
 
@@ -210,6 +210,6 @@ def test_resume_reuses_completed_chunks_after_final_csv_failure(
         [card.front, card.back] for card in result[0].flashcards
     ]
     assert generator.generate_flashcards.call_count == 1
-    resumed_use_case.exporter.export_csv.assert_called_once()
+    resumed_export_csv.assert_called_once()
     assert repository.load_manifest(state_path) is None
     assert not chunk_path.exists()

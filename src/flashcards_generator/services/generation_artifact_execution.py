@@ -60,6 +60,7 @@ class ArtifactExecutionContext(Protocol):
         output_path: Path,
         deck_name: str,
         pdf_stem: str = "",
+        single_cloze: bool = False,
     ) -> Deck: ...
 
     def _download_flashcards(
@@ -69,7 +70,10 @@ class ArtifactExecutionContext(Protocol):
     def _cleanup_raw_file(self, json_path: Path) -> None: ...
 
     def _convert_flashcards(
-        self, flashcards: list[Flashcard], deck_name: str
+        self,
+        flashcards: list[Flashcard],
+        deck_name: str,
+        single_cloze: bool = False,
     ) -> list[Flashcard]: ...
 
     def _build_deck(
@@ -77,6 +81,7 @@ class ArtifactExecutionContext(Protocol):
         notebook_id: str,
         deck_name: str,
         flashcards: list[Flashcard],
+        single_cloze: bool = False,
     ) -> Deck: ...
 
     def _delete_completed_notebook(self, notebook_id: str) -> None: ...
@@ -218,7 +223,12 @@ def handle_artifact_completion(
 
     if completed:
         return context._download_and_convert(
-            notebook_id, artifact_id, output_path, deck_name, pdf_stem
+            notebook_id,
+            artifact_id,
+            output_path,
+            deck_name,
+            pdf_stem,
+            request.single_cloze,
         )
 
     logger.warning(f"Timeout. ID: {artifact_id}")
@@ -232,13 +242,16 @@ def download_and_convert(
     output_path: Path,
     deck_name: str,
     pdf_stem: str = "",
+    single_cloze: bool = False,
 ) -> Deck:
     temp_name = pdf_stem if pdf_stem else deck_name
     json_path = output_path / _safe_filename(temp_name, "_raw.json")
     flashcards = context._download_flashcards(
         notebook_id, artifact_id, json_path
     )
-    deck = context._build_deck(notebook_id, deck_name, flashcards)
+    deck = context._build_deck(
+        notebook_id, deck_name, flashcards, single_cloze
+    )
     context._delete_completed_notebook(notebook_id)
     return deck
 
@@ -271,11 +284,12 @@ def convert_flashcards(
     context: ArtifactExecutionContext,
     flashcards: list[Flashcard],
     deck_name: str,
+    single_cloze: bool = False,
 ) -> list[Flashcard]:
     cloze_cards: list[Flashcard] = []
     tag = deck_name.lower().replace(" ", "_")
     for card in flashcards:
-        cloze_card = context.converter.convert(card)
+        cloze_card = context.converter.convert(card, single_cloze=single_cloze)
         if cloze_card:
             cloze_card.tags.append(tag)
             cloze_cards.append(cloze_card)
@@ -287,11 +301,14 @@ def build_deck(
     notebook_id: str,
     deck_name: str,
     flashcards: list[Flashcard],
+    single_cloze: bool = False,
 ) -> Deck:
     deck = Deck(
         name=deck_name,
         description=f"Deck de {deck_name}",
-        flashcards=context._convert_flashcards(flashcards, deck_name),
+        flashcards=context._convert_flashcards(
+            flashcards, deck_name, single_cloze
+        ),
         notebook_id=notebook_id,
     )
     removed = deck.deduplicate(similarity_threshold=0.85)

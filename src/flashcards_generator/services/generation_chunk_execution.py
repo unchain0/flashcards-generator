@@ -15,7 +15,6 @@ from flashcards_generator.services.contracts import (
     ProgressState,
 )
 from flashcards_generator.services.generation_models import (
-    SOURCE_WAIT_TIMEOUT,
     _ChunkTask,
     _safe_filename,
 )
@@ -58,7 +57,10 @@ class ChunkExecutionContext(Protocol):
     def _cleanup_raw_file(self, json_path: Path) -> None: ...
 
     def _convert_flashcards(
-        self, flashcards: list[Flashcard], deck_name: str
+        self,
+        flashcards: list[Flashcard],
+        deck_name: str,
+        single_cloze: bool = False,
     ) -> list[Flashcard]: ...
 
     def _publish(
@@ -116,7 +118,7 @@ def run_chunk_generation(
     )
     context._raise_if_cancelled()
     source_ready = context.generator.wait_for_source(
-        notebook_id, source_id, timeout=SOURCE_WAIT_TIMEOUT
+        notebook_id, source_id, timeout=task.request.timeout
     )
     context._raise_if_cancelled()
     if not source_ready:
@@ -221,7 +223,9 @@ def download_chunk_deck(
     finally:
         context._cleanup_raw_file(json_path)
 
-    cloze_cards = context._convert_flashcards(flashcards, task.deck_name)
+    cloze_cards = context._convert_flashcards(
+        flashcards, task.deck_name, task.request.single_cloze
+    )
     return Deck(
         name=f"{task.deck_name}_chunk{task.chunk_index}",
         description=f"Chunk {task.chunk_index} of {task.total_chunks}",

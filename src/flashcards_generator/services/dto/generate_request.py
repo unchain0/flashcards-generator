@@ -16,6 +16,7 @@ class GenerateFlashcardsRequest(BaseModel):
     quantity: str = Field(default="standard")
     language: str = Field(default="pt_BR")
     instructions: str = Field(default="")
+    single_cloze: bool = Field(default=False)
     wait_for_completion: bool = Field(default=True)
     timeout: int = Field(default=900)
     resume: bool = Field(default=True)

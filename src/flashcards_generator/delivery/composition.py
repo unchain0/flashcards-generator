@@ -12,6 +12,8 @@ from flashcards_generator.integrations.anki.connect import (
 from flashcards_generator.integrations.chunk_state_repository import (
     FileSystemChunkStateRepository,
 )
+from flashcards_generator.integrations.csv_merger import CsvMerger
+from flashcards_generator.integrations.deck_exporter import DeckExporter
 from flashcards_generator.integrations.document_sources import (
     FileSystemDocumentSources,
 )
@@ -29,12 +31,10 @@ from flashcards_generator.integrations.pdf_utils import PDFChunker
 from flashcards_generator.integrations.source_snapshot import (
     FileSystemSourceSnapshots,
 )
-from flashcards_generator.services.csv_merger import CsvMerger
 from flashcards_generator.services.dto.merge_request import MergeCsvRequest
 from flashcards_generator.services.dto.workflow import (
     AnkiExportOptions,
 )
-from flashcards_generator.services.exporter import DeckExporter
 from flashcards_generator.services.generation_workflow import (
     UseCaseFactory,
     UseCaseGenerationWorkflow,
@@ -92,7 +92,11 @@ def create_workflows(
     return ApplicationWorkflows(
         generation,
         management,
-        merge_operation=merge_operation or CsvMerger.merge_detailed,
+        merge_operation=(
+            merge_operation
+            if merge_operation is not None
+            else CsvMerger.merge_detailed
+        ),
         anki_exporter_factory=_create_anki_exporter,
     )
 

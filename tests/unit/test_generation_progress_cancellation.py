@@ -31,6 +31,8 @@ from flashcards_generator.services.use_cases import (
 )
 from tests.fixtures.use_case_fixtures import make_use_case
 
+pytestmark = pytest.mark.usefixtures("mock_bounded_process_output")
+
 
 class RecordingReporter:
     """Collect structured progress events in publication order."""

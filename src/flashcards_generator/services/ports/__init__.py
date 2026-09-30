@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from flashcards_generator.services.ports.anki_exporter import AnkiExporterPort
 from flashcards_generator.services.ports.chunk_state import ChunkStatePort
+from flashcards_generator.services.ports.deck_exporter import DeckExporterPort
 from flashcards_generator.services.ports.deck_repository import (
     DeckRepositoryPort,
 )
@@ -24,6 +25,7 @@ from flashcards_generator.services.ports.source_snapshots import (
 __all__ = [
     "AnkiExporterPort",
     "ChunkStatePort",
+    "DeckExporterPort",
     "DeckRepositoryPort",
     "DocumentSelection",
     "DocumentSourcesPort",

@@ -131,12 +131,13 @@ class TestSemanticChunker:
         previous = ["first two", "middle two", "latest two"]
         overlap = chunker._get_overlap_text(previous)
         assert overlap == ["latest two"]
+        assert chunker._get_overlap_text([]) == []
 
 
 def test_adjacent_similarity_scores_for_single_segment_are_empty() -> None:
     assert (
         semantic_analysis_module.SemanticAnalysis._adjacent_similarity_scores(
-            object(), 1
+            csr_matrix([[1.0]]), 1
         )
         == []
     )
@@ -156,6 +157,12 @@ def test_split_to_max_tokens_splits_long_word_without_encoding(
         "e",
         "hi",
     ]
+    assert chunker._split_to_max_tokens("abcde") == ["ab", "cd", "e"]
+    assert chunker._split_long_word_by_character("") == []
+
+
+def test_build_chunks_ignores_an_empty_segment_list() -> None:
+    assert SemanticChunker()._build_chunks([], []) == []
 
 
 class TestTextSegment:

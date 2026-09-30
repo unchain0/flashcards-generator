@@ -8,6 +8,9 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from threading import Lock
 
+from flashcards_generator.integrations.process_capture import (
+    communicate_bounded,
+)
 from flashcards_generator.services.ports.cancellation import CancellationPort
 
 
@@ -141,7 +144,7 @@ class NotebookLMProcessRunner:
         process: subprocess.Popen[str],
         timeout: int,
     ) -> tuple[str, str]:
-        return process.communicate(timeout=timeout)
+        return communicate_bounded(process, timeout=timeout)
 
     def _cleanup_after_failure(
         self,
@@ -208,7 +211,7 @@ class NotebookLMProcessRunner:
             process.wait(timeout=self._cleanup_timeout)
         except subprocess.TimeoutExpired:
             self._signal_process(process, signal.SIGKILL)
-            process.wait()
+            process.wait(timeout=self._cleanup_timeout)
 
     @staticmethod
     def _signal_process(

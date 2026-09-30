@@ -4,7 +4,7 @@ import { HttpFlashcardsApi } from "./infrastructure/http_api";
 import { BrowserDashboardView } from "./interfaces/browser_view";
 
 const ENGLISH_CONTEXT_INSTRUCTIONS =
-  "Para estudar inglês, use frases completas e naturais em inglês que apareçam nas fontes e preserve a redação original na frente. Destaque somente uma palavra ou expressão por cartão, mantendo contexto suficiente para entender seu uso. No verso, explique a expressão e traduza a frase para o idioma configurado. Considere a dificuldade escolhida e o nível informado nas instruções adicionais. Não invente frases ou atribuições às fontes. Se o material não trouxer uma frase adequada em inglês, mantenha a geração geral. Gere os cartões para exportação, sem programar revisões.";
+  "Create English-study flashcards from the source. For every card, the QUESTION must contain only one complete, natural English sentence copied verbatim from the source. Wrap exactly one meaningful target word or expression in that sentence with Anki cloze syntax, exactly like {{c1::target expression}}. Do not put Portuguese, explanations, translations, labels, or extra text in the QUESTION. The ANSWER must be in Brazilian Portuguese and contain only a concise explanation of the target word or expression followed by the complete Brazilian Portuguese translation of the English sentence. Never put the Portuguese explanation inside the cloze. Do not invent, paraphrase, or translate the source sentence in the QUESTION. If the source has no suitable complete English sentence, use the general generation format instead. Respect the selected difficulty and the learner level in any additional instructions. Generate cards for export and do not schedule reviews.";
 const GENERATION_INSTRUCTIONS_LIMIT = 10_000;
 
 const root = document.querySelector<HTMLElement>("#main-content");
@@ -43,7 +43,24 @@ const fileError = required<HTMLParagraphElement>(root, "file-error");
 const fileSummary = required<HTMLSpanElement>(root, "file-summary");
 const generationForm = required<HTMLFormElement>(root, "generation-form");
 const studyProfile = required<HTMLSelectElement>(root, "study-profile");
+const languageInput = required<HTMLInputElement>(root, "language");
 const instructionsInput = required<HTMLTextAreaElement>(root, "instructions");
+let generalLanguage = languageInput.value;
+
+function syncLanguageInput(): void {
+  if (studyProfile.value === "english-context") {
+    if (!languageInput.disabled) {
+      generalLanguage = languageInput.value;
+    }
+    languageInput.disabled = true;
+    return;
+  }
+  languageInput.disabled = false;
+  languageInput.value = generalLanguage;
+}
+
+studyProfile.addEventListener("change", syncLanguageInput);
+syncLanguageInput();
 fileInput.addEventListener("invalid", (event) => {
   if (fileInput.validity.valueMissing) {
     const message = "Selecione ao menos um arquivo PDF ou PPTX.";
@@ -71,6 +88,8 @@ generationForm.addEventListener("submit", (event) => {
   const form = new FormData(generationForm);
   form.delete("study_profile");
   if (studyProfile.value === "english-context") {
+    form.set("language", "en");
+    form.set("single_cloze", "true");
     const additionalInstructions = instructionsInput.value.trim();
     const instructions = additionalInstructions
       ? `${ENGLISH_CONTEXT_INSTRUCTIONS}\n\nInstruções adicionais do usuário: ${additionalInstructions}`

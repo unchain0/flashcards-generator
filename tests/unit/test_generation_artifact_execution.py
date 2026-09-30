@@ -9,7 +9,10 @@ from flashcards_generator.domain_models.exceptions import (
     OperationCancelled,
 )
 from flashcards_generator.engines.cloze import ClozeConverter
-from flashcards_generator.services import generation_artifact_execution
+from flashcards_generator.services import (
+    generation_artifact_execution,
+    generation_chunk_execution,
+)
 from flashcards_generator.services.contracts import (
     CancellationToken,
     ProgressEvent,
@@ -19,6 +22,7 @@ from flashcards_generator.services.contracts import (
 from flashcards_generator.services.dto.generate_request import (
     GenerateFlashcardsRequest,
 )
+from flashcards_generator.services.generation_models import _ChunkTask
 from flashcards_generator.services.ports.flashcard_generator import (
     FlashcardGeneratorPort,
     GenerationConfig,
@@ -89,6 +93,7 @@ class RecordingArtifactContext:
         output_path: Path,
         deck_name: str,
         pdf_stem: str = "",
+        single_cloze: bool = False,
     ) -> Deck:
         raise AssertionError("Unexpected artifact download")
 
@@ -101,7 +106,10 @@ class RecordingArtifactContext:
         raise AssertionError("Unexpected raw-file cleanup")
 
     def _convert_flashcards(
-        self, flashcards: list[Flashcard], deck_name: str
+        self,
+        flashcards: list[Flashcard],
+        deck_name: str,
+        single_cloze: bool = False,
     ) -> list[Flashcard]:
         raise AssertionError("Unexpected flashcard conversion")
 
@@ -110,11 +118,23 @@ class RecordingArtifactContext:
         notebook_id: str,
         deck_name: str,
         flashcards: list[Flashcard],
+        single_cloze: bool = False,
     ) -> Deck:
         raise AssertionError("Unexpected deck construction")
 
     def _delete_completed_notebook(self, notebook_id: str) -> None:
         raise AssertionError("Unexpected notebook deletion")
+
+    def _save_deck(self, deck: Deck, output_path: Path, pdf_stem: str) -> None:
+        raise AssertionError("Unexpected deck export")
+
+    def _cleanup_completed_resume_state(
+        self,
+        pdf_output_path: Path,
+        pdf_stem: str,
+        request: GenerateFlashcardsRequest,
+    ) -> None:
+        raise AssertionError("Unexpected resume-state cleanup")
 
 
 def test_typed_context_records_generation_config_and_dispatch_order(
@@ -300,6 +320,34 @@ def test_cancellation_after_artifact_wait_prevents_download(
     download.assert_not_called()
 
 
+def test_completed_artifact_forwards_single_cloze(
+    tmp_path: Path, mock_generator, monkeypatch
+) -> None:
+    generator = mock_generator()
+    monkeypatch.setattr(
+        generator, "wait_for_artifact", MagicMock(return_value=True)
+    )
+    context = make_use_case(generator=generator)
+    monkeypatch.setattr(context, "_raise_if_cancelled", MagicMock())
+    expected = Deck(name="Lesson", notebook_id="notebook")
+    download = MagicMock(return_value=expected)
+    monkeypatch.setattr(context, "_download_and_convert", download)
+    request = GenerateFlashcardsRequest(
+        input_dir=tmp_path,
+        output_dir=tmp_path,
+        single_cloze=True,
+    )
+
+    result = generation_artifact_execution.handle_artifact_completion(
+        context, "notebook", "artifact", tmp_path, "Lesson", request
+    )
+
+    assert result is expected
+    download.assert_called_once_with(
+        "notebook", "artifact", tmp_path, "Lesson", "", True
+    )
+
+
 def test_parse_failure_still_removes_raw_artifact(
     tmp_path: Path, mock_generator, monkeypatch
 ) -> None:
@@ -358,6 +406,98 @@ def test_conversion_drops_cards_rejected_by_the_converter(
     )
 
     assert converted == []
+
+
+def test_conversion_forwards_single_cloze_option(
+    mock_generator, monkeypatch
+) -> None:
+    context = make_use_case(generator=mock_generator())
+    card = Flashcard(front="Question", back="Answer")
+    converted_card = Flashcard(front="{{c1::Question}}", back="Answer")
+    convert = MagicMock(return_value=converted_card)
+    monkeypatch.setattr(context.converter, "convert", convert)
+
+    converted = generation_artifact_execution.convert_flashcards(
+        context, [card], "Lesson", single_cloze=True
+    )
+
+    assert converted == [converted_card]
+    convert.assert_called_once_with(card, single_cloze=True)
+
+
+def test_chunk_download_forwards_single_cloze_option(
+    tmp_path: Path, mock_generator, monkeypatch
+) -> None:
+    generator = mock_generator()
+    card = Flashcard(front="Question", back="Answer")
+    monkeypatch.setattr(
+        generator,
+        "download_flashcards",
+        lambda _notebook, _artifact, path: path.write_text(
+            "[]", encoding="utf-8"
+        ),
+    )
+    monkeypatch.setattr(
+        generator, "parse_flashcards", MagicMock(return_value=[card])
+    )
+    context = make_use_case(generator=generator)
+    converted_card = Flashcard(front="{{c1::Question}}", back="Answer")
+    convert = MagicMock(return_value=[converted_card])
+    monkeypatch.setattr(context, "_convert_flashcards", convert)
+    request = GenerateFlashcardsRequest(
+        input_dir=tmp_path,
+        output_dir=tmp_path,
+        single_cloze=True,
+    )
+    task = _ChunkTask(
+        chunk_path=tmp_path / "chunk.pdf",
+        deck_name="Lesson",
+        pdf_output_path=tmp_path,
+        request=request,
+        chunk_index=1,
+        total_chunks=1,
+    )
+
+    deck = generation_chunk_execution.download_chunk_deck(
+        context, "notebook", "artifact", task
+    )
+
+    assert deck.flashcards == [converted_card]
+    convert.assert_called_once_with([card], "Lesson", True)
+
+
+def test_chunk_source_wait_uses_request_timeout(
+    tmp_path: Path, mock_generator, monkeypatch
+) -> None:
+    generator = mock_generator()
+    monkeypatch.setattr(
+        generator, "wait_for_source", MagicMock(return_value=False)
+    )
+    context = make_use_case(generator=generator)
+    monkeypatch.setattr(context, "_add_pdf_source", lambda *_: "source")
+    monkeypatch.setattr(context, "_raise_if_cancelled", MagicMock())
+    request = GenerateFlashcardsRequest(
+        input_dir=tmp_path,
+        output_dir=tmp_path,
+        timeout=321,
+    )
+    task = _ChunkTask(
+        chunk_path=tmp_path / "chunk.pdf",
+        deck_name="Lesson",
+        pdf_output_path=tmp_path,
+        request=request,
+        chunk_index=1,
+        total_chunks=1,
+    )
+
+    result = generation_chunk_execution.run_chunk_generation(
+        context, "notebook", task
+    )
+
+    assert result is None
+    generator.wait_for_source.assert_called_once_with(
+        "notebook", "source", timeout=321
+    )
 
 
 def test_use_case_generation_delegates_with_default_instructions(

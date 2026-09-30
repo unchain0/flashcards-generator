@@ -9,6 +9,8 @@ import pytest
 
 from flashcards_generator.integrations.pdf_utils import PPTXConverter
 
+pytestmark = pytest.mark.usefixtures("mock_bounded_process_output")
+
 
 class TestPPTXConverter:
     """Test PowerPoint to PDF conversion."""
@@ -208,7 +210,11 @@ class TestPPTXConverter:
         assert result is None
         popen.assert_called_once()
         assert popen.call_args.kwargs["start_new_session"] is True
-        killpg.assert_called_once_with(process.pid, signal.SIGTERM)
+        assert [call.args for call in killpg.call_args_list] == [
+            (process.pid, signal.SIGTERM),
+            (process.pid, signal.SIGKILL),
+        ]
+        assert process.wait.call_count == 2
 
     def test_run_conversion_returns_the_reaped_process_result(self) -> None:
         converter = PPTXConverter.__new__(PPTXConverter)
@@ -236,9 +242,9 @@ class TestPPTXConverter:
         converter = PPTXConverter.__new__(PPTXConverter)
         process = MagicMock()
         process.pid = 4321
-        process.communicate.side_effect = [
+        process.wait.side_effect = [
             subprocess.TimeoutExpired("soffice", 5),
-            ("", ""),
+            0,
         ]
 
         with patch(
@@ -250,7 +256,52 @@ class TestPPTXConverter:
             (process.pid, signal.SIGTERM),
             (process.pid, signal.SIGKILL),
         ]
-        assert process.communicate.call_count == 2
+        assert process.wait.call_count == 2
+
+    def test_stop_process_kills_remaining_group_after_leader_exits(
+        self,
+    ) -> None:
+        converter = PPTXConverter.__new__(PPTXConverter)
+        process = MagicMock()
+        process.pid = 4321
+        process.wait.return_value = 0
+
+        with patch(
+            "flashcards_generator.integrations.pptx_converter.os.killpg"
+        ) as killpg:
+            converter._stop_process(process)
+
+        assert [call.args for call in killpg.call_args_list] == [
+            (process.pid, signal.SIGTERM),
+            (process.pid, signal.SIGKILL),
+        ]
+        assert process.wait.call_count == 2
+
+    def test_run_conversion_keeps_the_original_error_when_cleanup_fails(
+        self,
+    ) -> None:
+        converter = PPTXConverter.__new__(PPTXConverter)
+        failure = subprocess.SubprocessError("output limit exceeded")
+        process = MagicMock()
+        process.communicate.side_effect = failure
+        with (
+            patch(
+                "flashcards_generator.integrations.pptx_converter.subprocess.Popen",
+                return_value=process,
+            ),
+            patch.object(
+                converter,
+                "_stop_process",
+                side_effect=subprocess.TimeoutExpired("soffice", 5),
+            ),
+            pytest.raises(subprocess.SubprocessError) as caught,
+        ):
+            converter._run_conversion(["soffice", "--headless"])
+
+        assert caught.value is failure
+        assert failure.__notes__ == [
+            "PPTX process cleanup failed (TimeoutExpired)."
+        ]
 
     @pytest.mark.parametrize(
         ("signal_number", "fallback"),
@@ -270,3 +321,16 @@ class TestPPTXConverter:
             converter._signal_process(process, signal_number)
 
         getattr(process, fallback).assert_called_once_with()
+
+    def test_signal_uses_process_leader_without_numeric_pid(self) -> None:
+        converter = PPTXConverter.__new__(PPTXConverter)
+        process = MagicMock()
+        process.pid = None
+
+        with patch(
+            "flashcards_generator.integrations.pptx_converter.os.killpg"
+        ) as killpg:
+            converter._signal_process(process, signal.SIGTERM)
+
+        killpg.assert_not_called()
+        process.terminate.assert_called_once_with()

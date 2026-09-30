@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from flashcards_generator.engines.cloze import ClozeConverter
+from flashcards_generator.integrations.deck_exporter import DeckExporter
 from flashcards_generator.integrations.document_sources import (
     FileSystemDocumentSources,
 )
@@ -8,7 +9,6 @@ from flashcards_generator.integrations.pdf_utils import PDFChunker
 from flashcards_generator.integrations.source_snapshot import (
     FileSystemSourceSnapshots,
 )
-from flashcards_generator.services.exporter import DeckExporter
 from flashcards_generator.services.ports import (
     ChunkStatePort,
     DocumentSourcesPort,

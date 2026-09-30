@@ -45,6 +45,7 @@ def _manifest(
     resume_dir: Path,
     *,
     chunks: list[ChunkState] | None = None,
+    single_cloze: bool = False,
 ) -> ChunkResumeManifest:
     now = datetime.now(UTC)
     return ChunkResumeManifest(
@@ -52,6 +53,7 @@ def _manifest(
         source_signature="sha256:source",
         deck_name="deck",
         total_chunks=2,
+        single_cloze=single_cloze,
         chunks=chunks or [],
         created_at=now,
         updated_at=now,
@@ -69,6 +71,7 @@ def _repository() -> MagicMock:
         {"deck_name": "different"},
         {"source_signature": "sha256:different"},
         {"total_chunks": 3},
+        {"single_cloze": True},
     ],
 )
 def test_manifest_match_rejects_each_incompatible_field(
@@ -82,12 +85,18 @@ def test_manifest_match_rejects_each_incompatible_field(
         "deck",
         "sha256:source",
         2,
+        False,
     )
 
 
 def test_manifest_match_requires_a_manifest(tmp_path: Path) -> None:
     assert not chunk_resume.manifest_matches_source(
-        None, tmp_path / "source.pdf", "deck", "sha256:source", 2
+        None,
+        tmp_path / "source.pdf",
+        "deck",
+        "sha256:source",
+        2,
+        False,
     )
 
 
@@ -114,6 +123,7 @@ def test_prepare_resume_creates_a_fresh_manifest_when_missing(
         "deck",
         "sha256:source",
         2,
+        False,
         resume_dir,
         state_path,
     )
@@ -125,6 +135,7 @@ def test_prepare_resume_creates_a_fresh_manifest_when_missing(
     assert result.manifest.source_signature == "sha256:source"
     assert result.manifest.deck_name == "deck"
     assert result.manifest.total_chunks == 2
+    assert result.manifest.single_cloze is False
     assert result.manifest.created_at.tzinfo == UTC
     assert result.manifest.updated_at == result.manifest.created_at
     repository.delete_chunk_results.assert_called_once_with(resume_dir)
@@ -148,6 +159,7 @@ def test_prepare_resume_removes_corrupt_manifest_and_results(
         "deck",
         "sha256:source",
         2,
+        False,
         resume_dir,
         state_path,
     )
@@ -175,6 +187,7 @@ def test_prepare_resume_discards_manifest_for_each_incompatible_source_field(
         {"deck_name": "other"},
         {"source_signature": "sha256:other"},
         {"total_chunks": 1},
+        {"single_cloze": True},
     )
 
     for update in updates:
@@ -187,6 +200,7 @@ def test_prepare_resume_discards_manifest_for_each_incompatible_source_field(
             "deck",
             "sha256:source",
             2,
+            False,
             resume_dir,
             state_path,
         )
@@ -215,6 +229,7 @@ def _prepare_resume_with_chunks(
         "deck",
         "sha256:source",
         2,
+        False,
         resume_dir,
         resume_dir / "state.json",
     )
@@ -477,9 +492,24 @@ def test_save_chunk_completion_persists_in_order_and_upserts_state(
     )
     set_state = chunk_resume._set_chunk_state
 
-    def capture_state(*args: object, **kwargs: object) -> None:
+    def capture_state(
+        manifest_to_update: ChunkResumeManifest,
+        chunk_index: int,
+        status: ChunkStatus,
+        *,
+        card_count: int = 0,
+        result_path: Path | None = None,
+        error_message: str | None = None,
+    ) -> None:
         events.append("update_state")
-        set_state(*args, **kwargs)
+        set_state(
+            manifest_to_update,
+            chunk_index,
+            status,
+            card_count=card_count,
+            result_path=result_path,
+            error_message=error_message,
+        )
 
     monkeypatch.setattr(chunk_resume, "_set_chunk_state", capture_state)
     deck = _deck()

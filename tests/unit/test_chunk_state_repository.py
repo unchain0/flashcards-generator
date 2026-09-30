@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from datetime import UTC, datetime
 
@@ -32,6 +33,7 @@ def sample_manifest() -> ChunkResumeManifest:
         source_signature="abc123",
         deck_name="Sample Deck",
         total_chunks=2,
+        single_cloze=False,
         chunks=[
             ChunkState(
                 chunk_index=0,
@@ -151,6 +153,20 @@ class TestFileSystemChunkStateRepository:
         loaded_manifest = repository.load_manifest(state_path)
 
         assert loaded_manifest == sample_manifest
+
+    def test_load_manifest_rejects_legacy_shape_without_single_cloze(
+        self,
+        repository: FileSystemChunkStateRepository,
+        sample_manifest: ChunkResumeManifest,
+        tmp_path,
+    ) -> None:
+        state_path = tmp_path / "manifest.json"
+        payload = json.loads(sample_manifest.model_dump_json())
+        del payload["single_cloze"]
+        state_path.write_text(json.dumps(payload))
+
+        with pytest.raises(ValidationError):
+            repository.load_manifest(state_path)
 
     def test_save_load_chunk_deck_roundtrip(
         self,
@@ -306,3 +322,18 @@ class TestFileSystemChunkStateRepository:
                 resume_dir
             ) as second_owner:
                 assert second_owner is False
+
+    def test_resume_lock_rejects_a_symlinked_lock_file(
+        self,
+        repository: FileSystemChunkStateRepository,
+        tmp_path,
+    ) -> None:
+        resume_dir = tmp_path / "resume"
+        target = tmp_path / "target"
+        target.touch()
+        (tmp_path / ".resume.lock").symlink_to(target)
+
+        with pytest.raises(OSError), repository.resume_lock(resume_dir):
+            pytest.fail("symlinked lock file was opened")
+
+        assert target.read_bytes() == b""

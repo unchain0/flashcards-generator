@@ -47,7 +47,7 @@ from flashcards_generator.services.contracts import (
 from flashcards_generator.services.dto.generate_request import (
     GenerateFlashcardsRequest,
 )
-from flashcards_generator.services.exporter import DeckExporter
+from flashcards_generator.services.ports.deck_exporter import DeckExporterPort
 from flashcards_generator.services.ports.document_sources import (
     DocumentSelection,
     DocumentSourcesPort,
@@ -94,7 +94,7 @@ class GenerateFlashcardsUseCase:
     Dependencies:
         - generator: FlashcardGeneratorPort implementation
         - converter: ClozeConverter instance
-        - exporter: DeckExporter instance
+        - exporter: DeckExporterPort implementation
     """
 
     DEFAULT_INSTRUCTIONS = (
@@ -143,7 +143,7 @@ class GenerateFlashcardsUseCase:
         self,
         generator: FlashcardGeneratorPort,
         converter: ClozeConverter,
-        exporter: DeckExporter,
+        exporter: DeckExporterPort,
         pdf_chunker: PDFChunkerPort,
         chunk_state_repository: ChunkStatePort | None,
         document_sources: DocumentSourcesPort,
@@ -560,6 +560,7 @@ class GenerateFlashcardsUseCase:
             run.deck_name,
             source_signature,
             len(run.chunks),
+            run.request.single_cloze,
             run.resume_dir,
             run.state_path,
         )
@@ -882,6 +883,7 @@ class GenerateFlashcardsUseCase:
         output_path: Path,
         deck_name: str,
         pdf_stem: str = "",
+        single_cloze: bool = False,
     ) -> Deck:
         """Download and convert flashcards."""
         return generation_artifact_execution.download_and_convert(
@@ -891,6 +893,7 @@ class GenerateFlashcardsUseCase:
             output_path,
             deck_name,
             pdf_stem,
+            single_cloze,
         )
 
     def _download_flashcards(
@@ -907,11 +910,14 @@ class GenerateFlashcardsUseCase:
         generation_artifact_execution.cleanup_raw_file(json_path)
 
     def _convert_flashcards(
-        self, flashcards: list[Flashcard], deck_name: str
+        self,
+        flashcards: list[Flashcard],
+        deck_name: str,
+        single_cloze: bool = False,
     ) -> list[Flashcard]:
         """Convert source cards to cloze cards and attach the deck tag."""
         return generation_artifact_execution.convert_flashcards(
-            self, flashcards, deck_name
+            self, flashcards, deck_name, single_cloze
         )
 
     def _build_deck(
@@ -919,10 +925,11 @@ class GenerateFlashcardsUseCase:
         notebook_id: str,
         deck_name: str,
         flashcards: list[Flashcard],
+        single_cloze: bool = False,
     ) -> Deck:
         """Build and deduplicate a generated deck."""
         return generation_artifact_execution.build_deck(
-            self, notebook_id, deck_name, flashcards
+            self, notebook_id, deck_name, flashcards, single_cloze
         )
 
     def _delete_completed_notebook(self, notebook_id: str) -> None:

@@ -69,13 +69,20 @@ async def test_dashboard_is_served_without_authentication(
     assert "Gerador de flashcards" in dashboard.text
 
 
+@pytest.mark.parametrize("bootstrap_password", [None, "test-password-123"])
 async def test_readiness_requires_the_authentication_schema(
     tmp_path: Path,
+    bootstrap_password: str | None,
 ) -> None:
     settings = WebSettings(
         environment="test",
         data_dir=tmp_path / "data",
         database_url=f"sqlite+aiosqlite:///{tmp_path / 'unmigrated.db'}",
+        bootstrap_password=(
+            SecretStr(bootstrap_password)
+            if bootstrap_password is not None
+            else None
+        ),
         auto_create_schema=False,
     )
     app = create_app(settings)
@@ -167,19 +174,20 @@ async def test_password_login_sets_a_session_cookie(
     assert me.status_code == 200
 
 
-def test_production_requires_authentication_secrets(tmp_path: Path) -> None:
-    with pytest.raises(ValidationError):
+def test_production_requires_authentication_secrets() -> None:
+    with pytest.raises(ValidationError, match="must be configured"):
         WebSettings(
             environment="production",
-            database_url=f"sqlite+aiosqlite:///{tmp_path / 'jobs.db'}",
+            database_url="postgresql+asyncpg://test:test@localhost/flashcards",
+            auto_create_schema=False,
         )
 
 
-def test_production_requires_explicit_migrations(tmp_path: Path) -> None:
-    with pytest.raises(ValidationError):
+def test_production_requires_explicit_migrations() -> None:
+    with pytest.raises(ValidationError, match="FLASHCARDS_AUTO_CREATE_SCHEMA"):
         WebSettings(
             environment="production",
-            database_url=f"sqlite+aiosqlite:///{tmp_path / 'jobs.db'}",
+            database_url="postgresql+asyncpg://test:test@localhost/flashcards",
             session_secret=SecretStr("s" * 32),
             auth_lookup_secret=SecretStr("l" * 32),
             auto_create_schema=True,
@@ -195,12 +203,10 @@ def test_empty_bootstrap_password_is_treated_as_unset() -> None:
     assert settings.bootstrap_password is None
 
 
-def test_production_accepts_explicit_persistent_secrets(
-    tmp_path: Path,
-) -> None:
+def test_production_accepts_explicit_persistent_secrets() -> None:
     settings = WebSettings(
         environment="production",
-        database_url=f"sqlite+aiosqlite:///{tmp_path / 'jobs.db'}",
+        database_url="postgresql+asyncpg://test:test@localhost/flashcards",
         session_secret=SecretStr("s" * 32),
         auth_lookup_secret=SecretStr("l" * 32),
         auto_create_schema=False,

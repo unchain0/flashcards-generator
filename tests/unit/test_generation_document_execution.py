@@ -352,12 +352,18 @@ def test_regular_pdf_waits_for_snapshot_source_before_generation(
     monkeypatch.setattr(context, "_generate_flashcards", generate)
     monkeypatch.setattr(context, "_raise_if_cancelled", MagicMock())
 
+    request = GenerateFlashcardsRequest(
+        input_dir=tmp_path,
+        output_dir=tmp_path,
+        timeout=321,
+    )
+
     result = generation_document_execution.process_regular_pdf(
         context,
         pdf_path,
         "Lesson",
         tmp_path,
-        GenerateFlashcardsRequest(input_dir=tmp_path, output_dir=tmp_path),
+        request,
         source_path,
     )
 
@@ -366,6 +372,6 @@ def test_regular_pdf_waits_for_snapshot_source_before_generation(
     generator.wait_for_source.assert_called_once_with(
         "notebook",
         "source",
-        timeout=generation_document_execution.SOURCE_WAIT_TIMEOUT,
+        timeout=321,
     )
     generate.assert_called_once()

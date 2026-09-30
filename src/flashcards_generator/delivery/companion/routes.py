@@ -131,12 +131,13 @@ def _generation_options(form: FormMultiDict) -> GenerationOptions:
         "quantity",
         "timeout",
         "instructions",
+        "single_cloze",
     }
     if not set(form.keys()) <= allowed:
         raise HTTPException(
             detail="Há campos de geração desconhecidos.", status_code=400
         )
-    values = {
+    values: dict[str, str | bool] = {
         field: _form_text(form, field, default)
         for field, default in (
             ("language", "pt_BR"),
@@ -146,6 +147,13 @@ def _generation_options(form: FormMultiDict) -> GenerationOptions:
             ("instructions", ""),
         )
     }
+    single_cloze = _form_text(form, "single_cloze", "false")
+    if single_cloze not in {"true", "false"}:
+        raise HTTPException(
+            detail="As configurações de geração são inválidas.",
+            status_code=400,
+        )
+    values["single_cloze"] = single_cloze == "true"
     try:
         return GenerationOptions.model_validate(values)
     except ValidationError as error:

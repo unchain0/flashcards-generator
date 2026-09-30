@@ -10,8 +10,8 @@ from typing import Protocol, Self, assert_never
 
 import pytest
 
-from flashcards_generator.services import exporter
-from flashcards_generator.services.exporter import DeckExporter
+from flashcards_generator.integrations import deck_exporter as exporter
+from flashcards_generator.integrations.deck_exporter import DeckExporter
 
 
 class FailureStage(StrEnum):
@@ -43,6 +43,7 @@ class TemporaryCsvFile(Protocol):
         exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
         traceback: TracebackType | None,
+        /,
     ) -> bool | None: ...
 
 

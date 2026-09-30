@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 
 from flashcards_generator.domain_models.exceptions import CSVMergeError
-from flashcards_generator.services.csv_merger import CsvMerger
+from flashcards_generator.integrations.csv_merger import CsvMerger
 from flashcards_generator.services.dto.merge_request import MergeCsvRequest
 
 
@@ -241,7 +241,7 @@ class TestCsvMerger:
         request = MergeCsvRequest(folder_path=tmp_path)
 
         with patch(
-            "flashcards_generator.services.csv_merger.csv.reader"
+            "flashcards_generator.integrations.csv_merger.csv.reader"
         ) as mock_reader:
             mock_reader.side_effect = Exception("Unexpected CSV error")
 

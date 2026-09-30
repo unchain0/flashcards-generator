@@ -34,13 +34,22 @@ def manifest_matches_source(
     deck_name: str,
     source_signature: str,
     total_chunks: int,
+    single_cloze: bool,
 ) -> bool:
-    return bool(
-        manifest
-        and manifest.source_pdf == str(pdf_path)
-        and manifest.deck_name == deck_name
-        and manifest.source_signature == source_signature
-        and manifest.total_chunks == total_chunks
+    if manifest is None:
+        return False
+    return (
+        manifest.source_pdf,
+        manifest.deck_name,
+        manifest.source_signature,
+        manifest.total_chunks,
+        manifest.single_cloze,
+    ) == (
+        str(pdf_path),
+        deck_name,
+        source_signature,
+        total_chunks,
+        single_cloze,
     )
 
 
@@ -50,6 +59,7 @@ def prepare_resume(
     deck_name: str,
     source_signature: str,
     total_chunks: int,
+    single_cloze: bool,
     resume_dir: Path,
     state_path: Path,
 ) -> ResumePreparation:
@@ -62,6 +72,7 @@ def prepare_resume(
         deck_name,
         source_signature,
         total_chunks,
+        single_cloze,
     ):
         assert existing_manifest is not None
         chunk_decks, completed_indexes = load_completed_chunks(
@@ -76,7 +87,11 @@ def prepare_resume(
 
     repository.delete_chunk_results(resume_dir)
     manifest = _build_resume_manifest(
-        pdf_path, deck_name, total_chunks, source_signature
+        pdf_path,
+        deck_name,
+        total_chunks,
+        source_signature,
+        single_cloze,
     )
     repository.save_manifest(state_path, manifest)
     return ResumePreparation(manifest, {}, set(), False)
@@ -230,6 +245,7 @@ def _build_resume_manifest(
     deck_name: str,
     total_chunks: int,
     source_signature: str,
+    single_cloze: bool,
 ) -> ChunkResumeManifest:
     now = datetime.now(UTC)
     return ChunkResumeManifest(
@@ -237,6 +253,7 @@ def _build_resume_manifest(
         source_signature=source_signature,
         deck_name=deck_name,
         total_chunks=total_chunks,
+        single_cloze=single_cloze,
         chunks=[],
         created_at=now,
         updated_at=now,

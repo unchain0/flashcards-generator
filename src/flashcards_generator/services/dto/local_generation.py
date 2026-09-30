@@ -16,3 +16,4 @@ class GenerationOptions(BaseModel):
     quantity: Literal["fewer", "standard", "more"] = "standard"
     timeout: int = Field(default=900, ge=30, le=7200)
     instructions: str = Field(default="", max_length=10000)
+    single_cloze: bool = False

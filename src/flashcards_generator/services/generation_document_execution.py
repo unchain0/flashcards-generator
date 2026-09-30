@@ -12,7 +12,6 @@ from flashcards_generator.services.dto.generate_request import (
 from flashcards_generator.services.generation_models import (
     BORDER_LENGTH,
     PDF_CHUNKING_THRESHOLD,
-    SOURCE_WAIT_TIMEOUT,
     _safe_filename,
 )
 from flashcards_generator.services.ports.flashcard_generator import (
@@ -221,7 +220,7 @@ def process_regular_pdf(
     logger.info("Processing source...")
     context._raise_if_cancelled()
     source_ready = context.generator.wait_for_source(
-        notebook_id, source_id, timeout=SOURCE_WAIT_TIMEOUT
+        notebook_id, source_id, timeout=request.timeout
     )
     context._raise_if_cancelled()
     if not source_ready:

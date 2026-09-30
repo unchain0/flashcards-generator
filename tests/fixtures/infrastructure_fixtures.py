@@ -3,10 +3,10 @@ from unittest.mock import MagicMock
 import pytest
 
 from flashcards_generator.engines.cloze import ClozeConverter
+from flashcards_generator.integrations.deck_exporter import DeckExporter
 from flashcards_generator.integrations.notebooklm.client import (
     NotebookLMClient,
 )
-from flashcards_generator.services.exporter import DeckExporter
 
 
 @pytest.fixture
@@ -25,6 +25,22 @@ def mock_notebooklm_client():
 @pytest.fixture
 def mock_subprocess_run(mocker):
     return mocker.patch("subprocess.run")
+
+
+@pytest.fixture
+def mock_bounded_process_output(monkeypatch):
+    def capture(process, *, timeout):
+        return process.communicate(timeout=timeout)
+
+    for module in (
+        "notebooklm.process_runner",
+        "notebooklm.management",
+        "pptx_converter",
+    ):
+        monkeypatch.setattr(
+            f"flashcards_generator.integrations.{module}.communicate_bounded",
+            capture,
+        )
 
 
 @pytest.fixture

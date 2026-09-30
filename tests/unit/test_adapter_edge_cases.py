@@ -11,6 +11,8 @@ from flashcards_generator.integrations.notebooklm.gateway import (
     NotebookLMAdapter,
 )
 
+pytestmark = pytest.mark.usefixtures("mock_bounded_process_output")
+
 
 class TestNotebookLMAdapterEdgeCases:
     """Test edge cases for 100% coverage."""

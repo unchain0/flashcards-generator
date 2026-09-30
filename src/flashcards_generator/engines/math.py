@@ -62,9 +62,8 @@ class MathProcessor:
 
     def has_math(self, text: str) -> bool:
         """Verifica se o texto contém math."""
-        for pattern, _ in (
-            self.MATH_INLINE_PATTERNS + self.MATH_DISPLAY_PATTERNS
-        ):
+        patterns = self.MATH_INLINE_PATTERNS + self.MATH_DISPLAY_PATTERNS
+        for pattern, _ in patterns:
             if re.search(pattern, text):
                 return True
         return False

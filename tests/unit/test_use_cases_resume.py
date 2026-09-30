@@ -78,6 +78,7 @@ def _build_manifest(
     *,
     signature: str,
     chunks: list[ChunkState],
+    single_cloze: bool = False,
 ) -> ChunkResumeManifest:
     now = datetime.now(UTC)
     return ChunkResumeManifest(
@@ -85,6 +86,7 @@ def _build_manifest(
         source_signature=signature,
         deck_name="Tema1_large",
         total_chunks=total_chunks,
+        single_cloze=single_cloze,
         chunks=chunks,
         created_at=now,
         updated_at=now,

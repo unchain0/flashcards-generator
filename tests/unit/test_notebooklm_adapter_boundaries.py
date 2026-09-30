@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
@@ -6,7 +7,9 @@ import pytest
 
 from flashcards_generator.domain_models.exceptions import (
     ArtifactDownloadError,
+    GenerationError,
     NotebookLMResponseError,
+    SourceProcessingError,
 )
 from flashcards_generator.integrations.notebooklm.gateway import (
     NotebookLMAdapter,
@@ -14,6 +17,39 @@ from flashcards_generator.integrations.notebooklm.gateway import (
 from flashcards_generator.services.ports.flashcard_generator import (
     GenerationConfig,
 )
+
+pytestmark = pytest.mark.usefixtures("mock_bounded_process_output")
+
+
+def test_create_notebook_translates_subprocess_error() -> None:
+    adapter = NotebookLMAdapter("notebooklm")
+    failure = subprocess.SubprocessError("command failed")
+    adapter._run_command = Mock(side_effect=failure)
+
+    with pytest.raises(GenerationError) as error:
+        adapter.create_notebook("Deck")
+
+    assert error.value.__cause__ is failure
+
+
+def test_add_source_translates_subprocess_error(tmp_path: Path) -> None:
+    adapter = NotebookLMAdapter("notebooklm")
+    failure = subprocess.SubprocessError("command failed")
+    adapter._run_command = Mock(side_effect=failure)
+
+    with pytest.raises(SourceProcessingError) as error:
+        adapter.add_source("notebook", tmp_path / "source.pdf")
+
+    assert error.value.__cause__ is failure
+
+
+def test_generate_flashcards_returns_none_for_subprocess_error() -> None:
+    adapter = NotebookLMAdapter("notebooklm")
+    adapter._run_command = Mock(
+        side_effect=subprocess.SubprocessError("command failed")
+    )
+
+    assert adapter.generate_flashcards("notebook", GenerationConfig()) is None
 
 
 def test_cancel_active_stops_tracked_command() -> None:

@@ -25,7 +25,7 @@ COPY --from=frontend-builder /app/src/flashcards_generator/delivery/web/static/d
 COPY migrations ./migrations
 COPY alembic.ini ./
 
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --no-cache
 
 RUN useradd --create-home --uid 10001 app \
     && mkdir -p /app/data \

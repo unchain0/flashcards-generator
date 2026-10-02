@@ -263,27 +263,32 @@ jobs:
 
       - name: Build production image
         env:
-          POSTGRES_PASSWORD: ci-postgres-password
-          FLASHCARDS_SESSION_SECRET: ci-smoke-session-secret-0123456789abcdef
-          FLASHCARDS_AUTH_LOOKUP_SECRET: ci-smoke-lookup-secret-0123456789abcdef
-          FLASHCARDS_BOOTSTRAP_PASSWORD: ci-smoke-password
+          SERVICE_PASSWORD_64_POSTGRES: ci-postgres-password
+          SERVICE_REALBASE64_64_SESSIONSECRET: ci-smoke-session-secret-0123456789abcdef
+          SERVICE_REALBASE64_64_AUTHLOOKUPSECRET: ci-smoke-lookup-secret-0123456789abcdef
+          SERVICE_PASSWORD_64_BOOTSTRAP: ci-smoke-password
         run: docker compose --project-name flashcards-ci build --pull
 
       - name: Verify PostgreSQL production stack
         shell: bash
         run: |
           set -euo pipefail
-          export POSTGRES_DB=flashcards_ci
-          export POSTGRES_USER=flashcards_ci
-          export POSTGRES_PASSWORD=ci-postgres-password
-          export FLASHCARDS_SESSION_SECRET=ci-smoke-session-secret-0123456789abcdef
-          export FLASHCARDS_AUTH_LOOKUP_SECRET=ci-smoke-lookup-secret-0123456789abcdef
-          export FLASHCARDS_BOOTSTRAP_PASSWORD=ci-smoke-password
-          export FLASHCARDS_PORT=18000
+          export SERVICE_PASSWORD_64_POSTGRES=ci-postgres-password
+          export SERVICE_REALBASE64_64_SESSIONSECRET=ci-smoke-session-secret-0123456789abcdef
+          export SERVICE_REALBASE64_64_AUTHLOOKUPSECRET=ci-smoke-lookup-secret-0123456789abcdef
+          export SERVICE_PASSWORD_64_BOOTSTRAP=ci-smoke-password
           cookie_headers="$RUNNER_TEMP/flashcards-ci-headers"
-          trap 'docker compose --project-name flashcards-ci down --volumes --remove-orphans; rm -f "$cookie_headers"' EXIT
-          docker compose --project-name flashcards-ci config --quiet
-          docker compose --project-name flashcards-ci up \
+          compose_override="$RUNNER_TEMP/flashcards-ci.compose.yml"
+          cat > "$compose_override" <<'YAML'
+          services:
+            app:
+              ports:
+                - "127.0.0.1:18000:8000"
+          YAML
+          compose=(docker compose --project-name flashcards-ci --file docker-compose.yml --file "$compose_override")
+          trap '"${compose[@]}" down --volumes --remove-orphans; rm -f "$cookie_headers" "$compose_override"' EXIT
+          "${compose[@]}" config --quiet
+          "${compose[@]}" up \
             --detach --no-build --wait --wait-timeout 180
           curl --fail --silent http://127.0.0.1:18000/health/live
           curl --fail --silent http://127.0.0.1:18000/health/ready
@@ -293,6 +298,15 @@ jobs:
             http://127.0.0.1:18000/api/v1/auth/login
           session_cookie="$(sed -n 's/^[Ss]et-[Cc]ookie: flashcards_session=\([^;]*\).*/\1/p' "$cookie_headers" | tr -d '\r')"
           test -n "$session_cookie"
+          grep --quiet --ignore-case '^set-cookie: .*httponly' "$cookie_headers"
+          grep --quiet --ignore-case '^set-cookie: .*secure' "$cookie_headers"
+          grep --quiet --ignore-case '^set-cookie: .*samesite=lax' "$cookie_headers"
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
             --header "Cookie: flashcards_session=$session_cookie" \
             http://127.0.0.1:18000/api/v1/auth/me)" = 200
+          curl --fail --silent --output /dev/null --request POST \
+            --header "Cookie: flashcards_session=$session_cookie" \
+            http://127.0.0.1:18000/api/v1/auth/logout
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --header "Cookie: flashcards_session=$session_cookie" \
+            http://127.0.0.1:18000/api/v1/auth/me)" = 401

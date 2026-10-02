@@ -790,6 +790,9 @@ def test_concurrent_management_operation_does_not_replace_first_cancellation() -
 
     assert not destructive_cleanup_started.is_set()
 
+    assert manager.cleanup(days=None) == CleanupOutcome(deleted=1, failed=0)
+    assert destructive_cleanup_started.is_set()
+
 
 def test_cleanup_cancellation_after_adapter_registration_stops_adapter() -> (
     None

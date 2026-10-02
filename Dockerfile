@@ -7,7 +7,7 @@ RUN corepack enable && pnpm install --frozen-lockfile
 COPY frontend ./
 RUN pnpm run build
 
-FROM python:3.14.7-slim-bookworm
+FROM python:3.14.8-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -25,9 +25,8 @@ COPY --from=frontend-builder /app/src/flashcards_generator/delivery/web/static/d
 COPY migrations ./migrations
 COPY alembic.ini ./
 
-RUN uv sync --frozen --no-dev --no-cache
-
-RUN useradd --create-home --uid 10001 app \
+RUN uv sync --frozen --no-dev --no-cache \
+    && useradd --create-home --uid 10001 app \
     && mkdir -p /app/data \
     && chown -R app:app /app
 

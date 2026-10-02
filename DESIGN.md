@@ -44,8 +44,8 @@ control feedback.
 | Accent hover | `--accent-hover` | `#b4ed7d` |
 | Accent ink | `--accent-ink` | `#102016` |
 | Error state | `--error` | `#ff9888` |
-| Panel border | `--border` | `#557793` |
-| Input border | `--border-input` | `#557793` |
+| Panel border | `--border` | `#5a7d99` |
+| Input border | `--border-input` | `#5a7d99` |
 | Body type | `--font-body` | `Avenir Next`, `Trebuchet MS`, `Segoe UI`, sans-serif |
 | Type scale | `--font-*` | Body `1rem`, label `0.9rem`, lede `1.125rem`, section `1.5rem`, display `2rem–4rem` |
 | Spacing scale | `--space-1`–`--space-7` | `0.25rem`, `0.5rem`, `0.75rem`, `1rem`, `1.5rem`, `2rem`, `2.5rem` |

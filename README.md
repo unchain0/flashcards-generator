@@ -17,7 +17,7 @@ Gera flashcards Anki em formato Cloze Deletion a partir de PDFs e PPTX usando o 
 git clone <repo-url>
 cd flashcards-generator
 
-# Instale a aplicação no ambiente Python 3.14.7
+# Instale a aplicação no ambiente Python 3.14.8
 uv sync --all-extras --dev
 
 # Instale e compile a interface web Vite+

@@ -194,8 +194,7 @@ class NotebookLMManagement:
             yield token
         finally:
             with self._active_lock:
-                if self._active_token is token:
-                    self._active_token = None
+                self._active_token = None
 
     @staticmethod
     def _stop_process(process: subprocess.Popen[str]) -> None:

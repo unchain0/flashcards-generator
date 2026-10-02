@@ -73,7 +73,7 @@ returns CSV artifacts without sending source documents to the hosted server.
 
 ## CONVENTIONS
 
-- Python is pinned to 3.14.7. Use `uv run --frozen ...` for reproducible checks.
+- Python is pinned to 3.14.8. Use `uv run --frozen ...` for reproducible checks.
 - The frontend pins `pnpm@12.5.1`; use Corepack/pnpm, never npm.
 - Ruff owns Python lint/format, `ty` owns production type checking, and Radon
   must report rank A for every production function and module.

@@ -60,19 +60,19 @@ jobs:
           python-version-file: '.python-version'
 
       - name: Install dependencies
-        run: uv sync --all-extras --dev
+        run: uv sync --frozen --all-extras --dev
 
       - name: Run RUFF linter
-        run: uv run ruff check --output-format github .
+        run: uv run --frozen ruff check --output-format github .
 
       - name: Run RUFF format check
-        run: uv run ruff format --check .
+        run: uv run --frozen ruff format --check .
 
       - name: Run TY type check
-        run: uv run ty check src/flashcards_generator scripts/python/quality_gate.py
+        run: uv run --frozen ty check src/flashcards_generator scripts/python/quality_gate.py
 
       - name: Enforce Radon rank A
-        run: uv run task quality-gate
+        run: uv run --frozen task quality-gate
 
   frontend:
     name: Frontend Quality & E2E
@@ -213,10 +213,10 @@ jobs:
           python-version-file: '.python-version'
 
       - name: Install dependencies
-        run: uv sync --all-extras --dev
+        run: uv sync --frozen --all-extras --dev
 
       - name: Run integration tests (mocked)
-        run: uv run pytest tests/integration -v -m "not requires_api" --timeout=300
+        run: uv run --frozen pytest tests/integration -v -m "not requires_api" --timeout=300
 
   build:
     name: Build Package
@@ -314,3 +314,15 @@ jobs:
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
             --header "Cookie: flashcards_session=$session_cookie" \
             http://127.0.0.1:18000/api/v1/auth/me)" = 401
+          cat >> "$compose_override" <<'YAML'
+              environment:
+                FLASHCARDS_BOOTSTRAP_PASSWORD: ""
+          YAML
+          "${compose[@]}" up --detach --no-build --no-deps --force-recreate \
+            --wait --wait-timeout 180 app
+          "${compose[@]}" exec --no-TTY app /app/.venv/bin/python -c \
+            'import os; assert not os.environ.get("FLASHCARDS_BOOTSTRAP_PASSWORD")'
+          curl --fail --silent --show-error --output /dev/null \
+            --header 'Content-Type: application/json' \
+            --data '{"password":"ci-smoke-password"}' \
+            http://127.0.0.1:18000/api/v1/auth/login

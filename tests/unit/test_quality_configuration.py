@@ -86,7 +86,7 @@ def test_ci_quality_gate_uses_the_enforced_task() -> None:
     )
     assert typecheck_step is not None
     assert (
-        "run: uv run ty check src/flashcards_generator "
+        "run: uv run --frozen ty check src/flashcards_generator "
         "scripts/python/quality_gate.py"
     ) in typecheck_step.group(1)
 

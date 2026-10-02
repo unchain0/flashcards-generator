@@ -1,21 +1,12 @@
-import type {
-  Artifact,
-  AuthRead,
-  FlashcardsApi,
-  GenerationJob,
-  JobStatus,
-  NotebookLMStatus,
+import {
+  HttpApiError,
+  type Artifact,
+  type AuthRead,
+  type FlashcardsApi,
+  type GenerationJob,
+  type JobStatus,
+  type NotebookLMStatus,
 } from "../domain/contracts";
-
-export class HttpApiError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
-    super(message);
-    this.name = "HttpApiError";
-  }
-}
 
 type Fetcher = typeof fetch;
 type JsonValidator = (value: unknown) => boolean;

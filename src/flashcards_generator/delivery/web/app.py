@@ -41,6 +41,8 @@ class SecurityHeadersMiddleware(ASGIMiddleware):
                 headers["Referrer-Policy"] = "no-referrer"
                 headers["X-Content-Type-Options"] = "nosniff"
                 headers["X-Frame-Options"] = "DENY"
+                if scope["app"].state.settings.environment == "production":
+                    headers["Strict-Transport-Security"] = "max-age=31536000"
                 headers["Permissions-Policy"] = (
                     "camera=(), geolocation=(), microphone=()"
                 )

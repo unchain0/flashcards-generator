@@ -292,6 +292,10 @@ jobs:
             --detach --no-build --wait --wait-timeout 180
           curl --fail --silent http://127.0.0.1:18000/health/live
           curl --fail --silent http://127.0.0.1:18000/health/ready
+          test "$(curl --fail --silent --show-error --dump-header - \
+            --output /dev/null http://127.0.0.1:18000/ \
+            | tr -d '\r' | grep --ignore-case '^strict-transport-security:')" = \
+            'strict-transport-security: max-age=31536000'
           curl --fail --silent --show-error --dump-header "$cookie_headers" \
             --output /dev/null --header 'Content-Type: application/json' \
             --data '{"password":"ci-smoke-password"}' \

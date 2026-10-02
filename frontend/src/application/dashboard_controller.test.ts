@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import type {
-  DashboardView,
-  FlashcardsApi,
-  GenerationJob,
-  JobStatus,
-  NotebookLMStatus,
+import {
+  HttpApiError,
+  type DashboardView,
+  type FlashcardsApi,
+  type GenerationJob,
+  type JobStatus,
+  type NotebookLMStatus,
 } from "../domain/contracts";
-import { HttpApiError } from "../infrastructure/http_api";
 import { DashboardController } from "./dashboard_controller";
 
 function notebookStatus(status: string): NotebookLMStatus {
@@ -174,6 +174,19 @@ describe("DashboardController", () => {
     );
   });
 
+  it("stops polling when the user logs out between status requests", async () => {
+    const { api, controller, pause, view } = harness();
+    api.getJob.mockResolvedValue(job("running"));
+    pause.mockImplementation(() => controller.logout());
+
+    await controller.generate(new FormData());
+
+    expect(api.getJob).toHaveBeenCalledOnce();
+    expect(pause).toHaveBeenCalledOnce();
+    expect(view.showAuthentication).toHaveBeenLastCalledWith(true);
+    expect(view.setBusy).toHaveBeenCalledWith("generate", false);
+  });
+
   it("checks the local profile and skips login when it is already authenticated", async () => {
     const { api, view } = harness();
     api.notebookStatus.mockResolvedValueOnce(notebookStatus("authenticated"));
@@ -245,7 +258,7 @@ describe("DashboardController", () => {
     expect(view.setApplicationMessage).toHaveBeenLastCalledWith("A geração falhou.");
   });
 
-  it("reports generation errors and keeps long jobs available for later polling", async () => {
+  it("reports generation errors and follows long jobs until completion", async () => {
     const failed = harness();
     failed.api.createJob.mockRejectedValueOnce(new Error("upload falhou"));
     await failed.controller.generate(new FormData());
@@ -253,13 +266,15 @@ describe("DashboardController", () => {
     expect(failed.view.setBusy).toHaveBeenLastCalledWith("generate", false);
 
     const longJob = harness();
-    longJob.api.getJob.mockResolvedValue(job("running", "Em andamento"));
+    let polls = 0;
+    longJob.api.getJob.mockImplementation(async () => {
+      polls += 1;
+      return job(polls > 240 ? "completed" : "running");
+    });
     await longJob.controller.generate(new FormData());
-    expect(longJob.api.getJob).toHaveBeenCalledTimes(240);
+    expect(longJob.api.getJob).toHaveBeenCalledTimes(241);
     expect(longJob.pause).toHaveBeenCalledTimes(240);
-    expect(longJob.view.setApplicationMessage).toHaveBeenLastCalledWith(
-      expect.stringContaining("A geração continua no servidor"),
-    );
+    expect(longJob.view.setApplicationMessage).toHaveBeenLastCalledWith("Geração concluída.");
   });
 
   it("downloads artifacts and reports download errors", async () => {

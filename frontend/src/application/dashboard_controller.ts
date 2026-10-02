@@ -1,5 +1,9 @@
-import type { DashboardView, FlashcardsApi, NotebookLMStatus } from "../domain/contracts";
-import { HttpApiError } from "../infrastructure/http_api";
+import {
+  HttpApiError,
+  type DashboardView,
+  type FlashcardsApi,
+  type NotebookLMStatus,
+} from "../domain/contracts";
 
 type Wait = (milliseconds: number) => Promise<void>;
 
@@ -131,7 +135,7 @@ export class DashboardController {
   }
 
   private async pollJob(jobId: string): Promise<void> {
-    for (let attempt = 0; attempt < 240; attempt += 1) {
+    while (this.activeJobId === jobId) {
       const job = await this.api.getJob(jobId);
       if (this.activeJobId !== jobId) {
         return;
@@ -146,10 +150,6 @@ export class DashboardController {
       }
       await this.pause(1200);
     }
-    this.view.setBusy("generate", false);
-    this.view.setApplicationMessage(
-      "A geração continua no servidor. Atualize a página para consultar o status.",
-    );
   }
 
   private message(error: unknown): string {

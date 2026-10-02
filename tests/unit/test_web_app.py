@@ -4,10 +4,16 @@ import os
 from pathlib import Path
 
 import pytest
-from litestar import Litestar
+from litestar import Litestar, get
+from litestar.datastructures import State
+from litestar.testing import TestClient
 
-from flashcards_generator.delivery.web.app import create_app, stop_database
-from flashcards_generator.delivery.web.config import WebSettings
+from flashcards_generator.delivery.web.app import (
+    SecurityHeadersMiddleware,
+    create_app,
+    stop_database,
+)
+from flashcards_generator.delivery.web.config import Environment, WebSettings
 
 
 @pytest.fixture(autouse=True)
@@ -56,6 +62,35 @@ def test_create_app_accepts_a_frontend_distribution(tmp_path: Path) -> None:
 
     assert isinstance(app, Litestar)
     assert app.state.settings is settings
+
+
+@pytest.mark.parametrize("environment", ["production", "test"])
+def test_transport_security_header_is_production_only(
+    environment: Environment,
+) -> None:
+    settings = WebSettings(
+        environment=environment,
+        database_url="postgresql+asyncpg://test:test@localhost/test",
+        session_secret="session-secret-test-0123456789abcdef",
+        auth_lookup_secret="lookup-secret-test-0123456789abcdef",
+        auto_create_schema=False,
+        _env_file=None,
+    )
+
+    @get("/")
+    def page() -> dict[str, str]:
+        return {"status": "ok"}
+
+    app = Litestar(
+        route_handlers=[page],
+        middleware=[SecurityHeadersMiddleware()],
+        state=State({"settings": settings}),
+    )
+    with TestClient(app) as client:
+        response = client.get("/")
+
+    expected = "max-age=31536000" if environment == "production" else None
+    assert response.headers.get("strict-transport-security") == expected
 
 
 @pytest.mark.asyncio

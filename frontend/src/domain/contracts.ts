@@ -1,5 +1,15 @@
 export type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 
+export class HttpApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "HttpApiError";
+  }
+}
+
 export interface AuthRead {
   authenticated: boolean;
 }

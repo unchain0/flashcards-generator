@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { GenerationJob } from "../domain/contracts";
-import { HttpApiError, HttpFlashcardsApi } from "./http_api";
+import { HttpApiError, type GenerationJob } from "../domain/contracts";
+import { HttpFlashcardsApi } from "./http_api";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {

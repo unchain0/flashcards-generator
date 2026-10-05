@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { HttpApiError, type GenerationJob } from "../domain/contracts";
 import { HttpFlashcardsApi } from "./http_api";
 

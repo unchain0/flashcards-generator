@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 function response(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {

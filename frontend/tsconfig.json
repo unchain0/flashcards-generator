@@ -8,7 +8,7 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["node", "vite/client"]
+    "types": ["node", "vite-plus/client"]
   },
   "include": ["src/**/*.ts", "vite.config.ts", "playwright*.config.ts", "e2e/**/*.ts"]
 }

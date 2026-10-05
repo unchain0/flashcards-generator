@@ -1,4 +1,4 @@
-import { expect, it, vi } from "vitest";
+import { expect, it, vi } from "vite-plus/test";
 import { init, type EventHint } from "@sentry/browser";
 import { initializeMonitoring, sanitizeEvent } from "./monitoring";
 

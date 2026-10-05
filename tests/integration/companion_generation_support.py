@@ -76,7 +76,7 @@ async def companion(
     )
     async with AsyncTestClient(
         app,
-        base_url="http://127.0.0.1:8765",
+        base_url="http://127.0.0.1:8766",
     ) as client:
         yield client, workflow
 

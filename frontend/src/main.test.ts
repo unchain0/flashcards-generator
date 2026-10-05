@@ -102,7 +102,7 @@ describe("web entry point", () => {
           message: "NotebookLM conectado.",
         });
       }
-      if (path === "http://127.0.0.1:8765/v1/jobs" && init?.method === "POST") {
+      if (path === "http://127.0.0.1:8766/v1/jobs" && init?.method === "POST") {
         if (init.body instanceof FormData) {
           submittedForms.push(init.body);
         }
@@ -149,7 +149,7 @@ describe("web entry point", () => {
       if (path.endsWith("/auth/logout")) {
         return response({ authenticated: false });
       }
-      if (path === "http://127.0.0.1:8765/missing-artifact.csv") {
+      if (path === "http://127.0.0.1:8766/missing-artifact.csv") {
         return response({ detail: "Arquivo ausente" }, 404);
       }
       return response({ detail: "Não encontrado" }, 404);
@@ -206,8 +206,8 @@ describe("web entry point", () => {
     await vi.waitFor(() => {
       expect(document.querySelector("#notebook-status")?.textContent).toBe("NotebookLM conectado.");
     });
-    expect(calls).toContain("http://127.0.0.1:8765/v1/notebooklm/status");
-    expect(calls).toContain("http://127.0.0.1:8765/v1/notebooklm/login");
+    expect(calls).toContain("http://127.0.0.1:8766/v1/notebooklm/status");
+    expect(calls).toContain("http://127.0.0.1:8766/v1/notebooklm/login");
 
     const invalidEvent = new Event("invalid", { cancelable: true });
     fileInput.dispatchEvent(invalidEvent);
@@ -322,9 +322,9 @@ describe("web entry point", () => {
       expect(document.querySelector("#app-status")?.textContent).toBe("Download iniciado.");
     });
     expect(createObjectURL).toHaveBeenCalledOnce();
-    expect(calls).toContain("http://127.0.0.1:8765/v1/jobs");
-    expect(calls).toContain("http://127.0.0.1:8765/v1/jobs/job-123");
-    expect(calls).toContain("http://127.0.0.1:8765/v1/jobs/job-123/artifacts/lesson.csv");
+    expect(calls).toContain("http://127.0.0.1:8766/v1/jobs");
+    expect(calls).toContain("http://127.0.0.1:8766/v1/jobs/job-123");
+    expect(calls).toContain("http://127.0.0.1:8766/v1/jobs/job-123/artifacts/lesson.csv");
 
     document.querySelector<HTMLButtonElement>("#logout-button")?.click();
     await vi.waitFor(() => {

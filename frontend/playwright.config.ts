@@ -7,9 +7,9 @@ import { defineConfig } from "@playwright/test";
 const backendPort = process.env["FLASHCARDS_E2E_BACKEND_PORT"] ?? "8123";
 const frontendPort = process.env["FLASHCARDS_E2E_FRONTEND_PORT"] ?? "5174";
 const configDirectory = dirname(fileURLToPath(import.meta.url));
+const suppliedE2EDirectory = process.env["FLASHCARDS_E2E_DIRECTORY"];
 const e2eDirectory =
-  process.env["FLASHCARDS_E2E_DIRECTORY"] ??
-  mkdtempSync(join(tmpdir(), "flashcards-generator-e2e-"));
+  suppliedE2EDirectory ?? mkdtempSync(join(tmpdir(), "flashcards-generator-e2e-"));
 const notebookLMCommandLog = join(e2eDirectory, "notebooklm-commands.jsonl");
 const companionCommandLog = join(e2eDirectory, "companion-notebooklm-commands.jsonl");
 process.env["FLASHCARDS_E2E_DIRECTORY"] = e2eDirectory;
@@ -17,8 +17,10 @@ process.env["FLASHCARDS_E2E_COMMAND_LOG"] = notebookLMCommandLog;
 process.env["FLASHCARDS_E2E_COMPANION_COMMAND_LOG"] = companionCommandLog;
 
 export default defineConfig({
+  forbidOnly: true,
+  retries: 0,
   testDir: "./e2e",
-  globalTeardown: "./e2e/global-teardown.ts",
+  ...(suppliedE2EDirectory ? {} : { globalTeardown: "./e2e/global-teardown.ts" }),
   use: {
     baseURL: `http://127.0.0.1:${frontendPort}`,
     browserName: "chromium",
@@ -53,7 +55,7 @@ export default defineConfig({
     {
       command: "uv run --frozen --project .. python e2e/run_companion.py",
       cwd: configDirectory,
-      url: "http://127.0.0.1:8765/v1/health",
+      url: "http://127.0.0.1:8766/v1/health",
       reuseExistingServer: false,
       timeout: 60_000,
       gracefulShutdown: { signal: "SIGTERM", timeout: 10_000 },

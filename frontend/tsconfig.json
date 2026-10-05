@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "types": ["node", "vite/client"]
   },
-  "include": ["src/**/*.ts", "vite.config.ts", "playwright.config.ts", "e2e/**/*.ts"]
+  "include": ["src/**/*.ts", "vite.config.ts", "playwright*.config.ts", "e2e/**/*.ts"]
 }

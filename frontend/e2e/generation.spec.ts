@@ -22,7 +22,7 @@ test("autentica, gera localmente e baixa o CSV pelo navegador", async ({ page },
     remoteGenerationRequests.push(route.request().url());
     await route.abort();
   });
-  await page.route("http://127.0.0.1:8765/**", async (route) => {
+  await page.route("http://127.0.0.1:8766/**", async (route) => {
     const request = route.request();
     const allowOrigin = request.headers()["origin"] ?? "null";
     companionRequests.push(`${request.method()} ${request.url()}`);
@@ -114,7 +114,12 @@ test("autentica, gera localmente e baixa o CSV pelo navegador", async ({ page },
   const password = page.getByLabel("Senha de acesso");
   await expect(password).toBeFocused();
   await password.fill("e2e-password-123");
+  const loginResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/v1/auth/login") && response.request().method() === "POST",
+  );
   await password.press("Enter");
+  expect((await loginResponse).status()).toBe(200);
   await expect(page.getByRole("heading", { name: "Nova geração" })).toBeVisible();
   await expect(password).toHaveValue("");
   await expect(page.locator("#notebook-status")).toHaveText(
@@ -181,7 +186,7 @@ test("autentica, gera localmente e baixa o CSV pelo navegador", async ({ page },
   expect(generationPayload).not.toContain("study_profile");
   expect(remoteGenerationRequests).toEqual([]);
   expect(
-    companionRequests.some((item) => item.endsWith("POST http://127.0.0.1:8765/v1/jobs")),
+    companionRequests.some((item) => item.endsWith("POST http://127.0.0.1:8766/v1/jobs")),
   ).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("generation-completed.png"), fullPage: true });
   const downloadPromise = page.waitForEvent("download");
@@ -279,10 +284,17 @@ test("mantém a tela de acesso legível em uma tela estreita", async ({ page }, 
 });
 
 test("explica quando o auxiliar local não responde", async ({ page }, testInfo) => {
-  await page.route("http://127.0.0.1:8765/**", (route) => route.abort());
+  await page.route("http://127.0.0.1:8766/**", (route) => route.abort());
   await page.goto("/");
   await page.getByLabel("Senha de acesso").fill("e2e-password-123");
+  const authenticated = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/api/v1/auth/login",
+    { timeout: 30_000 },
+  );
   await page.getByLabel("Senha de acesso").press("Enter");
+  expect((await authenticated).status()).toBe(200);
   await expect(page.getByRole("heading", { name: "Nova geração" })).toBeVisible();
   const connectButton = page.getByRole("button", { name: "Conectar NotebookLM" });
   await connectButton.click();
@@ -308,4 +320,118 @@ test("mantém o link de salto fora da tela até receber foco", async ({ page }) 
 
   await page.keyboard.press("Tab");
   await expect(skipLink).toBeFocused();
+});
+
+test("repete consultas e envios após falha do provedor sem iniciar outro login Google", async ({
+  page,
+}, testInfo) => {
+  let statusChecks = 0;
+  let loginAttempts = 0;
+  let uploadAttempts = 0;
+  let providerRecovered = false;
+  const retryMessage = "Não foi possível verificar sua sessão do NotebookLM. Tente novamente.";
+  const browserErrors: string[] = [];
+  page.on("pageerror", (error) => browserErrors.push(error.message));
+  await page.route("http://127.0.0.1:8766/**", async (route) => {
+    const request = route.request();
+    const headers = { "access-control-allow-origin": request.headers()["origin"] ?? "null" };
+    if (request.method() === "OPTIONS") {
+      await route.fulfill({
+        status: 204,
+        headers: {
+          ...headers,
+          "access-control-allow-methods": "GET, POST",
+          "access-control-allow-headers": "authorization,content-type",
+        },
+      });
+      return;
+    }
+    const path = new URL(request.url()).pathname;
+    if (path === "/v1/notebooklm/status") statusChecks += 1;
+    if (path === "/v1/notebooklm/login") loginAttempts += 1;
+    if (path === "/v1/jobs") {
+      uploadAttempts += 1;
+      await route.fulfill({ status: 503, headers, json: { detail: retryMessage } });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      headers,
+      json:
+        path === "/v1/health"
+          ? { status: "ok" }
+          : {
+              authenticated: providerRecovered,
+              status: providerRecovered ? "authenticated" : "provider_error",
+              message: providerRecovered ? "authenticated" : "unable to check authentication",
+            },
+    });
+  });
+  await page.goto("/");
+  await page.getByLabel("Senha de acesso").fill("e2e-password-123");
+  const authenticated = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/api/v1/auth/login",
+    { timeout: 30_000 },
+  );
+  await page.getByLabel("Senha de acesso").press("Enter");
+  expect((await authenticated).status()).toBe(200);
+  await expect(page.getByRole("heading", { name: "Nova geração" })).toBeVisible();
+  const connect = page.getByRole("button", { name: "Conectar NotebookLM" });
+  const status = page.locator("#notebook-status");
+  for (const width of [1280, 360]) {
+    await page.setViewportSize({ width, height: 900 });
+    await connect.click();
+    await expect(status).toHaveText(
+      "Não foi possível verificar sua sessão do NotebookLM. Tente conectar novamente.",
+    );
+    await expect(status).toHaveAttribute("data-state", "error");
+    await expect(connect).toBeEnabled();
+    await connect.focus();
+    await connect.press("Enter");
+    await expect(connect).toBeEnabled();
+    await expect(page.getByLabel("Arquivos PDF ou PPTX")).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Gerar flashcards", exact: true }),
+    ).toBeDisabled();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+    await page.screenshot({
+      path: testInfo.outputPath(`provider-status-${width}.png`),
+      fullPage: true,
+    });
+  }
+  expect(statusChecks).toBe(4);
+  providerRecovered = true;
+  await connect.click();
+  await expect(status).toHaveAttribute("data-state", "connected");
+  const files = page.getByLabel("Arquivos PDF ou PPTX");
+  await files.setInputFiles({
+    name: "retry.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.7 local retry fixture"),
+  });
+  const generate = page.getByRole("button", { name: "Gerar flashcards", exact: true });
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const rejected = page.waitForResponse(
+      (response) =>
+        response.url() === "http://127.0.0.1:8766/v1/jobs" &&
+        response.request().method() === "POST",
+    );
+    await generate.click();
+    expect((await rejected).status()).toBe(503);
+    await expect(page.locator("#app-status")).toHaveText(retryMessage);
+    await expect(generate).toBeEnabled();
+    await expect(files).toBeEnabled();
+    await expect(status).toHaveAttribute("data-state", "connected");
+    expect(await files.evaluate((input: HTMLInputElement) => input.files?.[0]?.name)).toBe(
+      "retry.pdf",
+    );
+  }
+  expect(statusChecks).toBe(5);
+  expect(uploadAttempts).toBe(2);
+  expect(loginAttempts).toBe(0);
+  expect(browserErrors).toEqual([]);
 });

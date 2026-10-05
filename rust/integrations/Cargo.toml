@@ -1,0 +1,36 @@
+[package]
+name = "flashcards-integrations"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+flashcards-integrations-shared = { path = "../integrations-shared" }
+getrandom.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+flashcards-services = { path = "../services" }
+flashcards-domain = { path = "../domain" }
+flashcards-engines = { path = "../engines" }
+tempfile.workspace = true
+csv.workspace = true
+reqwest.workspace = true
+regex.workspace = true
+lazy-regex = "=3.6.1"
+html-escape.workspace = true
+futures-util.workspace = true
+tokio-tungstenite.workspace = true
+
+[dev-dependencies]
+axum = { workspace = true, features = ["form", "query"] }
+futures-util.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
+
+[target.'cfg(unix)'.dependencies]
+rustix = { workspace = true, features = ["fs"] }

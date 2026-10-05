@@ -1,0 +1,13 @@
+[advisories]
+yanked = "deny"
+unmaintained = "all"
+unsound = "all"
+ignore = []
+unused-ignored-advisory = "deny"
+maximum-db-staleness = "P1D"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

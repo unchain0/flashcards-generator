@@ -1,0 +1,438 @@
+[
+  {
+    "front": "Qual é a capital da França?",
+    "back": "Paris",
+    "single_cloze": false,
+    "expected": {
+      "front": "capital da França {{c1::Paris}}",
+      "back": "Paris",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Qual é a capital da França?",
+    "back": "Paris",
+    "single_cloze": true,
+    "expected": {
+      "front": "capital da França {{c1::Paris}}",
+      "back": "Paris",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "What is the primary function?",
+    "back": "memory storage",
+    "single_cloze": false,
+    "expected": {
+      "front": "primary function {{c1::memory storage}}",
+      "back": "memory storage",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "What is the primary function?",
+    "back": "memory storage",
+    "single_cloze": true,
+    "expected": {
+      "front": "primary function {{c1::memory storage}}",
+      "back": "memory storage",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Which is the answer?",
+    "back": "the",
+    "single_cloze": false,
+    "expected": null
+  },
+  {
+    "front": "Which is the answer?",
+    "back": "the",
+    "single_cloze": true,
+    "expected": null
+  },
+  {
+    "front": "Texto {{c9::the}} {{c2::energia::conceito}} e {{c3::$E=mc^2$::equação}}",
+    "back": "  resposta\n final ",
+    "single_cloze": false,
+    "expected": null
+  },
+  {
+    "front": "Texto {{c9::the}} {{c2::energia::conceito}} e {{c3::$E=mc^2$::equação}}",
+    "back": "  resposta\n final ",
+    "single_cloze": true,
+    "expected": {
+      "front": "Texto the {{c1::energia::conceito}} e \\(E=mc^2\\)",
+      "back": "resposta final",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Equação {{c1::$$E=mc^2$$}} completa",
+    "back": "  $$E=mc^2$$ ",
+    "single_cloze": false,
+    "expected": {
+      "front": "Equação {{c1::\\[E=mc^2\\]}} completa",
+      "back": "$$E=mc^2$$",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Equação {{c1::$$E=mc^2$$}} completa",
+    "back": "  $$E=mc^2$$ ",
+    "single_cloze": true,
+    "expected": {
+      "front": "Equação {{c1::\\[E=mc^2\\]}} completa",
+      "back": "$$E=mc^2$$",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Texto {{c1::the::a hint}}",
+    "back": "hint",
+    "single_cloze": false,
+    "expected": {
+      "front": "Texto {{c1::the::a hint}}",
+      "back": "hint",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Texto {{c1::the::a hint}}",
+    "back": "hint",
+    "single_cloze": true,
+    "expected": null
+  },
+  {
+    "front": "Texto {{c1::}} vazio",
+    "back": "",
+    "single_cloze": false,
+    "expected": null
+  },
+  {
+    "front": "Texto {{c1::}} vazio",
+    "back": "",
+    "single_cloze": true,
+    "expected": null
+  },
+  {
+    "front": "Texto {{cloze inválido",
+    "back": "value",
+    "single_cloze": false,
+    "expected": null
+  },
+  {
+    "front": "Texto {{cloze inválido",
+    "back": "value",
+    "single_cloze": true,
+    "expected": null
+  },
+  {
+    "front": "Qual?",
+    "back": "",
+    "single_cloze": false,
+    "expected": null
+  },
+  {
+    "front": "Qual?",
+    "back": "",
+    "single_cloze": true,
+    "expected": null
+  },
+  {
+    "front": "Pergunta\u001c com  espaço...",
+    "back": "Resposta é/são valor",
+    "single_cloze": false,
+    "expected": {
+      "front": "Pergunta com espaço... {{c1::valor}}",
+      "back": "Resposta é/são valor",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Pergunta\u001c com  espaço...",
+    "back": "Resposta é/são valor",
+    "single_cloze": true,
+    "expected": {
+      "front": "Pergunta com espaço... {{c1::valor}}",
+      "back": "Resposta é/são valor",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Explain the source.",
+    "back": "Answer is/are thermal energy",
+    "single_cloze": false,
+    "expected": {
+      "front": "Explain the source. {{c1::thermal energy}}",
+      "back": "Answer is/are thermal energy",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Explain the source.",
+    "back": "Answer is/are thermal energy",
+    "single_cloze": true,
+    "expected": {
+      "front": "Explain the source. {{c1::thermal energy}}",
+      "back": "Answer is/are thermal energy",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "O que acontece?",
+    "back": "A structure gives purpose and function to cells",
+    "single_cloze": false,
+    "expected": {
+      "front": "A {{c1::structure}} gives {{c2::purpose}} and {{c3::function}} to cells",
+      "back": "A structure gives purpose and function to cells",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "O que acontece?",
+    "back": "A structure gives purpose and function to cells",
+    "single_cloze": true,
+    "expected": {
+      "front": "A {{c1::structure}} gives purpose and function to cells",
+      "back": "A structure gives purpose and function to cells",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Descreva.",
+    "back": "água é uma substância",
+    "single_cloze": false,
+    "expected": {
+      "front": "água é uma {{c1::substância}}",
+      "back": "água é uma substância",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Descreva.",
+    "back": "água é uma substância",
+    "single_cloze": true,
+    "expected": {
+      "front": "água é uma {{c1::substância}}",
+      "back": "água é uma substância",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Descreva.",
+    "back": "This is the structure of cells.",
+    "single_cloze": false,
+    "expected": {
+      "front": "This is the {{c1::structure}} of cells.",
+      "back": "This is the structure of cells.",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Descreva.",
+    "back": "This is the structure of cells.",
+    "single_cloze": true,
+    "expected": {
+      "front": "This is the {{c1::structure}} of cells.",
+      "back": "This is the structure of cells.",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Descreva.",
+    "back": "A função é armazenar energia. O processo transporta nutrientes. O mecanismo é químico. Quarta frase excluída.",
+    "single_cloze": false,
+    "expected": {
+      "front": "A função {{c1::é armazenar energia}}. {{c2::O processo transporta nutrientes}}. O mecanismo {{c3::é químico}}.",
+      "back": "A função é armazenar energia. O processo transporta nutrientes. O mecanismo é químico. Quarta frase excluída.",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Descreva.",
+    "back": "A função é armazenar energia. O processo transporta nutrientes. O mecanismo é químico. Quarta frase excluída.",
+    "single_cloze": true,
+    "expected": {
+      "front": "A função {{c1::é armazenar energia}}. O processo transporta nutrientes. O mecanismo é químico.",
+      "back": "A função é armazenar energia. O processo transporta nutrientes. O mecanismo é químico. Quarta frase excluída.",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Descreva.",
+    "back": "Curta. A estrutura permite armazenar energia. Sim.",
+    "single_cloze": false,
+    "expected": {
+      "front": "{{c1::A estrutura permite armazenar energia}}.",
+      "back": "Curta. A estrutura permite armazenar energia. Sim.",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Descreva.",
+    "back": "Curta. A estrutura permite armazenar energia. Sim.",
+    "single_cloze": true,
+    "expected": {
+      "front": "{{c1::A estrutura permite armazenar energia}}.",
+      "back": "Curta. A estrutura permite armazenar energia. Sim.",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Pergunta.",
+    "back": "the and or but",
+    "single_cloze": false,
+    "expected": null
+  },
+  {
+    "front": "Pergunta.",
+    "back": "the and or but",
+    "single_cloze": true,
+    "expected": null
+  },
+  {
+    "front": "Pergunta.",
+    "back": "1234 example of definition",
+    "single_cloze": false,
+    "expected": {
+      "front": "1234 {{c1::example}} of definition",
+      "back": "1234 example of definition",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Pergunta.",
+    "back": "1234 example of definition",
+    "single_cloze": true,
+    "expected": {
+      "front": "1234 {{c1::example}} of definition",
+      "back": "1234 example of definition",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Pergunta.",
+    "back": "É água pura fria",
+    "single_cloze": false,
+    "expected": {
+      "front": "É {{c1::água}} pura fria",
+      "back": "É água pura fria",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Pergunta.",
+    "back": "É água pura fria",
+    "single_cloze": true,
+    "expected": {
+      "front": "É {{c1::água}} pura fria",
+      "back": "É água pura fria",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Pergunta.",
+    "back": "resultado causa efeito processo função objetivo",
+    "single_cloze": false,
+    "expected": {
+      "front": "{{c1::resultado}} {{c2::causa}} {{c3::efeito}} processo função objetivo",
+      "back": "resultado causa efeito processo função objetivo",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  },
+  {
+    "front": "Pergunta.",
+    "back": "resultado causa efeito processo função objetivo",
+    "single_cloze": true,
+    "expected": {
+      "front": "{{c1::resultado}} causa efeito processo função objetivo",
+      "back": "resultado causa efeito processo função objetivo",
+      "tags": [
+        "study"
+      ],
+      "source": ""
+    }
+  }
+]

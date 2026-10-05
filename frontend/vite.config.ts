@@ -24,6 +24,8 @@ export default defineConfig({
       exclude: ["src/**/*.test.ts"],
       reporter: ["text", "lcov"],
       thresholds: {
+        perFile: true,
+        autoUpdate: false,
         branches: 100,
         functions: 100,
         lines: 100,

@@ -10,6 +10,9 @@
     "test": "vp test run --coverage",
     "e2e": "playwright test"
   },
+  "dependencies": {
+    "@sentry/browser": "^11.2.0"
+  },
   "devDependencies": {
     "@playwright/test": "1.63.0",
     "@types/node": "^24.13.6",

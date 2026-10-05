@@ -1,0 +1,20 @@
+name: Prepare Rust runtime validation
+description: Install pinned tools and native processors, then build frontend assets.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      with:
+        node-version-file: frontend/.node-version
+    - shell: bash
+      run: |
+        set -euo pipefail
+        sudo apt-get update
+        sudo apt-get install --no-install-recommends -y build-essential cmake qpdf poppler-utils libreoffice-impress
+        rustup show active-toolchain
+        corepack enable
+        corepack pnpm@12.5.1 --dir frontend install --frozen-lockfile
+        corepack pnpm@12.5.1 --dir frontend run build
+        corepack pnpm@12.5.1 --dir frontend exec playwright install --with-deps chromium
+        browser="$(corepack pnpm@12.5.1 --dir frontend exec node -e 'console.log(require("@playwright/test").chromium.executablePath())')"
+        printf 'FLASHCARDS_TEST_BROWSER=%s\n' "$browser" >> "$GITHUB_ENV"

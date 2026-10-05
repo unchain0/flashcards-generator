@@ -12,7 +12,7 @@ type Fetcher = typeof fetch;
 type JsonValidator = (value: unknown) => boolean;
 type Validators<T> = { [Key in keyof T]-?: JsonValidator };
 
-const COMPANION_ORIGIN = "http://127.0.0.1:8765";
+const COMPANION_ORIGIN = "http://127.0.0.1:8766";
 const JOB_STATUSES: ReadonlySet<string> = new Set<JobStatus>([
   "queued",
   "running",

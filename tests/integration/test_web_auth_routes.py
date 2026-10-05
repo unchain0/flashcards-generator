@@ -104,7 +104,7 @@ async def test_companion_token_is_short_lived_and_revoked_with_web_session(
 
     assert issued.status_code == 201
     assert (
-        "http://127.0.0.1:8765"
+        "http://127.0.0.1:8766"
         in page_response.headers["content-security-policy"]
     )
     assert issued.json()["expires_in"] == 300

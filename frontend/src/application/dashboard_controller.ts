@@ -14,6 +14,7 @@ const TERMINAL_JOB_STATES = new Set(["completed", "failed", "cancelled"]);
 const NOTEBOOK_STATUS_MESSAGES: Readonly<Record<string, string>> = {
   authenticated: "NotebookLM conectado.",
   login_required: "Nenhuma conta do NotebookLM conectada.",
+  provider_error: "Não foi possível verificar sua sessão do NotebookLM. Tente conectar novamente.",
 };
 
 export class DashboardController {
@@ -76,7 +77,9 @@ export class DashboardController {
     try {
       const status = await this.api.notebookStatus();
       this.displayNotebookStatus(
-        status.authenticated ? status : await this.api.startNotebookLogin(),
+        !status.authenticated && status.status === "login_required"
+          ? await this.api.startNotebookLogin()
+          : status,
       );
     } catch (error) {
       this.view.setNotebookMessage(this.message(error), "error");
@@ -130,7 +133,12 @@ export class DashboardController {
 
   private displayNotebookStatus(status: NotebookLMStatus): void {
     const message = NOTEBOOK_STATUS_MESSAGES[status.status] ?? status.message;
-    this.view.setNotebookMessage(message, status.authenticated ? "connected" : "disconnected");
+    const state = status.authenticated
+      ? "connected"
+      : status.status === "provider_error"
+        ? "error"
+        : "disconnected";
+    this.view.setNotebookMessage(message, state);
     this.view.setGenerationEnabled(status.authenticated);
   }
 

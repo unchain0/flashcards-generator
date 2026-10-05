@@ -7,7 +7,7 @@ from platformdirs import user_data_path
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-COMPANION_PORT = 8765
+COMPANION_PORT = 8766
 _LOCAL_HTTP_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
 

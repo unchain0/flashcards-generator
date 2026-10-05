@@ -1,0 +1,97 @@
+name: Rust migration gates
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, develop]
+    paths: &rust_paths
+      - 'rust/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+      - 'clippy.toml'
+      - 'deny.toml'
+      - '.cargo/**'
+      - 'ci/**'
+      - 'scripts/rust-*.sh'
+      - 'frontend/**'
+      - 'Dockerfile.rust'
+      - 'Dockerfile.rust.dockerignore'
+      - '.dockerignore'
+      - '.github/actions/rust-validation/**'
+      - '.github/workflows/rust.yml'
+  pull_request:
+    branches: [main, develop]
+    paths: *rust_paths
+permissions:
+  contents: read
+concurrency:
+  group: rust-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: ./.github/actions/rust-validation
+      - name: Check Rust formatting, lint, and MASA
+        run: |
+          cargo fmt --all -- --check
+          rustfmt --edition 2024 --check ci/coverage-probe.rs
+          cargo clippy --workspace --all-targets --locked
+          mkdir -p target/quality
+          cargo metadata --format-version 1 --locked --all-features > target/quality/metadata.json
+          cargo run --locked -p xtask -- check-masa target/quality/metadata.json
+      - name: Check frontend source and coverage
+        run: |
+          corepack pnpm@12.5.1 --dir frontend run check
+          corepack pnpm@12.5.1 --dir frontend run test
+      - name: Validate Rust behavior and browser contracts
+        run: bash scripts/rust-check.sh
+      - name: Build production binaries
+        run: cargo build --workspace --bins --release --locked
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: ./.github/actions/rust-validation
+      - name: Install pinned collector and coverage compiler
+        run: |
+          cargo install cargo-llvm-cov --version 0.9.1 --locked
+          rustup toolchain install "$(cat ci/coverage-toolchain)" --profile minimal --component llvm-tools-preview
+      - name: Verify production coverage and branch instrumentation
+        run: bash scripts/rust-coverage.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: rust-coverage-reports
+          path: |
+            target/quality/rust-coverage.json
+            target/quality/coverage-probe.json
+            target/quality/coverage-snapshot.json
+            target/quality/metadata.json
+          if-no-files-found: error
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Install pinned dependency verifier
+        run: |
+          rustup show active-toolchain
+          cargo install cargo-deny --version 0.20.2 --locked
+      - name: Build and scan immutable image
+        run: |
+          docker build -f Dockerfile.rust -t flashcards-generator:rust-qa .
+          image="$(docker image inspect --format '{{.Id}}' flashcards-generator:rust-qa)"
+          bash scripts/rust-security.sh "$image"
+          bash scripts/rust-container-check.sh "$image"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: rust-security-reports
+          path: |
+            target/quality/trivy-frontend.json
+            target/quality/trivy-image.json
+          if-no-files-found: error

@@ -1,0 +1,474 @@
+[
+  {
+    "name": "empty_False_True",
+    "files": [
+      [
+        "a.csv",
+        ""
+      ]
+    ],
+    "deduplicate": false,
+    "recursive": true,
+    "output": "",
+    "rows_before": 0,
+    "rows_written": 0,
+    "duplicates_removed": 0
+  },
+  {
+    "name": "empty_True_True",
+    "files": [
+      [
+        "a.csv",
+        ""
+      ]
+    ],
+    "deduplicate": true,
+    "recursive": true,
+    "output": "",
+    "rows_before": 0,
+    "rows_written": 0,
+    "duplicates_removed": 0
+  },
+  {
+    "name": "short_False_True",
+    "files": [
+      [
+        "a.csv",
+        "short\n\nvalid,back\n"
+      ]
+    ],
+    "deduplicate": false,
+    "recursive": true,
+    "output": "\"valid\",\"back\"\r\n",
+    "rows_before": 1,
+    "rows_written": 1,
+    "duplicates_removed": 0
+  },
+  {
+    "name": "short_True_True",
+    "files": [
+      [
+        "a.csv",
+        "short\n\nvalid,back\n"
+      ]
+    ],
+    "deduplicate": true,
+    "recursive": true,
+    "output": "\"valid\",\"back\"\r\n",
+    "rows_before": 1,
+    "rows_written": 1,
+    "duplicates_removed": 0
+  },
+  {
+    "name": "quoted_False_True",
+    "files": [
+      [
+        "a.csv",
+        "\"Front, with comma\nand newline\",\"Back with \"\"quotes\"\"\"\r\n"
+      ]
+    ],
+    "deduplicate": false,
+    "recursive": true,
+    "output": "\"Front, with comma\nand newline\",\"Back with \"\"quotes\"\"\"\r\n",
+    "rows_before": 1,
+    "rows_written": 1,
+    "duplicates_removed": 0
+  },
+  {
+    "name": "quoted_True_True",
+    "files": [
+      [
+        "a.csv",
+        "\"Front, with comma\nand newline\",\"Back with \"\"quotes\"\"\"\r\n"
+      ]
+    ],
+    "deduplicate": true,
+    "recursive": true,
+    "output": "\"Front, with comma\nand newline\",\"Back with \"\"quotes\"\"\"\r\n",
+    "rows_before": 1,
+    "rows_written": 1,
+    "duplicates_removed": 0
+  },
+  {
+    "name": "pairs_False_True",
+    "files": [
+      [
+        "a.csv",
+        " Q , A \nQ,A\nQ,B\nq,A\n"
+      ]
+    ],
+    "deduplicate": false,
+    "recursive": true,
+    "output": "\" Q \",\" A \"\r\n\"Q\",\"A\"\r\n\"Q\",\"B\"\r\n\"q\",\"A\"\r\n",
+    "rows_before": 4,
+    "rows_written": 4,
+    "duplicates_removed": 0
+  },
+  {
+    "name": "pairs_True_True",
+    "files": [
+      [
+        "a.csv",
+        " Q , A \nQ,A\nQ,B\nq,A\n"
+      ]
+    ],
+    "deduplicate": true,
+    "recursive": true,
+    "output": "\" Q \",\" A \"\r\n\"Q\",\"B\"\r\n\"q\",\"A\"\r\n",
+    "rows_before": 4,
+    "rows_written": 3,
+    "duplicates_removed": 1
+  },
+  {
+    "name": "bom_False_True",
+    "files": [
+      [
+        "a.csv",
+        "\ufeffFront,Back\n"
+      ]
+    ],
+    "deduplicate": false,
+    "recursive": true,
+    "output": "\"\ufeffFront\",\"Back\"\r\n",
+    "rows_before": 1,
+    "rows_written": 1,
+    "duplicates_removed": 0
+  },
+  {
+    "name": "bom_True_True",
+    "files": [
+      [
+        "a.csv",
+        "\ufeffFront,Back\n"
+      ]
+    ],
+    "deduplicate": true,
+    "recursive": true,
+    "output": "\"\ufeffFront\",\"Back\"\r\n",
+    "rows_before": 1,
+    "rows_written": 1,
+    "duplicates_removed": 0
+  },
+  {
+    "name": "bom_quoted_False_True",
+    "files": [
+      [
+        "a.csv",
+        "\ufeff\"Front, with comma\",Back\n"
+      ]
+    ],
+    "deduplicate": false,
+    "recursive": true,
+    "output": null
+  },
+  {
+    "name": "bom_quoted_True_True",
+    "files": [
+      [
+        "a.csv",
+        "\ufeff\"Front, with comma\",Back\n"
+      ]
+    ],
+    "deduplicate": true,
+    "recursive": true,
+    "output": null
+  },
+  {
+    "name": "separators_False_True",
+    "files": [
+      [
+        "a.csv",
+        "\u001cQ\u001f,\u00a0A\u2003\nQ,A\n"
+      ]
+    ],
+    "deduplicate": false,
+    "recursive": true,
+    "output": "\"\u001cQ\u001f\",\"\u00a0A\u2003\"\r\n\"Q\",\"A\"\r\n",
+    "rows_before": 2,
+    "rows_written": 2,
+    "duplicates_removed": 0
+  },
+  {
+    "name": "separators_True_True",
+    "files": [
+      [
+        "a.csv",
+        "\u001cQ\u001f,\u00a0A\u2003\nQ,A\n"
+      ]
+    ],
+    "deduplicate": true,
+    "recursive": true,
+    "output": "\"\u001cQ\u001f\",\"\u00a0A\u2003\"\r\n",
+    "rows_before": 2,
+    "rows_written": 1,
+    "duplicates_removed": 1
+  },
+  {
+    "name": "trailing_column_False_True",
+    "files": [
+      [
+        "a.csv",
+        "Front,Back,\n"
+      ]
+    ],
+    "deduplicate": false,
+    "recursive": true,
+    "output": null
+  },
+  {
+    "name": "trailing_column_True_True",
+    "files": [
+      [
+        "a.csv",
+        "Front,Back,\n"
+      ]
+    ],
+    "deduplicate": true,
+    "recursive": true,
+    "output": null
+  },
+  {
+    "name": "open_quote_False_True",
+    "files": [
+      [
+        "a.csv",
+        "\"unfinished\nline,back\n"
+      ]
+    ],
+    "deduplicate": false,
+    "recursive": true,
+    "output": "",
+    "rows_before": 0,
+    "rows_written": 0,
+    "duplicates_removed": 0
+  },
+  {
+    "name": "open_quote_True_True",
+    "files": [
+      [
+        "a.csv",
+        "\"unfinished\nline,back\n"
+      ]
+    ],
+    "deduplicate": true,
+    "recursive": true,
+    "output": "",
+    "rows_before": 0,
+    "rows_written": 0,
+    "duplicates_removed": 0
+  },
+  {
+    "name": "quote_suffix_False_True",
+    "files": [
+      [
+        "a.csv",
+        "\"Front\"x,Back\n"
+      ]
+    ],
+    "deduplicate": false,
+    "recursive": true,
+    "output": "\"Frontx\",\"Back\"\r\n",
+    "rows_before": 1,
+    "rows_written": 1,
+    "duplicates_removed": 0
+  },
+  {
+    "name": "quote_suffix_True_True",
+    "files": [
+      [
+        "a.csv",
+        "\"Front\"x,Back\n"
+      ]
+    ],
+    "deduplicate": true,
+    "recursive": true,
+    "output": "\"Frontx\",\"Back\"\r\n",
+    "rows_before": 1,
+    "rows_written": 1,
+    "duplicates_removed": 0
+  },
+  {
+    "name": "embedded_quote_False_True",
+    "files": [
+      [
+        "a.csv",
+        "Fr\"ont,Back\n"
+      ]
+    ],
+    "deduplicate": false,
+    "recursive": true,
+    "output": "\"Fr\"\"ont\",\"Back\"\r\n",
+    "rows_before": 1,
+    "rows_written": 1,
+    "duplicates_removed": 0
+  },
+  {
+    "name": "embedded_quote_True_True",
+    "files": [
+      [
+        "a.csv",
+        "Fr\"ont,Back\n"
+      ]
+    ],
+    "deduplicate": true,
+    "recursive": true,
+    "output": "\"Fr\"\"ont\",\"Back\"\r\n",
+    "rows_before": 1,
+    "rows_written": 1,
+    "duplicates_removed": 0
+  },
+  {
+    "name": "crlf_False_True",
+    "files": [
+      [
+        "a.csv",
+        "\"front\r\nline\",\"back\rline\"\r\n"
+      ]
+    ],
+    "deduplicate": false,
+    "recursive": true,
+    "output": "\"front\r\nline\",\"back\rline\"\r\n",
+    "rows_before": 1,
+    "rows_written": 1,
+    "duplicates_removed": 0
+  },
+  {
+    "name": "crlf_True_True",
+    "files": [
+      [
+        "a.csv",
+        "\"front\r\nline\",\"back\rline\"\r\n"
+      ]
+    ],
+    "deduplicate": true,
+    "recursive": true,
+    "output": "\"front\r\nline\",\"back\rline\"\r\n",
+    "rows_before": 1,
+    "rows_written": 1,
+    "duplicates_removed": 0
+  },
+  {
+    "name": "ordered_False_False",
+    "files": [
+      [
+        "b.csv",
+        "B,Back\n"
+      ],
+      [
+        "nested/a.csv",
+        "Nested,Back\n"
+      ],
+      [
+        "a.csv",
+        "A,Back\n"
+      ],
+      [
+        "ignored.CSV",
+        "Ignore,Back\n"
+      ],
+      [
+        "merged_flashcards.csv",
+        "Old,Back\n"
+      ]
+    ],
+    "deduplicate": false,
+    "recursive": false,
+    "output": "\"A\",\"Back\"\r\n\"B\",\"Back\"\r\n",
+    "rows_before": 2,
+    "rows_written": 2,
+    "duplicates_removed": 0
+  },
+  {
+    "name": "ordered_False_True",
+    "files": [
+      [
+        "b.csv",
+        "B,Back\n"
+      ],
+      [
+        "nested/a.csv",
+        "Nested,Back\n"
+      ],
+      [
+        "a.csv",
+        "A,Back\n"
+      ],
+      [
+        "ignored.CSV",
+        "Ignore,Back\n"
+      ],
+      [
+        "merged_flashcards.csv",
+        "Old,Back\n"
+      ]
+    ],
+    "deduplicate": false,
+    "recursive": true,
+    "output": "\"A\",\"Back\"\r\n\"B\",\"Back\"\r\n\"Nested\",\"Back\"\r\n",
+    "rows_before": 3,
+    "rows_written": 3,
+    "duplicates_removed": 0
+  },
+  {
+    "name": "ordered_True_False",
+    "files": [
+      [
+        "b.csv",
+        "B,Back\n"
+      ],
+      [
+        "nested/a.csv",
+        "Nested,Back\n"
+      ],
+      [
+        "a.csv",
+        "A,Back\n"
+      ],
+      [
+        "ignored.CSV",
+        "Ignore,Back\n"
+      ],
+      [
+        "merged_flashcards.csv",
+        "Old,Back\n"
+      ]
+    ],
+    "deduplicate": true,
+    "recursive": false,
+    "output": "\"A\",\"Back\"\r\n\"B\",\"Back\"\r\n",
+    "rows_before": 2,
+    "rows_written": 2,
+    "duplicates_removed": 0
+  },
+  {
+    "name": "ordered_True_True",
+    "files": [
+      [
+        "b.csv",
+        "B,Back\n"
+      ],
+      [
+        "nested/a.csv",
+        "Nested,Back\n"
+      ],
+      [
+        "a.csv",
+        "A,Back\n"
+      ],
+      [
+        "ignored.CSV",
+        "Ignore,Back\n"
+      ],
+      [
+        "merged_flashcards.csv",
+        "Old,Back\n"
+      ]
+    ],
+    "deduplicate": true,
+    "recursive": true,
+    "output": "\"A\",\"Back\"\r\n\"B\",\"Back\"\r\n\"Nested\",\"Back\"\r\n",
+    "rows_before": 3,
+    "rows_written": 3,
+    "duplicates_removed": 0
+  }
+]

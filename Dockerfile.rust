@@ -1,0 +1,34 @@
+FROM node:24-bookworm-slim AS frontend-builder
+WORKDIR /app/frontend
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
+RUN corepack enable && corepack pnpm@12.5.1 install --frozen-lockfile
+COPY frontend ./
+RUN corepack pnpm@12.5.1 run build
+
+FROM rust:1.99.0-slim-bookworm AS rust-builder
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y build-essential cmake \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY .cargo ./.cargo
+COPY clippy.toml ./
+COPY rust ./rust
+RUN cargo build --release --locked --bin flashcards-web
+
+FROM cgr.dev/chainguard/wolfi-base@sha256:824f77df45397eb954dfb963db255907ee8842e3446353ce93d688e5e862f51d
+RUN apk add --no-cache ca-certificates curl libgcc \
+    && adduser -D -u 10001 app
+WORKDIR /app
+COPY --from=rust-builder /app/target/release/flashcards-web /usr/local/bin/flashcards-web
+COPY --from=frontend-builder /app/src/flashcards_generator/delivery/web/static/dist ./static
+ENV FLASHCARDS_ENVIRONMENT=production \
+    FLASHCARDS_AUTO_CREATE_SCHEMA=false \
+    FLASHCARDS_STATIC_DIR=/app/static \
+    FLASHCARDS_HOST=0.0.0.0 \
+    FLASHCARDS_PORT=8000
+USER app
+EXPOSE 8000
+HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=10 \
+    CMD curl --connect-timeout 1 --max-time 3 --fail --silent http://127.0.0.1:8000/health/ready || exit 1
+CMD ["sh", "-c", "flashcards-web --migrate && exec flashcards-web"]

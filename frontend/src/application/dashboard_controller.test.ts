@@ -200,6 +200,34 @@ describe("DashboardController", () => {
     expect(view.setGenerationEnabled).toHaveBeenLastCalledWith(true);
   });
 
+  it("rechecks provider failures without starting another Google login", async () => {
+    const { api, controller, view } = harness();
+    api.notebookStatus.mockResolvedValue(notebookStatus("provider_error"));
+
+    await controller.connectNotebookLM();
+    await controller.connectNotebookLM();
+
+    expect(api.notebookStatus).toHaveBeenCalledTimes(2);
+    expect(api.startNotebookLogin).not.toHaveBeenCalled();
+    expect(view.setNotebookMessage).toHaveBeenLastCalledWith(
+      "Não foi possível verificar sua sessão do NotebookLM. Tente conectar novamente.",
+      "error",
+    );
+    expect(view.setGenerationEnabled).toHaveBeenLastCalledWith(false);
+    expect(view.setBusy).toHaveBeenLastCalledWith("connect", false);
+  });
+
+  it("preserves unrecognized session states without starting login", async () => {
+    const { api, controller, view } = harness();
+    api.notebookStatus.mockResolvedValueOnce(notebookStatus("provider_pending"));
+
+    await controller.connectNotebookLM();
+
+    expect(api.startNotebookLogin).not.toHaveBeenCalled();
+    expect(view.setNotebookMessage).toHaveBeenLastCalledWith("provider_pending", "disconnected");
+    expect(view.setGenerationEnabled).toHaveBeenLastCalledWith(false);
+  });
+
   it("uses the browser timer while polling a running generation", async () => {
     const { api, view } = harness();
     api.getJob
@@ -234,9 +262,9 @@ describe("DashboardController", () => {
     );
 
     api.notebookStatus.mockResolvedValueOnce(notebookStatus("login_required"));
-    api.startNotebookLogin.mockResolvedValueOnce(notebookStatus("provider_error"));
+    api.startNotebookLogin.mockResolvedValueOnce(notebookStatus("provider_pending"));
     await controller.connectNotebookLM();
-    expect(view.setNotebookMessage).toHaveBeenLastCalledWith("provider_error", "disconnected");
+    expect(view.setNotebookMessage).toHaveBeenLastCalledWith("provider_pending", "disconnected");
     expect(view.setGenerationEnabled).toHaveBeenLastCalledWith(false);
   });
 

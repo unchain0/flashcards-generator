@@ -2,6 +2,9 @@ import "./styles.css";
 import { DashboardController } from "./application/dashboard_controller";
 import { HttpFlashcardsApi } from "./infrastructure/http_api";
 import { BrowserDashboardView } from "./interfaces/browser_view";
+import { initializeMonitoring } from "./infrastructure/monitoring";
+
+initializeMonitoring();
 
 const ENGLISH_CONTEXT_INSTRUCTIONS =
   "Create English-study flashcards from the source. For every card, the QUESTION must contain only one complete, natural English sentence copied verbatim from the source. Wrap exactly one meaningful target word or expression in that sentence with Anki cloze syntax, exactly like {{c1::target expression}}. Do not put Portuguese, explanations, translations, labels, or extra text in the QUESTION. The ANSWER must be in Brazilian Portuguese and contain only a concise explanation of the target word or expression followed by the complete Brazilian Portuguese translation of the English sentence. Never put the Portuguese explanation inside the cloze. Do not invent, paraphrase, or translate the source sentence in the QUESTION. If the source has no suitable complete English sentence, use the general generation format instead. Respect the selected difficulty and the learner level in any additional instructions. Generate cards for export and do not schedule reviews.";

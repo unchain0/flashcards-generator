@@ -1,0 +1,23 @@
+[package]
+name = "flashcards-integrations-shared"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+flashcards-services = { path = "../services" }
+flashcards-domain = { path = "../domain" }
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+sentry.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+axum = { workspace = true, features = ["form", "query"] }
+futures-util.workspace = true

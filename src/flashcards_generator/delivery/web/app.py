@@ -35,7 +35,7 @@ class SecurityHeadersMiddleware(ASGIMiddleware):
                 headers["Content-Security-Policy"] = (
                     "default-src 'self'; script-src 'self'; style-src 'self'; "
                     "img-src 'self'; connect-src 'self' "
-                    "http://127.0.0.1:8765; object-src 'none'; "
+                    "http://127.0.0.1:8766 https://o4505598204248064.ingest.us.sentry.io; object-src 'none'; "
                     "base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
                 )
                 headers["Referrer-Policy"] = "no-referrer"

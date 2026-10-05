@@ -1,0 +1,17 @@
+[package]
+name = "flashcards-engines"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+regex.workspace = true
+lazy-regex = "=3.6.1"
+flashcards-domain = { path = "../domain" }
+
+[dev-dependencies]
+serde.workspace = true
+serde_json.workspace = true

@@ -49,7 +49,7 @@ async def client(
     settings = CompanionSettings(web_origin=ORIGIN, data_dir=tmp_path)
     app = create_app(settings, token_verifier=verify)
     async with AsyncTestClient(
-        app, base_url="http://127.0.0.1:8765"
+        app, base_url="http://127.0.0.1:8766"
     ) as test_client:
         yield test_client
 

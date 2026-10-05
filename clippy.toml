@@ -1,0 +1,7 @@
+excessive-nesting-threshold = 3
+too-many-lines-threshold = 80
+too-many-arguments-threshold = 7
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-unwrap-in-consts = false
+allow-expect-in-consts = false

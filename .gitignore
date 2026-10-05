@@ -37,3 +37,8 @@ input/
 
 # OMO runtime task logs (ephemeral local orchestration state)
 .omo/senpi-task/
+
+# Rust build outputs
+/target/
+*.profraw
+!rust/integrations/tests/fixtures/chapters.pdf

@@ -81,17 +81,17 @@ describe("HttpFlashcardsApi", () => {
       "/api/v1/auth/login",
       "/api/v1/auth/logout",
       "/api/v1/auth/companion/token",
-      "http://127.0.0.1:8765/v1/notebooklm/status",
+      "http://127.0.0.1:8766/v1/notebooklm/status",
       "/api/v1/auth/companion/token",
-      "http://127.0.0.1:8765/v1/notebooklm/login",
+      "http://127.0.0.1:8766/v1/notebooklm/login",
       "/api/v1/auth/companion/token",
-      "http://127.0.0.1:8765/v1/jobs",
+      "http://127.0.0.1:8766/v1/jobs",
       "/api/v1/auth/companion/token",
-      "http://127.0.0.1:8765/v1/jobs/job%2F123",
+      "http://127.0.0.1:8766/v1/jobs/job%2F123",
       "/api/v1/auth/companion/token",
-      "http://127.0.0.1:8765/artifact.csv",
+      "http://127.0.0.1:8766/artifact.csv",
       "/api/v1/auth/companion/token",
-      "http://127.0.0.1:8765/missing.csv",
+      "http://127.0.0.1:8766/missing.csv",
     ]);
     expect(calls[3]?.init?.credentials).toBe("same-origin");
     expect(calls[4]?.init?.credentials).toBe("omit");
@@ -101,7 +101,7 @@ describe("HttpFlashcardsApi", () => {
     expect(new Headers(calls[6]?.init?.headers).get("authorization")).toBe("Bearer capability-2");
     expect(
       calls
-        .filter(({ input }) => String(input).startsWith("http://127.0.0.1:8765/"))
+        .filter(({ input }) => String(input).startsWith("http://127.0.0.1:8766/"))
         .every(({ init }) => init?.credentials === "omit"),
     ).toBe(true);
     expect(new Headers(calls[1]?.init?.headers).get("content-type")).toBe("application/json");

@@ -28,7 +28,7 @@ def test_companion_main_starts_the_local_litestar_app(
     app = run.call_args.args[0]
     assert isinstance(app, Litestar)
     try:
-        assert run.call_args.kwargs == {"host": "127.0.0.1", "port": 8765}
+        assert run.call_args.kwargs == {"host": "127.0.0.1", "port": 8766}
         assert (
             app.state.settings.web_origin == "https://flashcards.example.com"
         )

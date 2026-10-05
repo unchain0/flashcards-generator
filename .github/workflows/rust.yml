@@ -79,6 +79,8 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Install pinned dependency verifier
         run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y ripgrep
           rustup show active-toolchain
           cargo install cargo-deny --version 0.20.2 --locked
       - name: Build and scan immutable image

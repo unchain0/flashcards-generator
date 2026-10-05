@@ -290,6 +290,8 @@ jobs:
           "${compose[@]}" config --quiet
           "${compose[@]}" up \
             --detach --no-build --wait --wait-timeout 180
+          "${compose[@]}" exec --no-TTY --env FLASHCARDS_PROVISION_PASSWORD=ci-smoke-password \
+            app flashcards-web --provision-user
           curl --fail --silent http://127.0.0.1:18000/health/live
           curl --fail --silent http://127.0.0.1:18000/health/ready
           test "$(curl --fail --silent --show-error --dump-header - \
@@ -320,8 +322,8 @@ jobs:
           YAML
           "${compose[@]}" up --detach --no-build --no-deps --force-recreate \
             --wait --wait-timeout 180 app
-          "${compose[@]}" exec --no-TTY app /app/.venv/bin/python -c \
-            'import os; assert not os.environ.get("FLASHCARDS_BOOTSTRAP_PASSWORD")'
+          "${compose[@]}" exec --no-TTY app sh -c \
+            'test -z "$FLASHCARDS_BOOTSTRAP_PASSWORD"'
           curl --fail --silent --show-error --output /dev/null \
             --header 'Content-Type: application/json' \
             --data '{"password":"ci-smoke-password"}' \

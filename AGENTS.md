@@ -1,7 +1,127 @@
 # PROJECT KNOWLEDGE BASE
 
-**Updated:** 2026-09-28
+**Updated:** 2026-10-05
 **Architecture:** MASA
+
+## RUST MIGRATION
+
+The user requested a complete Rust rewrite on 2026-10-02. Rust replaces the
+Python hosted backend and local companion; Vite+ and pnpm remain. The Python
+implementation below remains the behavioral reference. On 2026-10-05 the user
+explicitly authorized publishing this Rust version after being informed that
+the strict coverage gate still fails. The production Compose selects
+`Dockerfile.rust`; this release exception does not lower coverage thresholds or
+establish complete native Companion acceptance.
+
+The Cargo workspace lives in `rust/`. `domain` owns pure entities, `engines`
+owns deterministic transformations, `services` will own use cases and ports,
+`integrations` owns external implementations, and `delivery` will compose the
+hosted server and companion. Dependencies must point inward. Keep all source
+documents and Google profiles local, and preserve existing database identities,
+password hashes, session hashes, and browser API contracts during migration.
+
+Rust integrations and delivery also separate data locations. `integrations`
+and `delivery` contain local Companion capabilities. `integrations-server` and
+`delivery-server` contain hosted authentication, persistence, and web transport.
+Their `*-shared` counterparts contain bounded HTTP helpers, monitoring, request
+authorization, and server lifecycle code. Hosted and shared crates cannot depend
+on local crates, including through test or build dependencies. The xtask checks
+both MASA direction and this location boundary; it does not prove I/O purity.
+
+After building frontend assets, run `bash scripts/rust-check.sh` to test the
+Rust workspace against disposable PostgreSQL and exercise the hosted binary,
+including migration, provisioning, HTTP authentication, assets, and restart.
+It also checks the Companion on port 8766 and runs browser authentication and
+UI contracts against Rust with a simulated Companion. This does not prove live
+NotebookLM generation or native Companion browser generation.
+`Dockerfile.rust` builds the hosted Rust executable and frontend assets without
+shipping Python, Cargo, source documents, or local Google profiles. Build with
+`docker build -f Dockerfile.rust -t flashcards-generator:rust-qa .`, then run
+`bash scripts/rust-container-check.sh`. The check uses isolated disposable
+PostgreSQL, a read-only application filesystem, and restricted container
+permissions. It covers startup migrations, assets, cookies, persisted sessions
+after graceful restart, and logout revocation. The default Dockerfile remains
+the Python reference; production Compose selects `Dockerfile.rust` under the
+publication authorization above.
+The Rust AnkiConnect client uses local port 8765. Run
+`cargo run --locked -p flashcards-delivery --example anki_smoke` for a read-only
+version/deck-count check; it never imports notes. `FLASHCARDS_ANKI_API_KEY` is
+optional when the local add-on requires an API key.
+Rust CSV merging preserves source order and two-column contents, with optional
+deduplication of trimmed front/back pairs. It excludes its output, rejects
+symlink sources, and publishes private files atomically. Limits are 512 MiB of
+aggregate input, 100,000 directory entries, and 1,000,000 valid rows.
+`cargo run --locked -p flashcards-delivery --example notebooklm_smoke -- <storage-file>`
+checks native NotebookLM authentication and lists only a notebook count. It
+does not upload documents or change notebooks. A successful Python passive auth
+check does not prove the Rust client handles Google's authentication redirects.
+`cargo run --locked -p flashcards-delivery --example notebooklm_browser_smoke -- <storage-file> <browser-profile> [session-output] [browser-profile-output]`
+checks native browser login using a bounded private copy of a dedicated Google
+profile, verifies captured credentials, compares notebook IDs when the initial
+session is valid, and confirms that the original browser profile remains
+unchanged. Without an authenticated baseline, inventory preservation is not
+demonstrated. It rejects active Linux profiles,
+uploads no documents, and may require interactive login if the copied session
+has expired. Reusing a session does not prove fresh Google credential entry.
+The optional session output is a new file in an existing private absolute
+directory. Only verified credentials are exported, atomically without replacing
+an existing file, for subsequent local QA. The original profile remains unchanged.
+The last optional argument retains the authenticated profile in a separate,
+empty private absolute directory. Profile copying is bounded, rejects active
+profiles and unsupported entries, and rejects destinations inside the source.
+The same QA example supports `--copy-profile <source> <empty-private-destination>`
+without accessing Google. This is development tooling, not a generation CLI.
+Native authentication and browser login use `https://notebook.google.com`.
+Bootstrap redirects are restricted to the two personal NotebookLM hosts and
+`accounts.google.com`, with scoped cookies, six requests, and a total 30-second
+timeout. RPC and upload requests do not follow redirects. RPC frame lengths
+are advisory; JSON parsing and unique matching method envelopes remain required.
+Account routing reads local `notebooklm.account` metadata, preferring its email
+over the account index, and also accepts the Companion's legacy `authuser` field.
+This metadata remains local; routing headers are sensitive and HTTP errors omit
+request URLs. `cargo run --locked -p flashcards-delivery --example notebooklm_generation_smoke -- <storage-file>`
+creates a temporary QA notebook from built-in synthetic cell-biology text,
+generates and downloads cards, then confirms cleanup and preservation of the
+original notebooks. It never uploads personal documents or imports Anki notes;
+it does not prove document upload or native Companion browser generation.
+Interactive cards accept both plain string fields and Google's
+`flashcardContentBlock` arrays, preserving text/Markdown block order and math.
+Unsupported media, malformed text, and more than 128 blocks per side fail
+explicitly rather than silently dropping content.
+`cargo run --locked -p flashcards-delivery --example notebooklm_companion_smoke -- <storage-file>`
+runs an opt-in live browser check with the hosted Rust server, native Companion,
+disposable PostgreSQL, and a private temporary copy of the local Google session.
+It creates a synthetic cell-biology PDF using Playwright Chromium, uploads only
+to the Companion, waits for real Google generation, downloads the CSV, and
+checks notebook cleanup and preservation. Screenshots remain in
+`frontend/test-results/live-companion/`. It requires qpdf and pdftotext, never
+imports Anki notes, and does not prove fresh interactive Google login. Regular
+browser tests do not discover this opt-in `.live.ts` test.
+Pass `pdf <browser-profile>` after the storage file to include native login
+through the Companion route using a bounded private copy of a closed dedicated
+profile, then real generation. This reuses a session and does not prove fresh
+Google credential entry. Failed job submissions fail the browser check directly.
+Pass `pptx` after the storage file to exercise the existing synthetic presentation
+fixture, native LibreOffice conversion, and real Google generation. Both modes
+use the optimized release Companion, verify a completed browser job, and download
+a non-empty CSV with cloze content.
+The native Companion is installable with
+`cargo install --locked --path rust/delivery --bin flashcards-companion`.
+Runtime dependencies are qpdf, Chrome/Chromium, and LibreOffice for PPTX;
+Python is not a runtime dependency. Configure the exact hosted origin in
+`FLASHCARDS_COMPANION_WEB_ORIGIN` and keep profiles on the user's computer.
+File registration accepts duplicate source rows only when their filename matches
+exactly and all matching rows identify the same new source. Ambiguous IDs fail.
+Direct `cargo test --workspace --locked` requires a disposable database URL in
+`FLASHCARDS_TEST_DATABASE_URL`. Rust is pinned in `rust-toolchain.toml`.
+Existing Python coverage does not prove Rust
+coverage. Consult ChatGPT in the browser before selecting replacement quality
+verifiers; Radon applies only to the Python reference.
+`bash scripts/rust-coverage.sh` optionally accepts one local Google storage-state
+file and a second closed dedicated browser-profile directory to include real
+synthetic PDF/PPTX generation with the instrumented native
+Companion. This opt-in mode verifies notebook preservation and QA cleanup,
+uses existing instrumented binaries, and keeps the session on the user's computer.
 
 ## OVERVIEW
 

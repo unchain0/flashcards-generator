@@ -16,22 +16,25 @@ services:
   app:
     build:
       context: .
+      dockerfile: Dockerfile.rust
     environment:
       FLASHCARDS_ENVIRONMENT: production
       FLASHCARDS_SESSION_SECRET: ${SERVICE_REALBASE64_64_SESSIONSECRET}
       FLASHCARDS_AUTH_LOOKUP_SECRET: ${SERVICE_REALBASE64_64_AUTHLOOKUPSECRET}
-      FLASHCARDS_BOOTSTRAP_PASSWORD: ${SERVICE_PASSWORD_64_BOOTSTRAP}
+      FLASHCARDS_BOOTSTRAP_PASSWORD: ""
       FLASHCARDS_DATABASE_URL: postgresql+asyncpg://flashcards:${SERVICE_PASSWORD_64_POSTGRES}@db:5432/flashcards
       FLASHCARDS_AUTO_CREATE_SCHEMA: "false"
       FLASHCARDS_DATA_DIR: /app/data
       FLASHCARDS_CORS_ORIGINS: ${FLASHCARDS_CORS_ORIGINS:-[]}
+      FLASHCARDS_SENTRY_ENABLED: "true"
+      SENTRY_ENVIRONMENT: production
     depends_on:
       db:
         condition: service_healthy
     healthcheck:
       test:
         - CMD-SHELL
-        - python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)"
+        - curl --connect-timeout 1 --max-time 3 --fail --silent http://127.0.0.1:8000/health/ready
       interval: 10s
       timeout: 5s
       retries: 10
@@ -41,6 +44,13 @@ services:
     volumes:
       - flashcards-app-data:/app/data
     restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev
 
 volumes:
   flashcards-data:

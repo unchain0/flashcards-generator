@@ -16,5 +16,6 @@ runs:
         corepack pnpm@12.5.1 --dir frontend install --frozen-lockfile
         corepack pnpm@12.5.1 --dir frontend run build
         corepack pnpm@12.5.1 --dir frontend exec playwright install --with-deps chromium
-        browser="$(corepack pnpm@12.5.1 --dir frontend exec node -e 'console.log(require("@playwright/test").chromium.executablePath())')"
+        browser="$(command -v google-chrome)"
+        "$browser" --version
         printf 'FLASHCARDS_TEST_BROWSER=%s\n' "$browser" >> "$GITHUB_ENV"

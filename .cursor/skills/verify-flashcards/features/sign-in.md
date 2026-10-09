@@ -27,4 +27,5 @@ Confirm `web_sessions` is 0 after the rejection and 1 after success. `web_users`
 - The form resets the password field as soon as it is submitted, including while the request is in flight. Read the result from `#auth-status` or the dashboard, not from the input value.
 - A password shorter than 12 characters cannot be provisioned. Login of a wrong password of any length up to 256 still returns 401 `Senha inválida`.
 - The scratch password does not work on port 8000 or on `./flashcards.db`.
+- Playwright's `locator.isDisabled()` is false for `#generation-fields` even when the fieldset is disabled. Check the fieldset's `disabled` property, or `isDisabled()` on **Arquivos PDF ou PPTX** and **Gerar flashcards**.
 - Do not write the cookie value into evidence.

@@ -113,7 +113,7 @@ The script reads the state file, runs doctor, then:
 1. Opens `BASE_URL` and waits for the heading `Gere flashcards do seu material.`
 2. Submits `not-the-password` with **Entrar**. The UI must show `Senha inválida. Confira e tente novamente.` and stay on `Acesse o gerador`. `POST /api/v1/auth/login` returns 401. `web_sessions` stays empty and no `flashcards_session` cookie is set.
 3. Submits `verify-local-pass` with **Entrar**. `POST /api/v1/auth/login` returns 200 `{"authenticated":true}`. The heading `Nova geração` and the button **Sair** are visible, `#auth-panel` is hidden, and `#generation-fields` stays disabled.
-4. Checks the cookie `flashcards_session` is `HttpOnly` and `SameSite=Lax` (not `Secure` in development), that `web_sessions` has one row, and that `GET /api/v1/auth/me` from the page returns 200 `{"authenticated":true}`.
+4. Checks the cookie `flashcards_session` is `HttpOnly` and `SameSite=Lax` (not `Secure` in development), that `web_sessions` has one row, and that `GET /api/v1/auth/me` from the page returns 200 `{"authenticated":true}`. Generation stays off: the `#generation-fields` DOM `disabled` property is true, and both **Arquivos PDF ou PPTX** and **Gerar flashcards** report disabled. Playwright's `isDisabled()` is false for the fieldset element itself; use the file input, the submit button, or the fieldset's `disabled` property.
 
 The other features are mapped under `features/`. Drive those the same way, through the browser, when the change touches them. A proof of sign-in does not cover them.
 

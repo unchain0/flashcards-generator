@@ -30,7 +30,7 @@ The observable end state is `#job-status`, the message text, and a **Baixar …c
 
 ## Gotchas
 
-- `setInputFiles` on a disabled `#files` does not count as a user choice. Connect NotebookLM first.
+- `setInputFiles` on a disabled `#files` does not count as a user choice. Connect NotebookLM first. Playwright's `isDisabled()` is false on the `#generation-fields` fieldset; use the file input and **Gerar flashcards**.
 - Choosing `Inglês` sets the submitted language to `en` and `single_cloze` to true inside the page script. The visible `#language` field is then disabled. Assert that disabled state, and assert the Companion received `language=en`, rather than trusting the profile label alone.
 - Generation without a real Google session fails before a job is accepted (`Conecte sua conta do NotebookLM antes de gerar flashcards.` on the Companion, HTTP 409). Do not mock that response and treat the mock as a pass.
 - The Companion deletes its temporary upload workspace after the job. The proof that files were processed is the job status plus the downloaded CSV, not a leftover upload on the hosted server.

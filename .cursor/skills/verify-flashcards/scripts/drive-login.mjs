@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * Drive the sign-in feature against the verification server.
  * Requires scripts/launch.sh and a Chromium install for frontend Playwright.
@@ -124,9 +125,21 @@ try {
   const authHidden = await page.locator("#auth-panel").isHidden();
   const dashboardVisible = await page.locator("#dashboard").isVisible();
   const notebookStatus = await page.locator("#notebook-status").innerText();
-  const generationDisabled = await page.locator("#generation-fields").isDisabled();
-  if (!authHidden || !dashboardVisible || !generationDisabled) {
-    throw new Error("dashboard did not replace the login form");
+  const generationDisabled = await page
+    .locator("#generation-fields")
+    .evaluate((element) => element instanceof HTMLFieldSetElement && element.disabled);
+  const filesDisabled = await page.getByLabel("Arquivos PDF ou PPTX").isDisabled();
+  const generateDisabled = await page.getByRole("button", { name: "Gerar flashcards" }).isDisabled();
+  if (!authHidden || !dashboardVisible || !generationDisabled || !filesDisabled || !generateDisabled) {
+    throw new Error(
+      `dashboard did not replace the login form: ${JSON.stringify({
+        authHidden,
+        dashboardVisible,
+        generationDisabled,
+        filesDisabled,
+        generateDisabled,
+      })}`,
+    );
   }
   if (notebookStatus !== "Clique em Conectar para verificar sua sessão local do NotebookLM.") {
     throw new Error(`unexpected notebook status: ${notebookStatus}`);
@@ -164,6 +177,8 @@ try {
       dashboardVisible,
       notebookStatus,
       generationFieldsDisabled: generationDisabled,
+      fileInputDisabled: filesDisabled,
+      generateButtonDisabled: generateDisabled,
     },
     sessionCookie: {
       present: true,

@@ -10,9 +10,19 @@ VERIFY_REPO_ROOT="$(cd "${VERIFY_SKILL_DIR}/../../.." && pwd)"
 VERIFY_SCRATCH="${VERIFY_SCRATCH:-/tmp/flashcards-verify}"
 VERIFY_STATE="${VERIFY_SCRATCH}/state.env"
 VERIFY_PORT="${VERIFY_PORT:-18721}"
-VERIFY_PASSWORD="${VERIFY_PASSWORD:-verify-local-pass}"
 VERIFY_EVIDENCE="${VERIFY_SKILL_DIR}/evidence"
 VERIFY_DIST="${VERIFY_REPO_ROOT}/src/flashcards_generator/delivery/web/static/dist/index.html"
+
+# Scratch credentials live only under VERIFY_SCRATCH for one launch.
+# Never commit fixed password or secret literals into this skill.
+verify_random_token() {
+  local nbytes="${1:-24}"
+  python3 - "${nbytes}" <<'PY'
+import secrets
+import sys
+print(secrets.token_urlsafe(int(sys.argv[1])))
+PY
+}
 
 verify_uv() {
   if command -v uv >/dev/null 2>&1; then

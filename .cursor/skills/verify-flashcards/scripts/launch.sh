@@ -42,6 +42,14 @@ DATABASE_PATH="${VERIFY_SCRATCH}/web.db"
 LOG_PATH="${VERIFY_SCRATCH}/server.log"
 BASE_URL="http://127.0.0.1:${VERIFY_PORT}"
 
+# Generate per-launch credentials (12+ char password; 32+ char secrets).
+VERIFY_PASSWORD="${VERIFY_PASSWORD:-$(verify_random_token 18)}"
+SESSION_SECRET="${FLASHCARDS_SESSION_SECRET:-$(verify_random_token 32)}"
+AUTH_LOOKUP_SECRET="${FLASHCARDS_AUTH_LOOKUP_SECRET:-$(verify_random_token 32)}"
+if [[ "${SESSION_SECRET}" == "${AUTH_LOOKUP_SECRET}" ]]; then
+  AUTH_LOOKUP_SECRET="$(verify_random_token 32)"
+fi
+
 nohup env \
   PATH="${PATH}" \
   FLASHCARDS_ENVIRONMENT=development \
@@ -50,14 +58,16 @@ nohup env \
   FLASHCARDS_DATABASE_URL="sqlite+aiosqlite:///${DATABASE_PATH}" \
   FLASHCARDS_DATA_DIR="${VERIFY_SCRATCH}/data" \
   FLASHCARDS_BOOTSTRAP_PASSWORD="${VERIFY_PASSWORD}" \
-  FLASHCARDS_SESSION_SECRET="verify-session-secret-32-characters-min" \
-  FLASHCARDS_AUTH_LOOKUP_SECRET="verify-lookup-secret-32-characters-minx" \
+  FLASHCARDS_SESSION_SECRET="${SESSION_SECRET}" \
+  FLASHCARDS_AUTH_LOOKUP_SECRET="${AUTH_LOOKUP_SECRET}" \
   FLASHCARDS_AUTO_CREATE_SCHEMA=true \
   FLASHCARDS_SENTRY_ENABLED=false \
   "${UV}" run --frozen --project "${VERIFY_REPO_ROOT}" flashcards-web \
   >"${LOG_PATH}" 2>&1 </dev/null &
 PID="$!"
 
+# Only non-secret process metadata plus the bootstrap password the drive
+# script must type. Session/lookup secrets stay in the server env only.
 cat >"${VERIFY_STATE}" <<EOF
 PID=${PID}
 PORT=${VERIFY_PORT}
@@ -68,6 +78,7 @@ DATABASE_PATH=${DATABASE_PATH}
 LOG_PATH=${LOG_PATH}
 REPO_ROOT=${VERIFY_REPO_ROOT}
 EOF
+unset SESSION_SECRET AUTH_LOOKUP_SECRET
 
 ready=0
 for _ in $(seq 1 60); do

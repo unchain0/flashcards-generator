@@ -18,7 +18,7 @@ Open the verification origin from Launch (`http://127.0.0.1:18721/`). The first 
 
 1. `page.goto(BASE_URL)` and wait for `getByRole("heading", { name: "Gere flashcards do seu material." })`.
 2. `getByLabel("Senha de acesso").fill("not-the-password")`, then `getByRole("button", { name: "Entrar" }).click()`. Wait for `POST /api/v1/auth/login` to return 401 and for the text `Senha inválida. Confira e tente novamente.`
-3. Fill **Senha de acesso** with the `PASSWORD` value from `/tmp/flashcards-verify/state.env` (`verify-local-pass` for the scratch database) and click **Entrar** again. Wait for `POST /api/v1/auth/login` to return 200 `{"authenticated":true}` and for `getByRole("heading", { name: "Nova geração" })`.
+3. Fill **Senha de acesso** with the `PASSWORD` value from `/tmp/flashcards-verify/state.env` (generated at launch; never a committed literal) and click **Entrar** again. Wait for `POST /api/v1/auth/login` to return 200 `{"authenticated":true}` and for `getByRole("heading", { name: "Nova geração" })`.
 
 Confirm `web_sessions` is 0 after the rejection and 1 after success. `web_users` is already 1 because launch provisioned the bootstrap password. From the page, `fetch("/api/v1/auth/me", { credentials: "same-origin" })` returns 200 `{"authenticated":true}`. The cookie name is `flashcards_session`; it is `HttpOnly` and `SameSite=Lax`.
 
@@ -26,6 +26,6 @@ Confirm `web_sessions` is 0 after the rejection and 1 after success. `web_users`
 
 - The form resets the password field as soon as it is submitted, including while the request is in flight. Read the result from `#auth-status` or the dashboard, not from the input value.
 - A password shorter than 12 characters cannot be provisioned. Login of a wrong password of any length up to 256 still returns 401 `Senha inválida`.
-- The scratch password does not work on port 8000 or on `./flashcards.db`.
+- The scratch password is unique to that launch and does not work on port 8000 or on `./flashcards.db`.
 - Playwright's `locator.isDisabled()` is false for `#generation-fields` even when the fieldset is disabled. Check the fieldset's `disabled` property, or `isDisabled()` on **Arquivos PDF ou PPTX** and **Gerar flashcards**.
 - Do not write the cookie value into evidence.

@@ -62,7 +62,20 @@ if (doctor.status !== 0) {
 }
 
 mkdirSync(evidenceDir, { recursive: true });
-const browser = await chromium.launch({ headless: true });
+async function launchBrowser() {
+  try {
+    return await chromium.launch({ headless: true });
+  } catch (error) {
+    // Prefer bundled Chromium. Fall back to a local Chrome install when the
+    // Playwright browser download is unavailable on this host.
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/Executable doesn't exist|browserType\.launch/i.test(message)) {
+      throw error;
+    }
+    return chromium.launch({ headless: true, channel: "chrome" });
+  }
+}
+const browser = await launchBrowser();
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 const transcript = [];
 

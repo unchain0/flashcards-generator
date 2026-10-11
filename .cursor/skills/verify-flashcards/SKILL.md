@@ -15,7 +15,7 @@ Secondary surfaces, not what this skill launches:
 - The Companion HTTP API on `127.0.0.1:8766`. The dashboard calls it from the browser. The port is fixed in `frontend/src/infrastructure/http_api.ts`. Two Companions cannot run side by side. If something is already listening on 8766, do not start another and do not drive connection or generation against it.
 - The Rust hosted server and Rust Companion. Production Compose uses `Dockerfile.rust`. This skill follows the documented local server, `uv run flashcards-web`, which serves the same built dashboard.
 
-The verification server is a separate instance. It binds `127.0.0.1:18721`, uses a scratch SQLite file under `/tmp/flashcards-verify/`, and a bootstrap password that exists only in that file. It does not use port 8000, `./flashcards.db`, or a user's `.env` secrets. Do not point it at a shared database.
+The verification server is a separate instance. It binds `127.0.0.1:18721`, uses a scratch SQLite file under `/tmp/flashcards-verify/`, and a bootstrap password generated for that launch and written only to the scratch state file. It does not use port 8000, `./flashcards.db`, or a user's `.env` secrets. Do not point it at a shared database. Do not commit fixed password or secret literals into this skill.
 
 ## Launch
 
@@ -31,25 +31,9 @@ bash .cursor/skills/verify-flashcards/scripts/launch.sh
 
 `launch.sh` repeats the sync and build only when `.venv` or `src/flashcards_generator/delivery/web/static/dist/index.html` is missing. The build output is the dashboard the server serves. The app refuses to start without that directory (`Frontend compilado ausente` in `delivery/web/app.py`).
 
-The server command the helper runs, with its environment, is:
+The helper runs `flashcards-web` with development settings on `127.0.0.1:18721`, a scratch SQLite URL under `/tmp/flashcards-verify/`, `FLASHCARDS_AUTO_CREATE_SCHEMA=true`, and `FLASHCARDS_SENTRY_ENABLED=false`. On each launch it generates `FLASHCARDS_BOOTSTRAP_PASSWORD` (url-safe, ≥12 chars), `FLASHCARDS_SESSION_SECRET`, and `FLASHCARDS_AUTH_LOOKUP_SECRET` (each url-safe, ≥32 chars) with Python `secrets.token_urlsafe`. Optional overrides: `VERIFY_PASSWORD`, `FLASHCARDS_SESSION_SECRET`, `FLASHCARDS_AUTH_LOOKUP_SECRET`. Secrets are not written into the skill tree.
 
-```bash
-FLASHCARDS_ENVIRONMENT=development \
-FLASHCARDS_HOST=127.0.0.1 \
-FLASHCARDS_PORT=18721 \
-FLASHCARDS_DATABASE_URL=sqlite+aiosqlite:////tmp/flashcards-verify/web.db \
-FLASHCARDS_DATA_DIR=/tmp/flashcards-verify/data \
-FLASHCARDS_BOOTSTRAP_PASSWORD=verify-local-pass \
-FLASHCARDS_SESSION_SECRET=verify-session-secret-32-characters-min \
-FLASHCARDS_AUTH_LOOKUP_SECRET=verify-lookup-secret-32-characters-minx \
-FLASHCARDS_AUTO_CREATE_SCHEMA=true \
-FLASHCARDS_SENTRY_ENABLED=false \
-uv run --frozen flashcards-web
-```
-
-`verify-local-pass` is the password for this scratch database only. It is 16 characters, inside the app's 12–256 limit. It is not a user account on any other database.
-
-Ready means `GET http://127.0.0.1:18721/health/ready` returns `{"status":"ok"}`. The helper waits up to 30 seconds and prints `ready http://127.0.0.1:18721 pid=<pid>`. The pid and password are written to `/tmp/flashcards-verify/state.env`. The server log is `/tmp/flashcards-verify/server.log`.
+Ready means `GET http://127.0.0.1:18721/health/ready` returns `{"status":"ok"}`. The helper waits up to 30 seconds and prints `ready http://127.0.0.1:18721 pid=<pid>`. The pid and bootstrap password are written to `/tmp/flashcards-verify/state.env` for the drive script. Session and lookup secrets stay in the server process environment only. The server log is `/tmp/flashcards-verify/server.log`.
 
 If that pid is already alive, the helper refuses to start a second copy. If port 18721 is taken by any other process, it exits without killing that process.
 
@@ -82,7 +66,7 @@ A passing doctor prints `doctor: ok http://127.0.0.1:18721 pid=<pid>`. Anything 
 
 ## Drive
 
-Use Playwright from `frontend` (`@playwright/test` 1.63.0) against `BASE_URL` in the state file. Headless Chromium is enough. The repo's browser specs in `frontend/e2e/` show the same handles; run those specs only as a regression suite. A verification proof drives the server from Launch, not `e2e/run_backend.py`.
+Use Playwright from `frontend` (`@playwright/test` 1.63.0) against `BASE_URL` in the state file. Headless Chromium is enough. `drive-login.mjs` falls back to the local `chrome` channel when the Playwright browser binary is missing. The repo's browser specs in `frontend/e2e/` show the same handles; run those specs only as a regression suite. A verification proof drives the server from Launch, not `e2e/run_backend.py`.
 
 Stable handles on `frontend/index.html`:
 
@@ -112,7 +96,7 @@ The script reads the state file, runs doctor, then:
 
 1. Opens `BASE_URL` and waits for the heading `Gere flashcards do seu material.`
 2. Submits `not-the-password` with **Entrar**. The UI must show `Senha inválida. Confira e tente novamente.` and stay on `Acesse o gerador`. `POST /api/v1/auth/login` returns 401. `web_sessions` stays empty and no `flashcards_session` cookie is set.
-3. Submits `verify-local-pass` with **Entrar**. `POST /api/v1/auth/login` returns 200 `{"authenticated":true}`. The heading `Nova geração` and the button **Sair** are visible, `#auth-panel` is hidden, and `#generation-fields` stays disabled.
+3. Submits the bootstrap `PASSWORD` from `/tmp/flashcards-verify/state.env` with **Entrar**. `POST /api/v1/auth/login` returns 200 `{"authenticated":true}`. The heading `Nova geração` and the button **Sair** are visible, `#auth-panel` is hidden, and `#generation-fields` stays disabled.
 4. Checks the cookie `flashcards_session` is `HttpOnly` and `SameSite=Lax` (not `Secure` in development), that `web_sessions` has one row, and that `GET /api/v1/auth/me` from the page returns 200 `{"authenticated":true}`. Generation stays off: the `#generation-fields` DOM `disabled` property is true, and both **Arquivos PDF ou PPTX** and **Gerar flashcards** report disabled. Playwright's `isDisabled()` is false for the fieldset element itself; use the file input, the submit button, or the fieldset's `disabled` property.
 
 The other features are mapped under `features/`. Drive those the same way, through the browser, when the change touches them. A proof of sign-in does not cover them.
@@ -160,4 +144,4 @@ Run cleanup after a failed drive too, so the next launch is not attached to a ha
 | `scripts/cleanup.sh` | `bash .cursor/skills/verify-flashcards/scripts/cleanup.sh` |
 | `scripts/drive-login.mjs` | `node .cursor/skills/verify-flashcards/scripts/drive-login.mjs` |
 
-The shell helpers are executable. `drive-login.mjs` loads Playwright from `frontend/node_modules` and `uv` from `PATH` or `~/.local/bin/uv`.
+The shell helpers are executable. `drive-login.mjs` loads Playwright from `frontend/node_modules` and `uv` from `PATH` or `~/.local/bin/uv`. It reads the bootstrap password from the scratch state file; it never embeds a password literal.

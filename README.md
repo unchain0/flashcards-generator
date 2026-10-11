@@ -59,6 +59,37 @@ uv run playwright install chromium
 
 ## Uso
 
+A interface web continua disponível. O CLI Rust permite automatizar os mesmos fluxos locais do Companion. Instale-o com Cargo:
+
+```bash
+cargo install --locked --path rust/cli
+flashcards --help
+```
+
+O CLI não solicita entrada interativa. Acrescente `--json` a qualquer comando para receber um único resultado estruturado no stdout. Erros vão para stderr. Os códigos de saída são `0` para sucesso, `1` para falha operacional e `2` para argumentos inválidos.
+
+```bash
+# Gerar CSVs a partir de até dez PDFs ou PPTX locais.
+FLASHCARDS_NOTEBOOKLM_STORAGE_FILE=/caminho/privado/storage_state.json \
+  flashcards --json generate --input-dir ./materiais --output-dir ./output \
+  --difficulty medium --quantity standard --language pt_BR
+
+# Selecionar fontes ou limitar por padrão de nome.
+FLASHCARDS_NOTEBOOKLM_STORAGE_FILE=/caminho/privado/storage_state.json \
+  flashcards generate --input-dir ./materiais --files aula-01.pdf,aula-02.pptx
+
+# Conferir ou limpar notebooks usando a mesma credencial local.
+FLASHCARDS_NOTEBOOKLM_STORAGE_FILE=/caminho/privado/storage_state.json \
+  flashcards notebook status
+FLASHCARDS_NOTEBOOKLM_STORAGE_FILE=/caminho/privado/storage_state.json \
+  flashcards notebook cleanup --all
+
+# Combinar CSVs já produzidos.
+flashcards --json merge --folder ./output --deduplicate
+```
+
+`--storage-file` substitui `FLASHCARDS_NOTEBOOKLM_STORAGE_FILE`. O arquivo é um estado de sessão local do NotebookLM. Mantenha-o privado e nunca o envie ao servidor ou ao repositório. `generate`, `notebook status`, `notebook list` e `notebook cleanup` usam a implementação Rust compartilhada de geração, exportação e NotebookLM. `merge` usa o mesmo merger compartilhado. `cleanup` é destrutivo e exige `--all`; não há prompt.
+
 O painel web Litestar serve a interface Vite+ compilada no mesmo domínio:
 
 ```bash

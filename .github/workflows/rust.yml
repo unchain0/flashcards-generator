@@ -48,6 +48,8 @@ jobs:
           corepack pnpm@12.5.1 --dir frontend run test
       - name: Validate Rust behavior and browser contracts
         run: bash scripts/rust-check.sh
+      - name: Test CLI binary contract
+        run: cargo test -p flashcards-cli --locked
       - name: Build production binaries
         run: cargo build --workspace --bins --release --locked
   coverage:

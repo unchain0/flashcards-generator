@@ -166,6 +166,8 @@ fn merge(args: MergeArgs) -> Result<Value, CliError> {
 
 async fn generate(args: GenerateArgs) -> Result<Value, CliError> {
     let options = generation_options(&args)?;
+    fs::create_dir_all(&args.output_dir)
+        .map_err(|error| CliError::failure(format!("cannot create output directory: {error}")))?;
     let paths = source_paths(&args)?;
     let names = paths
         .iter()
@@ -217,10 +219,25 @@ fn generation_options(args: &GenerateArgs) -> Result<GenerationOptions, CliError
     .map_err(|error| CliError::usage(error.to_string()))
 }
 
+fn validate_glob(pattern: &str) -> Result<glob::Pattern, CliError> {
+    glob::Pattern::new(pattern)
+        .map_err(|error| CliError::usage(format!("invalid glob pattern '{pattern}': {error}")))
+}
+
 fn source_paths(args: &GenerateArgs) -> Result<Vec<PathBuf>, CliError> {
     if !args.input_dir.is_dir() {
         return Err(CliError::usage("--input-dir must be an existing directory"));
     }
+    let include_pattern = args
+        .include
+        .as_ref()
+        .map(|p| validate_glob(p))
+        .transpose()?;
+    let exclude_pattern = args
+        .exclude
+        .as_ref()
+        .map(|p| validate_glob(p))
+        .transpose()?;
     let requested = args.files.as_deref().map(parse_files).transpose()?;
     let mut paths: Vec<PathBuf> = if let Some(files) = requested {
         files
@@ -235,7 +252,7 @@ fn source_paths(args: &GenerateArgs) -> Result<Vec<PathBuf>, CliError> {
             .collect()
     };
     paths.sort();
-    paths.retain(|path| source_matches(path, args));
+    paths.retain(|path| source_matches(path, include_pattern.as_ref(), exclude_pattern.as_ref()));
     if paths.is_empty() {
         return Err(CliError::usage("no PDF or PPTX source files matched"));
     }
@@ -265,7 +282,11 @@ fn parse_files(raw: &str) -> Result<Vec<&str>, CliError> {
     Ok(files)
 }
 
-fn source_matches(path: &Path, args: &GenerateArgs) -> bool {
+fn source_matches(
+    path: &Path,
+    include: Option<&glob::Pattern>,
+    exclude: Option<&glob::Pattern>,
+) -> bool {
     let name = path
         .file_name()
         .and_then(|name| name.to_str())
@@ -276,18 +297,8 @@ fn source_matches(path: &Path, args: &GenerateArgs) -> bool {
             extension.map(str::to_ascii_lowercase).as_deref(),
             Some("pdf" | "pptx")
         )
-        && args
-            .include
-            .as_ref()
-            .is_none_or(|pattern| glob_match(pattern, name))
-        && args
-            .exclude
-            .as_ref()
-            .is_none_or(|pattern| !glob_match(pattern, name))
-}
-
-fn glob_match(pattern: &str, name: &str) -> bool {
-    glob::Pattern::new(pattern).is_ok_and(|pattern| pattern.matches(name))
+        && include.is_none_or(|pattern| pattern.matches(name))
+        && exclude.is_none_or(|pattern| !pattern.matches(name))
 }
 
 fn document_value<P: Error, G: Error, X: Error>(result: &DocumentExportResult<P, G, X>) -> Value {
@@ -430,5 +441,51 @@ mod tests {
             source_paths(&args).unwrap(),
             [directory.path().join("one.pdf")]
         );
+    }
+
+    #[test]
+    fn rejects_malformed_include_glob() {
+        let directory = tempfile::tempdir().unwrap();
+        fs::write(directory.path().join("one.pdf"), []).unwrap();
+        let args = GenerateArgs {
+            input_dir: directory.path().to_owned(),
+            output_dir: PathBuf::new(),
+            difficulty: "medium".into(),
+            quantity: "standard".into(),
+            language: "pt_BR".into(),
+            timeout: 900,
+            instructions: String::new(),
+            single_cloze: false,
+            include: Some("[invalid".into()),
+            exclude: None,
+            files: None,
+            storage_file: PathBuf::new(),
+        };
+        let err = source_paths(&args).unwrap_err();
+        assert_eq!(err.code, EXIT_USAGE);
+        assert!(err.message.contains("invalid glob pattern"));
+    }
+
+    #[test]
+    fn rejects_malformed_exclude_glob() {
+        let directory = tempfile::tempdir().unwrap();
+        fs::write(directory.path().join("one.pdf"), []).unwrap();
+        let args = GenerateArgs {
+            input_dir: directory.path().to_owned(),
+            output_dir: PathBuf::new(),
+            difficulty: "medium".into(),
+            quantity: "standard".into(),
+            language: "pt_BR".into(),
+            timeout: 900,
+            instructions: String::new(),
+            single_cloze: false,
+            include: None,
+            exclude: Some("[invalid".into()),
+            files: None,
+            storage_file: PathBuf::new(),
+        };
+        let err = source_paths(&args).unwrap_err();
+        assert_eq!(err.code, EXIT_USAGE);
+        assert!(err.message.contains("invalid glob pattern"));
     }
 }

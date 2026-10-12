@@ -1,0 +1,23 @@
+[package]
+name = "flashcards-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "flashcards"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+clap.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+glob.workspace = true
+flashcards-services = { path = "../services" }
+flashcards-integrations = { path = "../integrations" }
+
+[dev-dependencies]
+tempfile.workspace = true

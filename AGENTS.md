@@ -206,8 +206,10 @@ returns CSV artifacts without sending source documents to the hosted server.
 
 ## ANTI-PATTERNS
 
-- Do not resurrect the removed CLI/TUI or the old `application`, `domain`,
-  `infrastructure`, `adapters`, or `interfaces` packages.
+- Do not resurrect the removed Python CLI/TUI or the old `application`, `domain`,
+  `infrastructure`, `adapters`, or `interfaces` packages. The Rust CLI in
+  `rust/cli` (sharing the core crates with the web server) is intentional and
+  supported; don't flag or remove it.
 - Do not instantiate concrete integrations inside `services`; wire them in
   `delivery/composition.py` or a Litestar composition root.
 - Do not proxy source uploads through the hosted web server.

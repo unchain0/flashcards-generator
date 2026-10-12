@@ -26,6 +26,7 @@ fn fixture() -> CheckResult<Fixture> {
         "integrations-server",
         "delivery-shared",
         "delivery-server",
+        "cli",
     ] {
         let crate_dir = directory.path().join("rust").join(name);
         std::fs::create_dir_all(crate_dir.join("src"))?;

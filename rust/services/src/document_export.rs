@@ -158,6 +158,33 @@ pub async fn generate_document_csv<
     filename: &SourceFilename,
     options: &GenerationOptions,
 ) -> DocumentExportResult<P::Error, <F::Gateway as NotebookLMGateway>::Error, X::Error> {
+    generate_source_csv(
+        preparer,
+        factory,
+        exporter,
+        &input_dir.join(filename.as_str()),
+        output_dir,
+        filename,
+        options,
+    )
+    .await
+}
+
+/// # Errors
+/// Returns document preparation, `NotebookLM`, and export failures in the result.
+pub async fn generate_source_csv<
+    P: DocumentPreparer,
+    F: TemporaryNotebookFactory,
+    X: DeckExporter,
+>(
+    preparer: &P,
+    factory: &F,
+    exporter: &X,
+    source: &Path,
+    output_dir: &Path,
+    filename: &SourceFilename,
+    options: &GenerationOptions,
+) -> DocumentExportResult<P::Error, <F::Gateway as NotebookLMGateway>::Error, X::Error> {
     let stem = filename.stem();
     let mut result = DocumentExportResult {
         outcome: SourceOutcome::Completed,
@@ -167,7 +194,7 @@ pub async fn generate_document_csv<
     let generation = generate_prepared_document_with_progress(
         preparer,
         factory,
-        &input_dir.join(filename.as_str()),
+        source,
         stem,
         options,
         &mut |deck, index, total| {

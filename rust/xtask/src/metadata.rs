@@ -21,7 +21,7 @@ struct Classification {
     location: Location,
 }
 
-const PACKAGES: [(&str, &str, usize, Location); 10] = [
+const PACKAGES: [(&str, &str, usize, Location); 11] = [
     ("flashcards-domain", "domain", 0, Location::Shared),
     ("flashcards-engines", "engines", 1, Location::Shared),
     ("flashcards-services", "services", 2, Location::Shared),
@@ -57,6 +57,7 @@ const PACKAGES: [(&str, &str, usize, Location); 10] = [
         4,
         Location::Server,
     ),
+    ("flashcards-cli", "cli", 4, Location::Local),
 ];
 
 #[derive(Deserialize)]

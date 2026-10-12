@@ -164,7 +164,12 @@ fn merge(args: MergeArgs) -> Result<Value, CliError> {
     }))
 }
 
-async fn generate(args: GenerateArgs) -> Result<Value, CliError> {
+async fn generate(mut args: GenerateArgs) -> Result<Value, CliError> {
+    args.input_dir = args
+        .input_dir
+        .clone()
+        .canonicalize()
+        .unwrap_or_else(|_| args.input_dir.clone());
     let options = generation_options(&args)?;
     fs::create_dir_all(&args.output_dir)
         .map_err(|error| CliError::failure(format!("cannot create output directory: {error}")))?;

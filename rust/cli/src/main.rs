@@ -205,9 +205,13 @@ async fn generate(mut args: GenerateArgs) -> Result<Value, CliError> {
     }
     let failed = documents.iter().any(|item| item["outcome"] == "failed");
     if failed {
+        let _ = client.finish_cleanup().await;
         return Err(CliError::failure(
             "one or more documents could not be generated",
         ));
+    }
+    if !client.finish_cleanup().await {
+        return Err(CliError::failure("NotebookLM deferred cleanup failed"));
     }
     Ok(json!({"command": "generate", "documents": documents}))
 }

@@ -464,3 +464,4 @@ tipos.
 ## Licença
 
 [MIT License](LICENSE)
+# Strict rules pass - UUIDv7/CSPRNG, clippy deny, CI hardening

@@ -464,4 +464,4 @@ tipos.
 ## Licença
 
 [MIT License](LICENSE)
-# Strict rules pass - UUIDv7/CSPRNG, clippy deny, CI hardening
+# Strict rules: UUIDv7/CSPRNG, clippy deny, CI hardening — Rust coverage gate still failing (below 100%)

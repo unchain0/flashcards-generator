@@ -39,22 +39,36 @@ LOG_PATH="${VERIFY_SCRATCH}/server.log"
 BASE_URL="http://127.0.0.1:${VERIFY_PORT}"
 DB_CONTAINER="flashcards-verify-${RANDOM}-${RANDOM}"
 POSTGRES_PASSWORD="$(verify_random_token 24)"
+DB_CONTAINER_STARTED=0
 
-docker run --detach --name "${DB_CONTAINER}" \
+verify_launch_cleanup() {
+  local exit_code="$?"
+  trap - EXIT ERR
+  if [[ "${DB_CONTAINER_STARTED}" == "1" ]]; then
+    timeout --foreground 15s docker rm --force "${DB_CONTAINER}" >/dev/null 2>&1 || true
+  fi
+  return "${exit_code}"
+}
+
+trap verify_launch_cleanup EXIT
+trap 'exit 1' ERR
+
+timeout --foreground 60s docker run --detach --name "${DB_CONTAINER}" \
   --tmpfs /var/lib/postgresql/data \
   -p 127.0.0.1::5432 \
   -e POSTGRES_PASSWORD="${POSTGRES_PASSWORD}" \
   -e POSTGRES_USER=flashcards \
   -e POSTGRES_DB=flashcards \
   postgres:16-alpine >/dev/null
+DB_CONTAINER_STARTED=1
 for _ in $(seq 1 60); do
-  if docker exec "${DB_CONTAINER}" pg_isready -h 127.0.0.1 -U flashcards >/dev/null 2>&1; then
+  if timeout --foreground 5s docker exec "${DB_CONTAINER}" pg_isready -h 127.0.0.1 -U flashcards >/dev/null 2>&1; then
     break
   fi
   sleep 0.5
 done
-docker exec "${DB_CONTAINER}" pg_isready -h 127.0.0.1 -U flashcards >/dev/null
-DB_ADDRESS="$(docker port "${DB_CONTAINER}" 5432/tcp)"
+timeout --foreground 5s docker exec "${DB_CONTAINER}" pg_isready -h 127.0.0.1 -U flashcards >/dev/null
+DB_ADDRESS="$(timeout --foreground 5s docker port "${DB_CONTAINER}" 5432/tcp)"
 DATABASE_URL="postgresql://flashcards:${POSTGRES_PASSWORD}@127.0.0.1:${DB_ADDRESS##*:}/flashcards"
 
 # Generate per-launch credentials (12+ char password; 32+ char secrets).
@@ -125,4 +139,6 @@ if [[ "${ready}" != "1" ]]; then
   exit 1
 fi
 
+DB_CONTAINER_STARTED=0
+trap - EXIT ERR
 echo "ready ${BASE_URL} pid=${PID}"

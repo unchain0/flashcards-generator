@@ -25,28 +25,24 @@ function loadState(path) {
   return Object.fromEntries(entries);
 }
 
-function uvBin() {
-  const local = join(process.env.HOME ?? "", ".local/bin/uv");
-  if (existsSync(local)) {
-    return local;
-  }
-  return "uv";
-}
-
-function counts(databasePath) {
-  const script = `
-import sqlite3, sys
-con = sqlite3.connect(sys.argv[1], timeout=5)
-print(con.execute("select count(*) from web_users").fetchone()[0])
-print(con.execute("select count(*) from web_sessions").fetchone()[0])
-`;
+function counts(container) {
   const result = spawnSync(
-    uvBin(),
-    ["run", "--frozen", "--project", repoRoot, "python", "-c", script, databasePath],
-    { cwd: repoRoot, encoding: "utf8" },
+    "docker",
+    [
+      "exec",
+      container,
+      "psql",
+      "-U",
+      "flashcards",
+      "-d",
+      "flashcards",
+      "-tAc",
+      "select count(*) from web_users; select count(*) from web_sessions;",
+    ],
+    { cwd: repoRoot, encoding: "utf8", timeout: 15000, maxBuffer: 1024 * 1024 },
   );
   if (result.status !== 0) {
-    throw new Error(result.stderr || "sqlite count failed");
+    throw new Error(result.stderr || "PostgreSQL count failed");
   }
   const [users, sessions] = result.stdout.trim().split("\n").map((value) => Number(value));
   return { users, sessions };
@@ -84,7 +80,7 @@ try {
   await page.getByRole("heading", { name: "Gere flashcards do seu material." }).waitFor();
   await page.screenshot({ path: join(evidenceDir, "01-login-screen.png"), fullPage: true });
 
-  const before = counts(state.DATABASE_PATH);
+  const before = counts(state.DB_CONTAINER);
   if (before.users !== 1 || before.sessions !== 0) {
     throw new Error(`expected 1 user and 0 sessions before login, saw ${JSON.stringify(before)}`);
   }
@@ -107,7 +103,7 @@ try {
   }
   await page.getByText("Senha inválida. Confira e tente novamente.").waitFor();
   await page.getByRole("heading", { name: "Acesse o gerador" }).waitFor();
-  const afterRejection = counts(state.DATABASE_PATH);
+  const afterRejection = counts(state.DB_CONTAINER);
   if (afterRejection.sessions !== 0) {
     throw new Error("wrong password created a session row");
   }
@@ -164,7 +160,7 @@ try {
   if (!sessionCookie?.httpOnly || sessionCookie.sameSite !== "Lax" || sessionCookie.secure) {
     throw new Error("session cookie is missing the development HttpOnly Lax flags");
   }
-  const afterLogin = counts(state.DATABASE_PATH);
+  const afterLogin = counts(state.DB_CONTAINER);
   if (afterLogin.users !== 1 || afterLogin.sessions !== 1) {
     throw new Error(`expected 1 session after login, saw ${JSON.stringify(afterLogin)}`);
   }

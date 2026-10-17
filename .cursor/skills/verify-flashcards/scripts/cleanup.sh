@@ -27,6 +27,9 @@ if [[ -f "${VERIFY_STATE}" ]]; then
       kill -KILL "${PID}" 2>/dev/null || true
     fi
   fi
+  if [[ -n "${DB_CONTAINER:-}" ]]; then
+    timeout --foreground 15s docker rm --force "${DB_CONTAINER}" >/dev/null 2>&1 || true
+  fi
 fi
 
 if [[ -n "${SCRATCH:-}" && "${SCRATCH}" != "/" && -d "${SCRATCH}" ]]; then

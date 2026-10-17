@@ -9,5 +9,7 @@ The primary surface is the hosted web dashboard. Drive these in the order a pers
 | Connect NotebookLM | [connect-notebooklm.md](connect-notebooklm.md) | Signed-in dashboard, Companion on port 8766 |
 | Generate flashcards | [generate-flashcards.md](generate-flashcards.md) | Connected NotebookLM |
 | Download CSV | [download-csv.md](download-csv.md) | A finished generation |
+| CLI workflows | [cli.md](cli.md) | A local Rust installation and private NotebookLM storage state |
 
-Harness for every feature: Playwright against the verification server from `../SKILL.md`.
+Browser harness: Playwright against the verification server from `../SKILL.md`.
+CLI harness: the Cargo help and local-file checks in [cli.md](cli.md).

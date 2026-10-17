@@ -12,6 +12,12 @@ VERIFY_STATE="${VERIFY_SCRATCH}/state.env"
 VERIFY_PORT="${VERIFY_PORT:-18721}"
 VERIFY_EVIDENCE="${VERIFY_SKILL_DIR}/evidence"
 VERIFY_DIST="${VERIFY_REPO_ROOT}/src/flashcards_generator/delivery/web/static/dist/index.html"
+VERIFY_CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${VERIFY_REPO_ROOT}/target}"
+if [[ "${VERIFY_CARGO_TARGET_DIR}" != /* ]]; then
+  VERIFY_CARGO_TARGET_DIR="${VERIFY_REPO_ROOT}/${VERIFY_CARGO_TARGET_DIR}"
+fi
+VERIFY_WEB_BIN="${VERIFY_CARGO_TARGET_DIR}/debug/flashcards-web"
+VERIFY_COMPANION_BIN="${VERIFY_CARGO_TARGET_DIR}/debug/flashcards-companion"
 
 # Scratch credentials live only under VERIFY_SCRATCH for one launch.
 # Never commit fixed password or secret literals into this skill.
@@ -22,19 +28,6 @@ import secrets
 import sys
 print(secrets.token_urlsafe(int(sys.argv[1])))
 PY
-}
-
-verify_uv() {
-  if command -v uv >/dev/null 2>&1; then
-    command -v uv
-    return
-  fi
-  if [[ -x "${HOME}/.local/bin/uv" ]]; then
-    echo "${HOME}/.local/bin/uv"
-    return
-  fi
-  echo "uv is not installed. Install it from https://docs.astral.sh/uv/ and re-run." >&2
-  return 1
 }
 
 verify_load_state() {

@@ -28,4 +28,4 @@ Screenshot the login form with `Acesso encerrado.` visible, then the 401 from `/
 ## Gotchas
 
 - Logout requires the session cookie. Calling it without a session still returns 200 and an empty cookie, but that does not prove a real session was revoked. Sign in first and watch the row count drop from 1 to 0.
-- Do not delete rows from SQLite yourself. The proof is the button, then the empty session table.
+- Do not delete rows from PostgreSQL yourself. The proof is the button, then the empty session table.

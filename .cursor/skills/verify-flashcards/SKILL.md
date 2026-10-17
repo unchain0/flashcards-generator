@@ -3,35 +3,35 @@ name: verify-flashcards
 description: >-
   Launch and drive the Flashcards Generator hosted web UI the way a user does,
   and capture proof. Use when a change touches the dashboard, password sign-in,
-  sign-out, NotebookLM connection, flashcard generation, or CSV download.
+  sign-out, NotebookLM connection, flashcard generation, CSV download, or the
+  Rust CLI.
 ---
 
 # Verify Flashcards Generator
 
-The primary surface is the hosted web dashboard. A person opens it in a browser, signs in with a password, and uses the local Flashcards Companion for NotebookLM. There is no end-user CLI or TUI.
+The primary surface is the hosted web dashboard. A person opens it in a browser, signs in with a password, and uses the local Flashcards Companion for NotebookLM. The Rust `flashcards` CLI is a separate supported local surface; its verification recipe is in `features/cli.md`.
 
 Secondary surfaces, not what this skill launches:
 
 - The Companion HTTP API on `127.0.0.1:8766`. The dashboard calls it from the browser. The port is fixed in `frontend/src/infrastructure/http_api.ts`. Two Companions cannot run side by side. If something is already listening on 8766, do not start another and do not drive connection or generation against it.
-- The Rust hosted server and Rust Companion. Production Compose uses `Dockerfile.rust`. This skill follows the documented local server, `uv run flashcards-web`, which serves the same built dashboard.
+- The Rust hosted server and Rust Companion. Production Compose uses `Dockerfile.rust`. This skill runs the Rust `flashcards-web` binary, which serves the same built dashboard.
 
-The verification server is a separate instance. It binds `127.0.0.1:18721`, uses a scratch SQLite file under `/tmp/flashcards-verify/`, and a bootstrap password generated for that launch and written only to the scratch state file. It does not use port 8000, `./flashcards.db`, or a user's `.env` secrets. Do not point it at a shared database. Do not commit fixed password or secret literals into this skill.
+The verification server is a separate instance. It binds `127.0.0.1:18721`, uses a disposable PostgreSQL container and scratch data under `/tmp/flashcards-verify/`, and a bootstrap password generated for that launch and written only to the scratch state file. It does not use port 8000, a user's database, or a user's `.env` secrets. Do not point it at a shared database. Do not commit fixed password or secret literals into this skill.
 
 ## Launch
 
-From the repo root, with `uv` on `PATH` (or at `~/.local/bin/uv`):
+From the repo root, with Docker, Cargo, Corepack, and pnpm available:
 
 ```bash
-uv sync --frozen
 corepack pnpm@12.5.1 --dir frontend install --frozen-lockfile
 corepack pnpm@12.5.1 --dir frontend run build
-corepack pnpm@12.5.1 --dir frontend exec playwright install chromium
+CARGO_BUILD_JOBS=4 cargo build --workspace --bins --locked
 bash .cursor/skills/verify-flashcards/scripts/launch.sh
 ```
 
-`launch.sh` repeats the sync and build only when `.venv` or `src/flashcards_generator/delivery/web/static/dist/index.html` is missing. The build output is the dashboard the server serves. The app refuses to start without that directory (`Frontend compilado ausente` in `delivery/web/app.py`).
+`launch.sh` repeats the frontend build or Rust binary build only when their artifacts are missing. The build output is the dashboard the server serves. The Rust server refuses to start without that directory (`Frontend compilado ausente` in `rust/delivery-server/src/web.rs`).
 
-The helper runs `flashcards-web` with development settings on `127.0.0.1:18721`, a scratch SQLite URL under `/tmp/flashcards-verify/`, `FLASHCARDS_AUTO_CREATE_SCHEMA=true`, and `FLASHCARDS_SENTRY_ENABLED=false`. On each launch it generates `FLASHCARDS_BOOTSTRAP_PASSWORD` (url-safe, ≥12 chars), `FLASHCARDS_SESSION_SECRET`, and `FLASHCARDS_AUTH_LOOKUP_SECRET` (each url-safe, ≥32 chars) with Python `secrets.token_urlsafe`. Optional overrides: `VERIFY_PASSWORD`, `FLASHCARDS_SESSION_SECRET`, `FLASHCARDS_AUTH_LOOKUP_SECRET`. Secrets are not written into the skill tree.
+The helper starts a disposable PostgreSQL 16 container, runs `flashcards-web --migrate`, and then runs `flashcards-web` with development settings on `127.0.0.1:18721`, `FLASHCARDS_AUTO_CREATE_SCHEMA=false`, and `FLASHCARDS_SENTRY_ENABLED=false`. On each launch it generates `FLASHCARDS_BOOTSTRAP_PASSWORD` (url-safe, ≥12 chars), `FLASHCARDS_SESSION_SECRET`, and `FLASHCARDS_AUTH_LOOKUP_SECRET` (each url-safe, ≥32 chars). Optional overrides: `VERIFY_PASSWORD`, `FLASHCARDS_SESSION_SECRET`, `FLASHCARDS_AUTH_LOOKUP_SECRET`. Secrets are not written into the skill tree.
 
 Ready means `GET http://127.0.0.1:18721/health/ready` returns `{"status":"ok"}`. The helper waits up to 30 seconds and prints `ready http://127.0.0.1:18721 pid=<pid>`. The pid and bootstrap password are written to `/tmp/flashcards-verify/state.env` for the drive script. Session and lookup secrets stay in the server process environment only. The server log is `/tmp/flashcards-verify/server.log`.
 
@@ -40,9 +40,10 @@ If that pid is already alive, the helper refuses to start a second copy. If port
 Sign-in does not need the Companion. Start a Companion only when driving connection or generation, and only when 8766 is free:
 
 ```bash
+CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-target}"
 FLASHCARDS_COMPANION_WEB_ORIGIN=http://127.0.0.1:18721 \
 FLASHCARDS_COMPANION_DATA_DIR=/tmp/flashcards-verify/companion \
-uv run --frozen flashcards-companion
+"${CARGO_TARGET_DIR}/debug/flashcards-companion"
 ```
 
 Its ready check is `GET http://127.0.0.1:8766/v1/health` with header `Origin: http://127.0.0.1:18721`, body `{"status":"ok"}`. A request without that exact origin is rejected. Record that process's pid in the scratch directory and stop it in cleanup. Do not use `frontend/e2e/run_companion.py` or `e2e/fake-bin`; those replace NotebookLM with a test double.
@@ -66,7 +67,7 @@ A passing doctor prints `doctor: ok http://127.0.0.1:18721 pid=<pid>`. Anything 
 
 ## Drive
 
-Use Playwright from `frontend` (`@playwright/test` 1.63.0) against `BASE_URL` in the state file. Headless Chromium is enough. `drive-login.mjs` falls back to the local `chrome` channel when the Playwright browser binary is missing. The repo's browser specs in `frontend/e2e/` show the same handles; run those specs only as a regression suite. A verification proof drives the server from Launch, not `e2e/run_backend.py`.
+Use Playwright from `frontend` (`@playwright/test` 1.63.0) against `BASE_URL` in the state file. Headless Chromium is enough. `drive-login.mjs` falls back to the local `chrome` channel when the Playwright browser binary is missing. The repo's browser specs in `frontend/e2e/` show the same handles; run those specs only as a regression suite. A verification proof drives the Rust server from Launch, not the simulated Companion or the Python `e2e/run_backend.py`.
 
 Stable handles on `frontend/index.html`:
 
@@ -117,7 +118,7 @@ Standards:
 
 - Use the password form and the dashboard. Do not insert session rows, call internal setters, or hit test-only routes.
 - Capture the action and the next state: the rejected attempt and the accepted attempt, not only the final screenshot.
-- Check the side effect in SQLite (`web_users`, `web_sessions`) and `GET /api/v1/auth/me`, along with what is on screen. Do not copy the database into evidence; it holds password hashes.
+- Check the side effect in PostgreSQL (`web_users`, `web_sessions`) and `GET /api/v1/auth/me`, along with what is on screen. Do not copy the database into evidence; it holds password hashes.
 - Do not record the session cookie value.
 - The hosted app never receives PDF or PPTX bytes. Generation proof has to show the browser talking to `127.0.0.1:8766` and a downloaded CSV, not a hosted upload.
 - NotebookLM is a real external system. Do not substitute `frontend/e2e` fakes and call that a generation proof. If no Google session is available, stop at the connection result you can see and say so.
@@ -128,7 +129,7 @@ Standards:
 bash .cursor/skills/verify-flashcards/scripts/cleanup.sh
 ```
 
-The helper reads the pid from `/tmp/flashcards-verify/state.env`, signals that pid and its descendants, and deletes `/tmp/flashcards-verify` (the database, log, and state file). It does not delete `.cursor/skills/verify-flashcards/evidence/`. It does not signal processes by name, and it does not stop a server on port 8000 or a Companion it did not start.
+The helper reads the pid and PostgreSQL container name from `/tmp/flashcards-verify/state.env`, stops both, and deletes `/tmp/flashcards-verify` (the database container, log, and state file). It does not delete `.cursor/skills/verify-flashcards/evidence/`. It does not signal processes by name, and it does not stop a server on port 8000 or a Companion it did not start.
 
 If you started a Companion yourself, stop that pid the same way, and delete only `/tmp/flashcards-verify/companion` if it is still there. Leave the user's Companion data directory alone.
 
@@ -144,4 +145,4 @@ Run cleanup after a failed drive too, so the next launch is not attached to a ha
 | `scripts/cleanup.sh` | `bash .cursor/skills/verify-flashcards/scripts/cleanup.sh` |
 | `scripts/drive-login.mjs` | `node .cursor/skills/verify-flashcards/scripts/drive-login.mjs` |
 
-The shell helpers are executable. `drive-login.mjs` loads Playwright from `frontend/node_modules` and `uv` from `PATH` or `~/.local/bin/uv`. It reads the bootstrap password from the scratch state file; it never embeds a password literal.
+The shell helpers are executable. `drive-login.mjs` loads Playwright from `frontend/node_modules` and queries the disposable PostgreSQL container through `docker exec`. It reads the bootstrap password from the scratch state file; it never embeds a password literal.

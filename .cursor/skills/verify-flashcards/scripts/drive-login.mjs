@@ -39,7 +39,7 @@ function counts(container) {
       "-tAc",
       "select count(*) from web_users; select count(*) from web_sessions;",
     ],
-    { cwd: repoRoot, encoding: "utf8" },
+    { cwd: repoRoot, encoding: "utf8", timeout: 15000, maxBuffer: 1024 * 1024 },
   );
   if (result.status !== 0) {
     throw new Error(result.stderr || "PostgreSQL count failed");

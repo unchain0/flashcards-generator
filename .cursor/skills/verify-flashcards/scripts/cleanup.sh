@@ -28,7 +28,7 @@ if [[ -f "${VERIFY_STATE}" ]]; then
     fi
   fi
   if [[ -n "${DB_CONTAINER:-}" ]]; then
-    docker rm --force "${DB_CONTAINER}" >/dev/null 2>&1 || true
+    timeout --foreground 15s docker rm --force "${DB_CONTAINER}" >/dev/null 2>&1 || true
   fi
 fi
 

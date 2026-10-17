@@ -29,7 +29,11 @@ if [[ ! -f "${VERIFY_DIST}" ]]; then
 fi
 
 if [[ ! -x "${VERIFY_WEB_BIN}" || ! -x "${VERIFY_COMPANION_BIN}" ]]; then
-  (cd "${VERIFY_REPO_ROOT}" && CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-4}" cargo build --workspace --bins --locked)
+  BUILD_LOG="${VERIFY_SCRATCH}.build.log"
+  if ! timeout --foreground 20m bash -c 'cd "$1" && CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-4}" cargo build --workspace --bins --locked' _ "${VERIFY_REPO_ROOT}" >"${BUILD_LOG}" 2>&1; then
+    tail -c 1048576 "${BUILD_LOG}" >&2 || true
+    exit 1
+  fi
 fi
 
 rm -rf "${VERIFY_SCRATCH}"
@@ -79,7 +83,7 @@ if [[ "${SESSION_SECRET}" == "${AUTH_LOOKUP_SECRET}" ]]; then
   AUTH_LOOKUP_SECRET="$(verify_random_token 32)"
 fi
 
-env \
+if ! env \
   PATH="${PATH}" \
   FLASHCARDS_ENVIRONMENT=development \
   FLASHCARDS_HOST=127.0.0.1 \
@@ -90,7 +94,10 @@ env \
   FLASHCARDS_AUTH_LOOKUP_SECRET="${AUTH_LOOKUP_SECRET}" \
   FLASHCARDS_AUTO_CREATE_SCHEMA=false \
   FLASHCARDS_SENTRY_ENABLED=false \
-  "${VERIFY_WEB_BIN}" --migrate
+  timeout --foreground 120s "${VERIFY_WEB_BIN}" --migrate >"${VERIFY_SCRATCH}/migration.log" 2>&1; then
+  tail -c 1048576 "${VERIFY_SCRATCH}/migration.log" >&2 || true
+  exit 1
+fi
 
 nohup env \
   FLASHCARDS_ENVIRONMENT=development \

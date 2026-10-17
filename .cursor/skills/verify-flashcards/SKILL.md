@@ -40,9 +40,10 @@ If that pid is already alive, the helper refuses to start a second copy. If port
 Sign-in does not need the Companion. Start a Companion only when driving connection or generation, and only when 8766 is free:
 
 ```bash
+CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-target}"
 FLASHCARDS_COMPANION_WEB_ORIGIN=http://127.0.0.1:18721 \
 FLASHCARDS_COMPANION_DATA_DIR=/tmp/flashcards-verify/companion \
-target/debug/flashcards-companion
+"${CARGO_TARGET_DIR}/debug/flashcards-companion"
 ```
 
 Its ready check is `GET http://127.0.0.1:8766/v1/health` with header `Origin: http://127.0.0.1:18721`, body `{"status":"ok"}`. A request without that exact origin is rejected. Record that process's pid in the scratch directory and stop it in cleanup. Do not use `frontend/e2e/run_companion.py` or `e2e/fake-bin`; those replace NotebookLM with a test double.

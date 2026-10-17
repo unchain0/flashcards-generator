@@ -14,6 +14,9 @@ if [[ -f "${VERIFY_STATE}" ]]; then
     echo "Refusing to start a second copy. Run scripts/doctor.sh, or scripts/cleanup.sh first."
     exit 0
   fi
+  if [[ -n "${DB_CONTAINER:-}" ]]; then
+    timeout --foreground 15s docker rm --force "${DB_CONTAINER}" >/dev/null 2>&1 || true
+  fi
 fi
 
 listeners="$(verify_listener_pids "${VERIFY_PORT}")"

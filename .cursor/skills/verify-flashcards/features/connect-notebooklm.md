@@ -29,7 +29,7 @@ Proof is the status text, `data-state`, whether `#generation-fields` is disabled
 
 ## Gotchas
 
-- Port 8766 is a singleton. If a Companion is already listening and this skill did not start it, stop. Driving it would use that process's Google profile.
+- Port 8766 is a singleton. If a Companion is already listening and this skill did not start it, do not drive it: that process may use a real Google profile. Report the connection prerequisite as externally occupied.
 - `GET /v1/health` without `Origin: http://127.0.0.1:18721` is rejected. The browser sends `Origin` on its own.
 - A copied or missing Google session is not a successful connection. `Nenhuma conta do NotebookLM conectada.` is the honest end state when nobody has logged in.
 - Do not use `frontend/e2e/run_companion.py`. That process answers with a fake NotebookLM.

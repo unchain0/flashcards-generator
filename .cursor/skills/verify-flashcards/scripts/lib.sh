@@ -12,8 +12,12 @@ VERIFY_STATE="${VERIFY_SCRATCH}/state.env"
 VERIFY_PORT="${VERIFY_PORT:-18721}"
 VERIFY_EVIDENCE="${VERIFY_SKILL_DIR}/evidence"
 VERIFY_DIST="${VERIFY_REPO_ROOT}/src/flashcards_generator/delivery/web/static/dist/index.html"
-VERIFY_WEB_BIN="${VERIFY_REPO_ROOT}/target/debug/flashcards-web"
-VERIFY_COMPANION_BIN="${VERIFY_REPO_ROOT}/target/debug/flashcards-companion"
+VERIFY_CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${VERIFY_REPO_ROOT}/target}"
+if [[ "${VERIFY_CARGO_TARGET_DIR}" != /* ]]; then
+  VERIFY_CARGO_TARGET_DIR="${VERIFY_REPO_ROOT}/${VERIFY_CARGO_TARGET_DIR}"
+fi
+VERIFY_WEB_BIN="${VERIFY_CARGO_TARGET_DIR}/debug/flashcards-web"
+VERIFY_COMPANION_BIN="${VERIFY_CARGO_TARGET_DIR}/debug/flashcards-companion"
 
 # Scratch credentials live only under VERIFY_SCRATCH for one launch.
 # Never commit fixed password or secret literals into this skill.

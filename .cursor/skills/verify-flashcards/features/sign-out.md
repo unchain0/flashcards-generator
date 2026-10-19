@@ -6,7 +6,7 @@ The person ends the session. The dashboard closes, the login form returns, and t
 
 - **Sair** returns to **Acesse o gerador** and `#auth-status` says `Acesso encerrado.`
 - `POST /api/v1/auth/logout` returns 200 `{"authenticated":false}` and expires `flashcards_session`.
-- The matching `web_sessions` row is deleted. A later `GET /api/v1/auth/me` returns 401 `{"status_code":401,"detail":"Authentication required"}`.
+- The matching `web_sessions` row is deleted. A later `GET /api/v1/auth/me` returns 401 `{"detail":"Authentication required"}`.
 
 ## How to get to it (user POV)
 

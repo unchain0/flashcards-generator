@@ -14,11 +14,7 @@ fn static_dir() -> PathBuf {
 #[tokio::test]
 async fn security_headers_are_present_in_development() {
     let static_dir = static_dir();
-    assert!(
-        static_dir.exists(),
-        "Static dir not found: {:?}",
-        static_dir
-    );
+    assert!(static_dir.exists(), "Static dir not found: {static_dir:?}");
     assert!(
         static_dir.join("index.html").is_file(),
         "index.html not found: {:?}",
@@ -105,11 +101,7 @@ async fn security_headers_are_present_in_development() {
 #[tokio::test]
 async fn security_headers_include_hsts_in_production() {
     let static_dir = static_dir();
-    assert!(
-        static_dir.exists(),
-        "Static dir not found: {:?}",
-        static_dir
-    );
+    assert!(static_dir.exists(), "Static dir not found: {static_dir:?}");
     assert!(
         static_dir.join("index.html").is_file(),
         "index.html not found: {:?}",

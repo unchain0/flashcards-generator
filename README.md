@@ -1,5 +1,11 @@
 # Flashcards Generator
 
+**Objective:** Generate Anki Cloze Deletion flashcards from PDFs and PPTX using Google NotebookLM.
+
+**Status:** Active
+
+**Public URL:** https://github.com/unchain0/flashcards-generator
+
 Gera flashcards Anki em formato Cloze Deletion a partir de PDFs e PPTX usando o NotebookLM do Google.
 
 ## Características

@@ -8,6 +8,24 @@
 
 Gera flashcards Anki em formato Cloze Deletion a partir de PDFs e PPTX usando o NotebookLM do Google.
 
+## Standards
+
+This web application enforces the following security headers on every response:
+
+- **Content-Security-Policy**: `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' http://127.0.0.1:8766; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`
+- **Strict-Transport-Security**: `max-age=31536000` (production only)
+- **X-Content-Type-Options**: `nosniff`
+- **X-Frame-Options**: `DENY`
+- **Referrer-Policy**: `no-referrer`
+- **Permissions-Policy**: `camera=(), geolocation=(), microphone=()` (additional directives as needed)
+- **Cache-Control**: `no-store`
+
+Headers are applied by `SecurityHeadersMiddleware` in `src/flashcards_generator/delivery/web/app.py` and validated by `tests/unit/test_web_app.py`.
+
+Dependency vulnerability scans run in CI for Python (`pip-audit`), frontend (`pnpm audit`), and Rust (`cargo-deny`).
+
+Coverage gates enforce 100% line, function, and branch coverage for both Python and Rust.
+
 ## Características
 
 - **Formato Cloze Deletion 100%**: Todos os flashcards usam o formato `{{c1::resposta}}` para estudo ativo

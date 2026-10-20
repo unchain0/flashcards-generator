@@ -174,7 +174,9 @@ def test_security_headers_include_hsts_in_production() -> None:
         response = client.get("/")
 
     # HSTS should be present in production
-    assert response.headers.get("strict-transport-security") == "max-age=31536000"
+    assert (
+        response.headers.get("strict-transport-security") == "max-age=31536000"
+    )
 
     # Other headers should also be present
     assert response.headers.get("content-security-policy") is not None

@@ -231,6 +231,7 @@ fn external_location_allowed(source: Classification, dependency: &Dependency) ->
                 | "tokio"
                 | "tracing"
                 | "axum"
+                | "axum-test"
                 | "tower"
                 | "tower-http"
         ),

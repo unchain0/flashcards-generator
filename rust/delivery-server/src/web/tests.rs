@@ -7,14 +7,23 @@ use std::path::{Path, PathBuf};
 
 fn static_dir() -> PathBuf {
     // The frontend is built at the workspace root level
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../src/flashcards_generator/delivery/web/static/dist")
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../src/flashcards_generator/delivery/web/static/dist")
 }
 
 #[tokio::test]
 async fn security_headers_are_present_in_development() {
     let static_dir = static_dir();
-    assert!(static_dir.exists(), "Static dir not found: {:?}", static_dir);
-    assert!(static_dir.join("index.html").is_file(), "index.html not found: {:?}", static_dir.join("index.html"));
+    assert!(
+        static_dir.exists(),
+        "Static dir not found: {:?}",
+        static_dir
+    );
+    assert!(
+        static_dir.join("index.html").is_file(),
+        "index.html not found: {:?}",
+        static_dir.join("index.html")
+    );
 
     let state = WebState::new(
         WebDatabase::connect(
@@ -31,8 +40,7 @@ async fn security_headers_are_present_in_development() {
         false,
         3600,
     );
-    let app = router(state, &static_dir, vec![])
-        .expect("router should build");
+    let app = router(state, &static_dir, vec![]).expect("router should build");
     let server = TestServer::new(app);
     let response = server.get("/health/live").await;
 
@@ -44,20 +52,33 @@ async fn security_headers_are_present_in_development() {
     assert!(csp.to_str().unwrap().contains("script-src 'self'"));
     assert!(csp.to_str().unwrap().contains("style-src 'self'"));
     assert!(csp.to_str().unwrap().contains("img-src 'self'"));
-    assert!(csp.to_str().unwrap().contains("connect-src 'self' http://127.0.0.1:8766"));
+    assert!(
+        csp.to_str()
+            .unwrap()
+            .contains("connect-src 'self' http://127.0.0.1:8766")
+    );
     assert!(csp.to_str().unwrap().contains("object-src 'none'"));
     assert!(csp.to_str().unwrap().contains("base-uri 'none'"));
     assert!(csp.to_str().unwrap().contains("frame-ancestors 'none'"));
     assert!(csp.to_str().unwrap().contains("form-action 'self'"));
 
     // Referrer-Policy
-    assert_eq!(response.header("referrer-policy"), HeaderValue::from_static("no-referrer"));
+    assert_eq!(
+        response.header("referrer-policy"),
+        HeaderValue::from_static("no-referrer")
+    );
 
     // X-Content-Type-Options
-    assert_eq!(response.header("x-content-type-options"), HeaderValue::from_static("nosniff"));
+    assert_eq!(
+        response.header("x-content-type-options"),
+        HeaderValue::from_static("nosniff")
+    );
 
     // X-Frame-Options
-    assert_eq!(response.header("x-frame-options"), HeaderValue::from_static("DENY"));
+    assert_eq!(
+        response.header("x-frame-options"),
+        HeaderValue::from_static("DENY")
+    );
 
     // Permissions-Policy
     let permissions = response.header("permissions-policy");
@@ -67,17 +88,33 @@ async fn security_headers_are_present_in_development() {
     assert!(perm_str.contains("microphone=()"));
 
     // Cache-Control
-    assert_eq!(response.header("cache-control"), HeaderValue::from_static("no-store"));
+    assert_eq!(
+        response.header("cache-control"),
+        HeaderValue::from_static("no-store")
+    );
 
     // HSTS should NOT be present in development
-    assert!(response.headers().get("strict-transport-security").is_none());
+    assert!(
+        response
+            .headers()
+            .get("strict-transport-security")
+            .is_none()
+    );
 }
 
 #[tokio::test]
 async fn security_headers_include_hsts_in_production() {
     let static_dir = static_dir();
-    assert!(static_dir.exists(), "Static dir not found: {:?}", static_dir);
-    assert!(static_dir.join("index.html").is_file(), "index.html not found: {:?}", static_dir.join("index.html"));
+    assert!(
+        static_dir.exists(),
+        "Static dir not found: {:?}",
+        static_dir
+    );
+    assert!(
+        static_dir.join("index.html").is_file(),
+        "index.html not found: {:?}",
+        static_dir.join("index.html")
+    );
 
     let state = WebState::new(
         WebDatabase::connect(
@@ -94,8 +131,7 @@ async fn security_headers_include_hsts_in_production() {
         true,
         3600,
     );
-    let app = router(state, &static_dir, vec![])
-        .expect("router should build");
+    let app = router(state, &static_dir, vec![]).expect("router should build");
     let server = TestServer::new(app);
     let response = server.get("/health/live").await;
 
@@ -109,11 +145,23 @@ async fn security_headers_include_hsts_in_production() {
 
     // Other headers should also be present
     assert!(response.headers().get("content-security-policy").is_some());
-    assert_eq!(response.header("referrer-policy"), HeaderValue::from_static("no-referrer"));
-    assert_eq!(response.header("x-content-type-options"), HeaderValue::from_static("nosniff"));
-    assert_eq!(response.header("x-frame-options"), HeaderValue::from_static("DENY"));
+    assert_eq!(
+        response.header("referrer-policy"),
+        HeaderValue::from_static("no-referrer")
+    );
+    assert_eq!(
+        response.header("x-content-type-options"),
+        HeaderValue::from_static("nosniff")
+    );
+    assert_eq!(
+        response.header("x-frame-options"),
+        HeaderValue::from_static("DENY")
+    );
     assert!(response.headers().get("permissions-policy").is_some());
-    assert_eq!(response.header("cache-control"), HeaderValue::from_static("no-store"));
+    assert_eq!(
+        response.header("cache-control"),
+        HeaderValue::from_static("no-store")
+    );
 }
 
 #[tokio::test]

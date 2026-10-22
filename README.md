@@ -4,7 +4,7 @@
 
 **Status:** Active
 
-**Public URL:** https://github.com/unchain0/flashcards-generator
+**Public URL:** https://flashcards.unchain0.com
 
 Gera flashcards Anki em formato Cloze Deletion a partir de PDFs e PPTX usando o NotebookLM do Google.
 
@@ -12,7 +12,7 @@ Gera flashcards Anki em formato Cloze Deletion a partir de PDFs e PPTX usando o 
 
 This web application enforces the following security headers on every response:
 
-- **Content-Security-Policy**: `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' http://127.0.0.1:8766; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`
+- **Content-Security-Policy**: `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' http://127.0.0.1:8766 https://o4505598204248064.ingest.us.sentry.io; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`
 - **Strict-Transport-Security**: `max-age=31536000` (production only)
 - **X-Content-Type-Options**: `nosniff`
 - **X-Frame-Options**: `DENY`

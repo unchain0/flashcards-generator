@@ -53,6 +53,11 @@ async fn security_headers_are_present_in_development() {
             .unwrap()
             .contains("connect-src 'self' http://127.0.0.1:8766")
     );
+    assert!(
+        csp.to_str()
+            .unwrap()
+            .contains("https://o4505598204248064.ingest.us.sentry.io")
+    );
     assert!(csp.to_str().unwrap().contains("object-src 'none'"));
     assert!(csp.to_str().unwrap().contains("base-uri 'none'"));
     assert!(csp.to_str().unwrap().contains("frame-ancestors 'none'"));

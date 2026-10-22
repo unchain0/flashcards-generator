@@ -123,6 +123,7 @@ def test_security_headers_are_present_in_development() -> None:
     assert "style-src 'self'" in csp
     assert "img-src 'self'" in csp
     assert "connect-src 'self' http://127.0.0.1:8766" in csp
+    assert "https://o4505598204248064.ingest.us.sentry.io" in csp
     assert "object-src 'none'" in csp
     assert "base-uri 'none'" in csp
     assert "frame-ancestors 'none'" in csp

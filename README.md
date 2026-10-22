@@ -20,7 +20,11 @@ This web application enforces the following security headers on every response:
 - **Permissions-Policy**: `camera=(), geolocation=(), microphone=()` (additional directives as needed)
 - **Cache-Control**: `no-store`
 
-Headers are applied by `SecurityHeadersMiddleware` in `src/flashcards_generator/delivery/web/app.py` and validated by `tests/unit/test_web_app.py`.
+The Python reference applies these headers in
+`src/flashcards_generator/delivery/web/app.py` and tests them in
+`tests/unit/test_web_app.py`. The production Rust server applies them in
+`rust/delivery-server/src/web.rs` and tests them in
+`rust/delivery-server/src/web/tests.rs`.
 
 Dependency vulnerability scans run in CI for Python (`pip-audit`), frontend (`pnpm audit`), and Rust (`cargo-deny`).
 

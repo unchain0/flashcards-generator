@@ -8,7 +8,7 @@ The person picks PDF or PPTX files and asks for Anki cloze cards. The browser se
 - After connection, choosing files updates `#file-summary` with their names and enables **Gerar flashcards**.
 - **Perfil de geração** `Geração geral` keeps `#language` editable (default `pt_BR`). `Inglês` disables `#language` and sends the English-study instructions with the form.
 - A finished job sets `#job-status` `data-status` to `completed`, `#job-message` to `Geração concluída.`, and `#app-status` to `Geração concluída.` The counts line is `N de N arquivo(s) processado(s).`
-- A job that finishes with failed sources sets `data-status` to `failed` and the message `A geração terminou com N arquivo(s) com falha.`
+- A job that finishes with failed sources sets `data-status` to `failed` and renders `A geração falhou. Confira a conexão do NotebookLM e tente novamente. Falha na geração local.`
 
 ## How to get to it (user POV)
 

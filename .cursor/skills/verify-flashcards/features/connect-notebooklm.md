@@ -7,6 +7,7 @@ The person checks the Google NotebookLM session that lives in the Companion on t
 - Companion not running. `#notebook-status` becomes `O Flashcards Companion não respondeu. Inicie o auxiliar e autorize o acesso local no navegador.` and its `data-state` is `error`. `#generation-fields` stays disabled.
 - Companion up, no Google session. The status becomes `Nenhuma conta do NotebookLM conectada.` and `data-state` is `disconnected`. The Companion may open a browser window for Google login. Generation stays disabled.
 - Companion up and already authenticated. The status becomes `NotebookLM conectado.` and `data-state` is `connected`. `#generation-legend` becomes `Escolha os arquivos para configurar a geração.` and `#generation-fields` is enabled.
+- If the Companion cannot inspect or complete the provider login, the status becomes `Não foi possível verificar sua sessão do NotebookLM. Tente conectar novamente.` with `data-state` `error`; generation stays disabled.
 
 ## How to get to it (user POV)
 

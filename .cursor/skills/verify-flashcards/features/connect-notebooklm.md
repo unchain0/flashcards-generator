@@ -22,7 +22,7 @@ Start a Companion only when nothing is listening on 8766. Record its pid. Use `F
 1. Sign in.
 2. Listen for browser requests to `http://127.0.0.1:8766/`.
 3. `page.getByRole("button", { name: "Conectar NotebookLM" }).click()`.
-4. Wait until `#notebook-status` matches one of the three texts above.
+4. Wait until `#notebook-status` matches one of the four outcome texts above.
 
 The button calls `GET /v1/notebooklm/status` on the Companion with a bearer token from `POST /api/v1/auth/companion/token`. If the status is `login_required`, the page then calls `POST /v1/notebooklm/login`. Both requests must go to `127.0.0.1:8766`, not to the hosted origin.
 

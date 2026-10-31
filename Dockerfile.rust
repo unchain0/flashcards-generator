@@ -16,7 +16,7 @@ COPY clippy.toml ./
 COPY rust ./rust
 RUN cargo build --release --locked --bin flashcards-web
 
-FROM cgr.dev/chainguard/wolfi-base@sha256:824f77df45397eb954dfb963db255907ee8842e3446353ce93d688e5e862f51d
+FROM cgr.dev/chainguard/wolfi-base@sha256:360896efb0753a5701c48f860e17130c205eae5a264797aa3e7ea126ee2923a7
 RUN apk add --no-cache ca-certificates curl libgcc \
     && adduser -D -u 10001 app
 WORKDIR /app

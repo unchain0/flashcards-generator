@@ -107,7 +107,9 @@ pub(super) fn write_baseline(report: &Path, out: &Path) -> CheckResult<()> {
         );
     }
     let baseline = Baseline { files };
-    std::fs::write(out, serde_json::to_vec_pretty(&baseline)?)?;
+    let mut bytes = serde_json::to_vec_pretty(&baseline)?;
+    bytes.push(b'\n');
+    std::fs::write(out, bytes)?;
     println!("Coverage baseline written to {}", out.display());
     Ok(())
 }

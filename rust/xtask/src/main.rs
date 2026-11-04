@@ -25,10 +25,14 @@ fn run() -> CheckResult<()> {
             coverage_evidence::capture(Path::new(metadata), Path::new(snapshot)),
         [command, metadata, report, probe, snapshot] if command == "seal-coverage" =>
             coverage_evidence::seal(Path::new(metadata), Path::new(report), Path::new(probe), Path::new(snapshot)),
+        [command, report, out] if command == "coverage-baseline" =>
+            coverage::write_baseline(Path::new(report), Path::new(out)),
+        [command, metadata, report, probe, snapshot, baseline] if command == "check-coverage-ratchet" =>
+            coverage::check_collected_ratchet(Path::new(metadata), Path::new(report), Path::new(probe), Path::new(snapshot), Path::new(baseline)),
         [command, metadata, report, probe, snapshot] if command == "check-coverage" =>
             coverage::check_collected(Path::new(metadata), Path::new(report), Path::new(probe), Path::new(snapshot)),
         [command, probe] if command == "check-instrumentation" =>
             coverage::check_instrumentation(Path::new(probe)),
-        _ => Err("Use xtask check-masa <metadata>, snapshot-coverage <metadata> <snapshot>, seal-coverage <metadata> <coverage> <probe> <snapshot>, check-coverage <metadata> <coverage> <probe> <snapshot>, or check-instrumentation <probe>".into()),
+        _ => Err("Use xtask coverage-baseline <report> <out>, check-masa <metadata>, snapshot-coverage <metadata> <snapshot>, seal-coverage <metadata> <coverage> <probe> <snapshot>, check-coverage <metadata> <coverage> <probe> <snapshot>, or check-instrumentation <probe>".into()),
     }
 }

@@ -10,22 +10,25 @@ fn branch_or(left: bool, right: bool) -> u8 {
     if left || right { 1 } else { 0 }
 }
 
-// LLVM branch counters omit plain `match`, `?`, and `for` outcomes on this
-// toolchain, so those probes keep an explicit conditional that must be counted.
-#[inline(never)]
 fn branch_match(value: Result<u8, u8>) -> u8 {
-    let value = match value {
-        Ok(0) => 0,
+    let matched = match value {
         Ok(value) => value,
         Err(value) => value + 1,
     };
-    if value == 0 { value } else { value + 1 }
+    // LLVM on the pinned toolchain emits no branch region for the switch
+    // behind match, so this guard keeps the function instrumented.
+    if matched == 0 { 0 } else { matched }
 }
 
-#[inline(never)]
 fn branch_question(value: Result<u8, u8>) -> Result<u8, u8> {
     let value = value?;
-    if value == 0 { Ok(1) } else { Ok(value + 1) }
+    let incremented = value + 1;
+    // See branch_match: the ? operator compiles to a switch, not a branch.
+    if incremented == 1 {
+        Ok(1)
+    } else {
+        Ok(incremented)
+    }
 }
 
 fn branch_let_else(value: Option<u8>) -> u8 {
@@ -37,12 +40,12 @@ fn branch_if_let(value: Option<u8>) -> u8 {
     if let Some(value) = value { value } else { 0 }
 }
 
-#[inline(never)]
 fn branch_for(values: &[u8]) -> u8 {
     let mut sum = 0;
     for value in values {
         sum += value;
     }
+    // See branch_match: a for loop lowers to a switch on the iterator.
     if sum == 0 { 0 } else { sum }
 }
 
@@ -97,17 +100,13 @@ impl std::future::Future for OnePending {
 }
 
 async fn branch_async(value: bool) -> u8 {
-    let value = if (OnePending {
+    let ready = (OnePending {
         value,
         pending: true,
     })
-    .await
-    {
-        1
-    } else {
-        0
-    };
-    if value == 0 { value } else { value + 1 }
+    .await;
+    let base = if value { 1 } else { 0 };
+    if base == 0 { 0 } else { u8::from(ready) }
 }
 
 #[test]
@@ -124,11 +123,11 @@ fn exercises_if_short_circuit_and_macro_outcomes() {
 
 #[test]
 fn exercises_match_try_and_let_else_outcomes() {
+    assert_eq!(branch_match(Ok(2)), 2);
+    assert_eq!(branch_match(Err(2)), 3);
     assert_eq!(branch_match(Ok(0)), 0);
-    assert_eq!(branch_match(Ok(2)), 3);
-    assert_eq!(branch_match(Err(2)), 4);
-    assert_eq!(branch_question(Ok(0)), Ok(1));
     assert_eq!(branch_question(Ok(2)), Ok(3));
+    assert_eq!(branch_question(Ok(0)), Ok(1));
     assert_eq!(branch_question(Err(2)), Err(2));
     assert_eq!(branch_let_else(Some(2)), 2);
     assert_eq!(branch_let_else(None), 0);
@@ -158,7 +157,7 @@ fn exercises_async_outcomes() {
         assert_eq!(future.as_mut().poll(&mut context), Poll::Pending);
         assert_eq!(
             future.as_mut().poll(&mut context),
-            Poll::Ready(if value { 2 } else { 0 })
+            Poll::Ready(u8::from(value))
         );
     }
 }

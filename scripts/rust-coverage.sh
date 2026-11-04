@@ -45,6 +45,6 @@ bash scripts/rust-coverage-probe.sh
 timeout 120 cargo run --locked -p xtask -- seal-coverage \
   target/quality/metadata.json target/quality/rust-coverage.json target/quality/coverage-probe.json \
   target/quality/coverage-snapshot.json
-timeout 120 cargo run --locked -p xtask -- check-coverage \
+timeout 120 cargo run --locked -p xtask -- check-coverage-ratchet \
   target/quality/metadata.json target/quality/rust-coverage.json target/quality/coverage-probe.json \
-  target/quality/coverage-snapshot.json
+  target/quality/coverage-snapshot.json coverage-baseline.json

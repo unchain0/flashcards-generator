@@ -46,6 +46,7 @@ class SecurityHeadersMiddleware(ASGIMiddleware):
                 headers["Permissions-Policy"] = (
                     "camera=(), geolocation=(), microphone=()"
                 )
+                headers["Cache-Control"] = "no-store"
             await send(message)
 
         await next_app(scope, receive, send_with_headers)

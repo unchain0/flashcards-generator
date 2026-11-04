@@ -23,3 +23,4 @@ tower-http.workspace = true
 flashcards-integrations-shared = { path = "../integrations-shared" }
 sqlx.workspace = true
 tower.workspace = true
+axum-test = { version = "22.0.0-rc.1" }

@@ -1,6 +1,34 @@
 # Flashcards Generator
 
+**Objective:** Generate Anki Cloze Deletion flashcards from PDFs and PPTX using Google NotebookLM.
+
+**Status:** Active
+
+**Public URL:** https://flashcards.unchain0.com
+
 Gera flashcards Anki em formato Cloze Deletion a partir de PDFs e PPTX usando o NotebookLM do Google.
+
+## Standards
+
+This web application enforces the following security headers on every response:
+
+- **Content-Security-Policy**: `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' http://127.0.0.1:8766 https://o4505598204248064.ingest.us.sentry.io; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`
+- **Strict-Transport-Security**: `max-age=31536000` (production only)
+- **X-Content-Type-Options**: `nosniff`
+- **X-Frame-Options**: `DENY`
+- **Referrer-Policy**: `no-referrer`
+- **Permissions-Policy**: `camera=(), geolocation=(), microphone=()` (additional directives as needed)
+- **Cache-Control**: `no-store`
+
+The Python reference applies these headers in
+`src/flashcards_generator/delivery/web/app.py` and tests them in
+`tests/unit/test_web_app.py`. The production Rust server applies them in
+`rust/delivery-server/src/web.rs` and tests them in
+`rust/delivery-server/src/web/tests.rs`.
+
+Dependency vulnerability scans run in CI for Python (`pip-audit`), frontend (`pnpm audit`), and Rust (`cargo-deny`).
+
+Coverage gates enforce 100% line, function, and branch coverage for both Python and Rust.
 
 ## Características
 

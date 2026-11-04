@@ -36,6 +36,9 @@ on:
       - 'migrations/**'
       - '.github/workflows/ci.yml'
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -74,9 +77,61 @@ jobs:
       - name: Enforce Radon rank A
         run: uv run --frozen task quality-gate
 
+  python-security:
+    name: Python Dependency Vulnerability Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: '0.12.x'
+          enable-cache: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: '.python-version'
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-extras --dev
+
+      - name: Run pip-audit
+        run: uv run --frozen pip-audit --requirement <(uv export --frozen --all-extras --dev --no-hashes)
+
+  frontend-security:
+    name: Frontend Dependency Vulnerability Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          package_json_file: frontend/package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.node-version
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Run pnpm audit
+        working-directory: frontend
+        run: pnpm audit --prod --audit-level=high
+
   frontend:
     name: Frontend Quality & E2E
     runs-on: ubuntu-latest
+    needs: [lint-and-format, python-security, frontend-security]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

@@ -93,6 +93,106 @@ def test_transport_security_header_is_production_only(
     assert response.headers.get("strict-transport-security") == expected
 
 
+def test_security_headers_are_present_in_development() -> None:
+    settings = WebSettings(
+        environment="test",
+        database_url="postgresql+asyncpg://test:test@localhost/test",
+        session_secret="session-secret-test-0123456789abcdef",
+        auth_lookup_secret="lookup-secret-test-0123456789abcdef",
+        auto_create_schema=False,
+        _env_file=None,
+    )
+
+    @get("/")
+    def page() -> dict[str, str]:
+        return {"status": "ok"}
+
+    app = Litestar(
+        route_handlers=[page],
+        middleware=[SecurityHeadersMiddleware()],
+        state=State({"settings": settings}),
+    )
+    with TestClient(app) as client:
+        response = client.get("/")
+
+    # Content-Security-Policy
+    csp = response.headers.get("content-security-policy")
+    assert csp is not None
+    assert "default-src 'self'" in csp
+    assert "script-src 'self'" in csp
+    assert "style-src 'self'" in csp
+    assert "img-src 'self'" in csp
+    assert "connect-src 'self' http://127.0.0.1:8766" in csp
+    assert csp == (
+        "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; "
+        "connect-src 'self' http://127.0.0.1:8766 "
+        "https://o4505598204248064.ingest.us.sentry.io; object-src 'none'; "
+        "base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+    )
+    assert "object-src 'none'" in csp
+    assert "base-uri 'none'" in csp
+    assert "frame-ancestors 'none'" in csp
+    assert "form-action 'self'" in csp
+
+    # Referrer-Policy
+    assert response.headers.get("referrer-policy") == "no-referrer"
+
+    # X-Content-Type-Options
+    assert response.headers.get("x-content-type-options") == "nosniff"
+
+    # X-Frame-Options
+    assert response.headers.get("x-frame-options") == "DENY"
+
+    # Permissions-Policy
+    permissions = response.headers.get("permissions-policy")
+    assert permissions is not None
+    assert "camera=()" in permissions
+    assert "geolocation=()" in permissions
+    assert "microphone=()" in permissions
+
+    # Cache-Control
+    assert response.headers.get("cache-control") == "no-store"
+
+    # HSTS should NOT be present in development
+    assert response.headers.get("strict-transport-security") is None
+
+
+def test_security_headers_include_hsts_in_production() -> None:
+    settings = WebSettings(
+        environment="production",
+        database_url="postgresql+asyncpg://test:test@localhost/test",
+        session_secret="session-secret-test-0123456789abcdef",
+        auth_lookup_secret="lookup-secret-test-0123456789abcdef",
+        auto_create_schema=False,
+        _env_file=None,
+    )
+
+    @get("/")
+    def page() -> dict[str, str]:
+        return {"status": "ok"}
+
+    app = Litestar(
+        route_handlers=[page],
+        middleware=[SecurityHeadersMiddleware()],
+        state=State({"settings": settings}),
+    )
+    with TestClient(app) as client:
+        response = client.get("/")
+
+    # HSTS should be present in production
+    assert (
+        response.headers.get("strict-transport-security") == "max-age=31536000"
+    )
+
+    # Other headers should also be present
+    assert response.headers.get("content-security-policy") is not None
+    assert response.headers.get("referrer-policy") == "no-referrer"
+    assert response.headers.get("x-content-type-options") == "nosniff"
+    assert response.headers.get("x-frame-options") == "DENY"
+    assert response.headers.get("permissions-policy") is not None
+    assert response.headers.get("cache-control") == "no-store"
+
+
 @pytest.mark.asyncio
 async def test_database_shutdown_before_startup_is_safe() -> None:
     app = Litestar()

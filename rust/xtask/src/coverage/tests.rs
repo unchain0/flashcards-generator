@@ -72,8 +72,37 @@ fn counters_use_integers_even_when_percentages_round_to_one_hundred() {
         },
     };
     let mut failures = Vec::new();
-    check_file(&file, true, &mut failures);
+    check_file(&file, true, None, false, &mut failures);
     assert_eq!(failures, vec!["production.rs: lines 999999/1000000"]);
+    failures.clear();
+    check_file(
+        &file,
+        true,
+        Some(&BaselineFile {
+            lines: 999_999,
+            branches: 0,
+            functions: 2,
+        }),
+        true,
+        &mut failures,
+    );
+    assert_eq!(failures, Vec::<String>::new());
+    failures.clear();
+    check_file(
+        &file,
+        true,
+        Some(&BaselineFile {
+            lines: 1_000_000,
+            branches: 0,
+            functions: 2,
+        }),
+        true,
+        &mut failures,
+    );
+    assert_eq!(
+        failures,
+        vec!["production.rs: lines regressed to 999999/1000000 (baseline 1000000)"]
+    );
 }
 
 #[test]
@@ -96,13 +125,13 @@ fn executable_sources_cannot_pass_with_empty_counters() {
         },
     };
     let mut failures = Vec::new();
-    check_file(&file, true, &mut failures);
+    check_file(&file, true, None, false, &mut failures);
     assert_eq!(
         failures,
         vec!["production.rs: executable source has no line/function counters"]
     );
     failures.clear();
-    check_file(&file, false, &mut failures);
+    check_file(&file, false, None, false, &mut failures);
     assert_eq!(failures, Vec::<String>::new());
 }
 

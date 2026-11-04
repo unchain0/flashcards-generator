@@ -6,12 +6,16 @@ the Companion. It does not send documents or credentials to the hosted server.
 
 ## User-facing commands
 
+- `flashcards --json <command> ...` emits one JSON result on stdout; without it,
+  the commands print a short human-readable summary.
 - `flashcards --help` lists `generate`, `merge`, and `notebook`.
 - `flashcards merge --folder <dir> [--output <name>] [--deduplicate] [--no-recursive]`
   combines local CSV files and never imports them into Anki.
-- `flashcards notebook status` and `flashcards notebook list` read a local
-  NotebookLM storage-state file without changing notebooks.
-- `flashcards generate --input-dir <dir>` creates CSVs from local PDF/PPTX files.
+- `flashcards notebook status --storage-file <file>` and
+  `flashcards notebook list --storage-file <file>` read a local NotebookLM
+  storage-state file without changing notebooks.
+- `flashcards generate --input-dir <dir> [--output-dir <dir>]` creates CSVs from
+  local PDF/PPTX files.
   `--language`, `--difficulty`, `--quantity`, `--timeout`, `--instructions`,
   `--single-cloze`, `--include`, `--exclude`, and `--files` refine the request.
 - `flashcards notebook cleanup --all` deletes every notebook visible to the

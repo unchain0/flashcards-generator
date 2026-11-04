@@ -11,7 +11,7 @@ dependencies = [
     "asyncpg>=0.30,<1",
     "httpx>=0.28.1",
     "loguru>=0.7.3",
-    "notebooklm-py[browser]==0.8.1",
+    "notebooklm-py[browser]==0.8.6",
     "platformdirs>=4,<5",
     "pydantic>=2.13.4",
     "pydantic-settings>=2.11.0",

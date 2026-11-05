@@ -67,7 +67,7 @@ A passing doctor prints `doctor: ok http://127.0.0.1:18721 pid=<pid>`. Anything 
 
 ## Drive
 
-Use Playwright from `frontend` (`@playwright/test` 1.63.0) against `BASE_URL` in the state file. Headless Chromium is enough. `drive-login.mjs` falls back to the local `chrome` channel when the Playwright browser binary is missing. The repo's browser specs in `frontend/e2e/` show the same handles; run those specs only as a regression suite. A verification proof drives the Rust server from Launch, not the simulated Companion or the Python `e2e/run_backend.py`.
+Use Playwright from `frontend` (`@playwright/test` 1.64.1) against `BASE_URL` in the state file. Headless Chromium is enough. `drive-login.mjs` falls back to the local `chrome` channel when the Playwright browser binary is missing. The repo's browser specs in `frontend/e2e/` show the same handles; run those specs only as a regression suite. A verification proof drives the Rust server from Launch, not the simulated Companion or the Python `e2e/run_backend.py`.
 
 Stable handles on `frontend/index.html`:
 

@@ -36,6 +36,10 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: ./.github/actions/rust-validation
+      - uses: kunobi-ninja/kache-action@ad7317540dcdd71c904f7a60a87b620a0c0e67ed # v1
+        with:
+          version: v2.0.0
+          pr-comment: false
       - name: Check Rust formatting, lint, and MASA
         run: |
           cargo fmt --all -- --check

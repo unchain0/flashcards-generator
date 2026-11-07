@@ -248,3 +248,17 @@ docker compose build
 - `delivery/web/user_admin.py` is an operational password-provisioning command,
   not a replacement for the removed generation CLI.
 - Preserve unrelated working-tree changes and never reset this migration.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues for this repo. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context. See `docs/agents/domain.md`.

@@ -14,12 +14,13 @@ the Companion. It does not send documents or credentials to the hosted server.
 - `flashcards notebook status --storage-file <file>` and
   `flashcards notebook list --storage-file <file>` read a local NotebookLM
   storage-state file without changing notebooks.
-- `flashcards generate --input-dir <dir> [--output-dir <dir>]` creates CSVs from
-  local PDF/PPTX files.
+- `flashcards generate --input-dir <dir> [--output-dir <dir>] --storage-file <file>`
+  creates CSVs from local PDF/PPTX files.
   `--language`, `--difficulty`, `--quantity`, `--timeout`, `--instructions`,
   `--single-cloze`, `--include`, `--exclude`, and `--files` refine the request.
-- `flashcards notebook cleanup --all` deletes every notebook visible to the
-  supplied local credentials and is destructive; do not drive it in routine QA.
+- `flashcards notebook cleanup --storage-file <file> --all` deletes every
+  notebook visible to the supplied local credentials and is destructive; do not
+  drive it in routine QA.
 
 ## Sanity check
 
@@ -30,5 +31,7 @@ cargo run --locked -p flashcards-cli -- notebook --help
 ```
 
 For NotebookLM commands, pass `--storage-file <absolute-private-file>` or set
-`FLASHCARDS_NOTEBOOKLM_STORAGE_FILE`. Never use a real storage-state file in
-automated evidence, and never treat a mocked browser test as native CLI proof.
+`FLASHCARDS_NOTEBOOKLM_STORAGE_FILE`. This applies to `generate`, `notebook
+status`, `notebook list`, and `notebook cleanup`. Never use a real
+storage-state file in automated evidence, and never treat a mocked browser test
+as native CLI proof.

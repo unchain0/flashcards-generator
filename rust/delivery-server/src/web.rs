@@ -179,7 +179,7 @@ async fn generate_document(
         return Err(ApiError(StatusCode::BAD_REQUEST, "Arquivo vazio"));
     }
     let text = tokio::task::spawn_blocking(move || {
-        crate::generate::TextExtractor::extract(&crate::generate::PdfToText, &bytes)
+        crate::generate::TextExtractor::extract(&crate::generate::PdfToText::default(), &bytes)
     })
     .await
     .map_err(|_| ApiError(StatusCode::INTERNAL_SERVER_ERROR, "Falha ao ler o PDF"))?

@@ -1,4 +1,5 @@
 use super::{Card, ExtractError, Jobs, PdfToText, TextExtractor, heuristic_cards, render_csv};
+use std::process::{Command, Stdio};
 
 #[test]
 fn sentences_split_on_terminators_and_keep_abbreviations() {
@@ -135,14 +136,22 @@ fn both_sources_are_heuristic_until_the_llm_is_wired() {
 
 #[test]
 fn empty_document_is_rejected() {
-    assert_eq!(PdfToText.extract(&[]), Err(ExtractError::Empty));
+    assert_eq!(PdfToText::default().extract(&[]), Err(ExtractError::Empty));
 }
 
 #[test]
 fn unreadable_document_is_rejected() {
     assert_eq!(
-        PdfToText.extract(b"not a pdf"),
+        PdfToText::default().extract(b"not a pdf"),
         Err(ExtractError::Unavailable)
+    );
+}
+
+#[test]
+fn sentence_splitter_keeps_abbreviations_inside_prose() {
+    assert_eq!(
+        super::sentences("Dr. Ada descreve 12kg em uma amostra de controle."),
+        vec!["Dr. Ada descreve 12kg em uma amostra de controle.".to_owned()]
     );
 }
 
@@ -184,9 +193,26 @@ fn single_words_fill_the_gap_and_short_numbers_do_not() {
 }
 
 #[test]
+fn numbers_with_units_and_single_numbers_take_distinct_rules() {
+    assert_eq!(super::weight("12kg", 1), 3);
+    assert_eq!(super::weight("123", 1), 3);
+    assert_eq!(super::weight("7", 1), 0);
+}
+
+#[test]
 fn words_that_trim_to_nothing_are_skipped() {
     assert_eq!(super::weight("---", 1), 0);
-    assert_eq!(super::weight("123", 1), 3);
+}
+
+#[test]
+fn percent_signs_survive_trimming_and_symbols_do_not() {
+    assert_eq!(super::weight("%12", 1), 0);
+    assert_eq!(super::weight("abcdefg%", 1), 0);
+}
+
+#[test]
+fn dates_with_an_empty_segment_are_rejected() {
+    assert!(!super::looks_like_date("12//03"));
 }
 
 #[test]
@@ -281,28 +307,33 @@ fn extractor_returns_the_process_output() {
     std::fs::remove_dir_all(directory).unwrap();
 }
 
-struct Broken;
+#[test]
+fn extractor_reports_missing_stdin_pipe() {
+    let mut command = Command::new("/bin/true");
+    command.stdin(Stdio::null());
+    assert_eq!(
+        super::extract_with_command(&mut command, b"x"),
+        Err(ExtractError::Unavailable)
+    );
+}
 
-impl std::io::Write for Broken {
-    fn write(&mut self, _buffer: &[u8]) -> std::io::Result<usize> {
-        Err(std::io::Error::other("broken pipe"))
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
+#[test]
+fn extractor_reports_a_real_closed_stdin_pipe() {
+    let directory = fixture_dir("closed-stdin");
+    let program = directory.join("close-stdin");
+    script(&program, "#!/bin/sh\nexec 0<&-\nexit 0\n");
+    let mut command = Command::new(program);
+    command.stdin(Stdio::piped()).stdout(Stdio::piped());
+    let input = vec![b'x'; 1024 * 1024];
+    assert_eq!(
+        super::extract_with_command(&mut command, &input),
+        Err(ExtractError::Unavailable)
+    );
+    std::fs::remove_dir_all(directory).unwrap();
 }
 
 #[test]
 fn extractor_input_and_output_helpers_report_failures() {
-    assert_eq!(
-        super::take_stdin(None).err(),
-        Some(ExtractError::Unavailable)
-    );
-    assert_eq!(
-        super::write_input(&mut Broken, b"x"),
-        Err(ExtractError::Unavailable)
-    );
     assert_eq!(
         super::output_text(Err(std::io::Error::other("wait failed"))),
         Err(ExtractError::Unavailable)
@@ -314,6 +345,13 @@ fn term_length_boundaries_are_enforced() {
     assert!(super::term_length_is_valid("12345", 2));
     assert!(!super::term_length_is_valid("1", 2));
     assert!(!super::term_length_is_valid(&"a".repeat(41), 3));
+}
+
+#[test]
+fn overlong_extracted_terms_do_not_make_cards() {
+    let term = "a".repeat(41);
+    let sentence = format!("O conceito {term} aparece nesta explicação de laboratório detalhada.");
+    assert_eq!(super::card_for(&sentence), None);
 }
 
 #[test]

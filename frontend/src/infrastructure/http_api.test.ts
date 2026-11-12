@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import { HttpApiError, type GenerationJob } from "../domain/contracts";
+import { HttpApiError } from "../domain/contracts";
 import { HttpFlashcardsApi } from "./http_api";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -10,20 +10,8 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe("HttpFlashcardsApi", () => {
-  it("sends only a short-lived bearer capability to the local companion", async () => {
+  it("keeps companion capabilities short-lived and uses the server for generation", async () => {
     const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
-    const job: GenerationJob = {
-      id: "job-123",
-      status: "queued",
-      message: "Arquivo recebido.",
-      filenames: ["lesson.pdf"],
-      discovered_sources: 0,
-      completed_sources: 0,
-      skipped_sources: 0,
-      failed_sources: 0,
-      artifacts: [],
-      error: null,
-    };
     const responseQueue = [
       jsonResponse({ authenticated: true }),
       jsonResponse({ authenticated: true }),
@@ -36,15 +24,15 @@ describe("HttpFlashcardsApi", () => {
       }),
       jsonResponse({ access_token: "capability-2", expires_in: 300 }, 201),
       jsonResponse({ authenticated: true, status: "authenticated", message: "ok" }),
-      jsonResponse({ access_token: "capability-3", expires_in: 300 }, 201),
-      jsonResponse(job, 202),
-      jsonResponse({ access_token: "capability-4", expires_in: 300 }, 201),
-      jsonResponse({ ...job, error: "Falha local" }),
-      jsonResponse({ access_token: "capability-5", expires_in: 300 }, 201),
-      new Response("Front,Back\nterm,definition\n", {
+      jsonResponse({ job_id: "job-1" }, 202),
+      jsonResponse({
+        status: "done",
+        cards: 5,
+        download_url: "/api/v1/jobs/job-1/csv",
+      }),
+      new Response("Front,Back\r\nterm,definition\r\n", {
         headers: { "content-type": "text/csv" },
       }),
-      jsonResponse({ access_token: "capability-6", expires_in: 300 }, 201),
       jsonResponse({ detail: "Arquivo ausente" }, 404),
     ];
     const fetcher: typeof fetch = async (input, init) => {
@@ -57,7 +45,7 @@ describe("HttpFlashcardsApi", () => {
     };
     const api = new HttpFlashcardsApi(fetcher);
     const form = new FormData();
-    form.append("files", new Blob(["pdf"]), "lesson.pdf");
+    form.append("file", new Blob(["pdf"]), "lesson.pdf");
 
     await expect(api.me()).resolves.toEqual({ authenticated: true });
     await expect(api.login("senha-segura-123")).resolves.toEqual({ authenticated: true });
@@ -68,10 +56,10 @@ describe("HttpFlashcardsApi", () => {
     await expect(api.startNotebookLogin()).resolves.toMatchObject({
       authenticated: true,
     });
-    await expect(api.createJob(form)).resolves.toMatchObject({ id: "job-123" });
-    await expect(api.getJob("job/123")).resolves.toMatchObject({ id: "job-123" });
-    await expect(api.download("/artifact.csv")).resolves.toBeInstanceOf(Blob);
-    await expect(api.download("/missing.csv")).rejects.toMatchObject({
+    await expect(api.createServerJob(form)).resolves.toEqual({ job_id: "job-1" });
+    await expect(api.getServerJob("job/1")).resolves.toMatchObject({ cards: 5 });
+    await expect(api.downloadServer("/api/v1/jobs/job-1/csv")).resolves.toBeInstanceOf(Blob);
+    await expect(api.downloadServer("/missing.csv")).rejects.toMatchObject({
       message: "Arquivo ausente",
       status: 404,
     });
@@ -84,30 +72,20 @@ describe("HttpFlashcardsApi", () => {
       "http://127.0.0.1:8766/v1/notebooklm/status",
       "/api/v1/auth/companion/token",
       "http://127.0.0.1:8766/v1/notebooklm/login",
-      "/api/v1/auth/companion/token",
-      "http://127.0.0.1:8766/v1/jobs",
-      "/api/v1/auth/companion/token",
-      "http://127.0.0.1:8766/v1/jobs/job%2F123",
-      "/api/v1/auth/companion/token",
-      "http://127.0.0.1:8766/artifact.csv",
-      "/api/v1/auth/companion/token",
-      "http://127.0.0.1:8766/missing.csv",
+      "/api/v1/generate",
+      "/api/v1/jobs/job%2F1",
+      "/api/v1/jobs/job-1/csv",
+      "/missing.csv",
     ]);
     expect(calls[3]?.init?.credentials).toBe("same-origin");
     expect(calls[4]?.init?.credentials).toBe("omit");
-    expect(calls[5]?.init?.credentials).toBe("same-origin");
-    expect(calls[6]?.init?.credentials).toBe("omit");
     expect(new Headers(calls[4]?.init?.headers).get("authorization")).toBe("Bearer capability-1");
     expect(new Headers(calls[6]?.init?.headers).get("authorization")).toBe("Bearer capability-2");
-    expect(
-      calls
-        .filter(({ input }) => String(input).startsWith("http://127.0.0.1:8766/"))
-        .every(({ init }) => init?.credentials === "omit"),
-    ).toBe(true);
     expect(new Headers(calls[1]?.init?.headers).get("content-type")).toBe("application/json");
-    expect(new Headers(calls[8]?.init?.headers).has("content-type")).toBe(false);
-    expect(calls[8]?.init?.body).toBe(form);
-    expect(new Headers(calls[8]?.init?.headers).get("authorization")).toBe("Bearer capability-3");
+    expect(new Headers(calls[7]?.init?.headers).has("content-type")).toBe(false);
+    expect(calls[7]?.init?.body).toBe(form);
+    expect(calls[7]?.init?.credentials).toBe("same-origin");
+    expect(calls[9]?.init?.credentials).toBe("same-origin");
   });
 
   it("explains when the local companion cannot be reached", async () => {

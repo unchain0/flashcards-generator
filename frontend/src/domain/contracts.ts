@@ -40,15 +40,25 @@ export interface GenerationJob {
   error: string | null;
 }
 
+export interface ServerJobCreated {
+  job_id: string;
+}
+
+export interface ServerJobStatus {
+  status: string;
+  cards: number;
+  download_url: string;
+}
+
 export interface FlashcardsApi {
   me(): Promise<AuthRead>;
   login(password: string): Promise<AuthRead>;
   logout(): Promise<AuthRead>;
   notebookStatus(): Promise<NotebookLMStatus>;
   startNotebookLogin(): Promise<NotebookLMStatus>;
-  createJob(form: FormData): Promise<GenerationJob>;
-  getJob(jobId: string): Promise<GenerationJob>;
-  download(url: string): Promise<Blob>;
+  createServerJob(form: FormData): Promise<ServerJobCreated>;
+  getServerJob(jobId: string): Promise<ServerJobStatus>;
+  downloadServer(url: string): Promise<Blob>;
 }
 
 export interface DashboardView {

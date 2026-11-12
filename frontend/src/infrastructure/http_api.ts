@@ -1,11 +1,10 @@
 import {
   HttpApiError,
-  type Artifact,
   type AuthRead,
   type FlashcardsApi,
-  type GenerationJob,
-  type JobStatus,
   type NotebookLMStatus,
+  type ServerJobCreated,
+  type ServerJobStatus,
 } from "../domain/contracts";
 
 type Fetcher = typeof fetch;
@@ -13,12 +12,12 @@ type JsonValidator = (value: unknown) => boolean;
 type Validators<T> = { [Key in keyof T]-?: JsonValidator };
 
 const COMPANION_ORIGIN = "http://127.0.0.1:8766";
-const JOB_STATUSES: ReadonlySet<string> = new Set<JobStatus>([
+const SERVER_JOB_STATUSES: ReadonlySet<string> = new Set([
   "queued",
   "running",
+  "done",
   "completed",
   "failed",
-  "cancelled",
 ]);
 
 interface CompanionTokenRead {
@@ -28,15 +27,11 @@ interface CompanionTokenRead {
 
 const isBoolean: JsonValidator = (value) => typeof value === "boolean";
 const isString: JsonValidator = (value) => typeof value === "string";
-const isNullableString: JsonValidator = (value) => value === null || isString(value);
 const isNonNegativeInteger: JsonValidator = (value) =>
   Number.isInteger(value) && typeof value === "number" && value >= 0;
 const isPositiveInteger: JsonValidator = (value) => isNonNegativeInteger(value) && value !== 0;
-const isJobStatus: JsonValidator = (value) => typeof value === "string" && JOB_STATUSES.has(value);
-const isStringArray: JsonValidator = (value) => Array.isArray(value) && value.every(isString);
-const isArtifact = (value: unknown): value is Artifact =>
-  isRecord(value) && isString(value["name"]) && isString(value["url"]);
-const isArtifactArray: JsonValidator = (value) => Array.isArray(value) && value.every(isArtifact);
+const isServerJobStatus: JsonValidator = (value) =>
+  typeof value === "string" && SERVER_JOB_STATUSES.has(value);
 
 const AUTH_READ_VALIDATORS: Validators<AuthRead> = {
   authenticated: isBoolean,
@@ -50,17 +45,13 @@ const COMPANION_TOKEN_VALIDATORS: Validators<CompanionTokenRead> = {
   access_token: isString,
   expires_in: isPositiveInteger,
 };
-const GENERATION_JOB_VALIDATORS: Validators<GenerationJob> = {
-  id: isString,
-  status: isJobStatus,
-  message: isString,
-  filenames: isStringArray,
-  discovered_sources: isNonNegativeInteger,
-  completed_sources: isNonNegativeInteger,
-  skipped_sources: isNonNegativeInteger,
-  failed_sources: isNonNegativeInteger,
-  artifacts: isArtifactArray,
-  error: isNullableString,
+const SERVER_JOB_CREATED_VALIDATORS: Validators<ServerJobCreated> = {
+  job_id: isString,
+};
+const SERVER_JOB_STATUS_VALIDATORS: Validators<ServerJobStatus> = {
+  status: isServerJobStatus,
+  cards: isNonNegativeInteger,
+  download_url: isString,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -94,8 +85,12 @@ function parseCompanionToken(value: unknown): CompanionTokenRead {
   return parseObject(value, COMPANION_TOKEN_VALIDATORS, "autorização local");
 }
 
-function parseGenerationJob(value: unknown): GenerationJob {
-  return parseObject(value, GENERATION_JOB_VALIDATORS, "geração");
+function parseServerJobCreated(value: unknown): ServerJobCreated {
+  return parseObject(value, SERVER_JOB_CREATED_VALIDATORS, "geração");
+}
+
+function parseServerJobStatus(value: unknown): ServerJobStatus {
+  return parseObject(value, SERVER_JOB_STATUS_VALIDATORS, "geração");
 }
 
 export class HttpFlashcardsApi implements FlashcardsApi {
@@ -126,19 +121,23 @@ export class HttpFlashcardsApi implements FlashcardsApi {
     });
   }
 
-  createJob(form: FormData): Promise<GenerationJob> {
-    return this.requestCompanion("/v1/jobs", parseGenerationJob, {
+  createServerJob(form: FormData): Promise<ServerJobCreated> {
+    return this.request("/api/v1/generate", parseServerJobCreated, {
       method: "POST",
       body: form,
     });
   }
 
-  getJob(jobId: string): Promise<GenerationJob> {
-    return this.requestCompanion(`/v1/jobs/${encodeURIComponent(jobId)}`, parseGenerationJob);
+  getServerJob(jobId: string): Promise<ServerJobStatus> {
+    return this.request(`/api/v1/jobs/${encodeURIComponent(jobId)}`, parseServerJobStatus);
   }
 
-  async download(url: string): Promise<Blob> {
-    return (await this.companionResponse(url)).blob();
+  async downloadServer(url: string): Promise<Blob> {
+    const response = await this.fetcher(url, { credentials: "same-origin" });
+    if (!response.ok) {
+      throw await this.errorFrom(response);
+    }
+    return response.blob();
   }
 
   private async request<T>(

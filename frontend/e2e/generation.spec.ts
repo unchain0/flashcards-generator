@@ -6,7 +6,6 @@ const companionError =
 
 test("autentica, gera localmente e baixa o CSV pelo navegador", async ({ page }, testInfo) => {
   const companionRequests: string[] = [];
-  const remoteGenerationRequests: string[] = [];
   const browserErrors: string[] = [];
   let uploadContentType = "";
   let generationPayload = "";
@@ -18,9 +17,22 @@ test("autentica, gera localmente e baixa o CSV pelo navegador", async ({ page },
       browserErrors.push(message.text());
     }
   });
-  await page.route("**/api/v1/jobs**", async (route) => {
-    remoteGenerationRequests.push(route.request().url());
-    await route.abort();
+  await page.route("**/api/v1/generate", async (route) => {
+    const request = route.request();
+    uploadContentType = request.headers()["content-type"] ?? "";
+    generationPayload = request.postData() ?? "";
+    await route.fulfill({ status: 202, json: { job_id: "job-123" } });
+  });
+  await page.route("**/api/v1/jobs/job-123", async (route) => {
+    await route.fulfill({
+      json: { status: "done", cards: 1, download_url: "/api/v1/jobs/job-123/csv" },
+    });
+  });
+  await page.route("**/api/v1/jobs/job-123/csv", async (route) => {
+    await route.fulfill({
+      body: "Text,Extra\n{{c1::lesson}},review\n",
+      headers: { "content-type": "text/csv" },
+    });
   });
   await page.route("http://127.0.0.1:8766/**", async (route) => {
     const request = route.request();
@@ -38,60 +50,6 @@ test("autentica, gera localmente e baixa o CSV pelo navegador", async ({ page },
       return;
     }
     const path = new URL(request.url()).pathname;
-    if (path === "/v1/jobs" && request.method() === "POST") {
-      uploadContentType = request.headers()["content-type"] ?? "";
-      generationPayload = request.postData() ?? "";
-      await route.fulfill({
-        status: 202,
-        json: {
-          id: "job-123",
-          status: "queued",
-          message: "Aguardando o início da geração.",
-          filenames: ["lesson.pdf"],
-          discovered_sources: 0,
-          completed_sources: 0,
-          skipped_sources: 0,
-          failed_sources: 0,
-          artifacts: [],
-          error: null,
-        },
-        headers: { "access-control-allow-origin": allowOrigin },
-      });
-      return;
-    }
-    if (path === "/v1/jobs/job-123") {
-      await route.fulfill({
-        json: {
-          id: "job-123",
-          status: "completed",
-          message: "Geração concluída.",
-          filenames: ["lesson.pdf"],
-          discovered_sources: 1,
-          completed_sources: 1,
-          skipped_sources: 0,
-          failed_sources: 0,
-          artifacts: [
-            {
-              name: "lesson.csv",
-              url: "/v1/jobs/job-123/artifacts/lesson.csv",
-            },
-          ],
-          error: null,
-        },
-        headers: { "access-control-allow-origin": allowOrigin },
-      });
-      return;
-    }
-    if (path === "/v1/jobs/job-123/artifacts/lesson.csv") {
-      await route.fulfill({
-        body: "Text,Extra\n{{c1::lesson}},review\n",
-        headers: {
-          "access-control-allow-origin": allowOrigin,
-          "content-type": "text/csv",
-        },
-      });
-      return;
-    }
     const authenticated = path.endsWith("/notebooklm/login");
     await route.fulfill({
       json: {
@@ -123,7 +81,7 @@ test("autentica, gera localmente e baixa o CSV pelo navegador", async ({ page },
   await expect(page.getByRole("heading", { name: "Nova geração" })).toBeVisible();
   await expect(password).toHaveValue("");
   await expect(page.locator("#notebook-status")).toHaveText(
-    "Clique em Conectar para verificar sua sessão local do NotebookLM.",
+    "Opcional: conecte o NotebookLM para gerar localmente.",
   );
   await expect(page.locator("#app-status")).toHaveText("");
   await page.screenshot({
@@ -134,8 +92,7 @@ test("autentica, gera localmente e baixa o CSV pelo navegador", async ({ page },
 
   const fileInput = page.getByLabel("Arquivos PDF ou PPTX");
   const generateButton = page.getByRole("button", { name: "Gerar flashcards" });
-  await expect(fileInput).toBeDisabled();
-  await expect(page.locator("#difficulty")).toHaveCSS("opacity", "0.72");
+  await expect(fileInput).toBeEnabled();
   await expect(generateButton).toBeDisabled();
   await expect(generateButton).toHaveCSS("background-color", "rgb(22, 45, 69)");
   await expect(generateButton).toHaveCSS("color", "rgb(200, 215, 229)");
@@ -178,21 +135,19 @@ test("autentica, gera localmente e baixa o CSV pelo navegador", async ({ page },
   await expect(generateButton).toBeEnabled();
   await generateButton.click();
   await expect(page.locator("#job-status")).toHaveAttribute("data-status", "completed");
-  await expect(page.getByRole("button", { name: "Baixar lesson.csv" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Baixar flashcards.csv" })).toBeVisible();
   expect(uploadContentType).toContain("multipart/form-data; boundary=");
   expect(generationPayload).toContain("Meu nível é iniciante; evite expressões que já conheço.");
   expect(generationPayload).toMatch(/name="language"\r\n\r\nen\r\n/);
   expect(generationPayload).toMatch(/name="single_cloze"\r\n\r\ntrue\r\n/);
   expect(generationPayload).not.toContain("study_profile");
-  expect(remoteGenerationRequests).toEqual([]);
-  expect(
-    companionRequests.some((item) => item.endsWith("POST http://127.0.0.1:8766/v1/jobs")),
-  ).toBe(true);
+  expect(generationPayload).toContain('name="file"');
+  expect(companionRequests.some((item) => item.includes("/v1/jobs"))).toBe(false);
   await page.screenshot({ path: testInfo.outputPath("generation-completed.png"), fullPage: true });
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Baixar lesson.csv" }).click();
+  await page.getByRole("button", { name: "Baixar flashcards.csv" }).click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toBe("lesson.csv");
+  expect(download.suggestedFilename()).toBe("flashcards.csv");
   const downloadedPath = await download.path();
   expect(downloadedPath).not.toBeNull();
   if (downloadedPath) {
@@ -332,6 +287,10 @@ test("repete consultas e envios após falha do provedor sem iniciar outro login 
   const retryMessage = "Não foi possível verificar sua sessão do NotebookLM. Tente novamente.";
   const browserErrors: string[] = [];
   page.on("pageerror", (error) => browserErrors.push(error.message));
+  await page.route("**/api/v1/generate", async (route) => {
+    uploadAttempts += 1;
+    await route.fulfill({ status: 503, json: { detail: retryMessage } });
+  });
   await page.route("http://127.0.0.1:8766/**", async (route) => {
     const request = route.request();
     const headers = { "access-control-allow-origin": request.headers()["origin"] ?? "null" };
@@ -349,11 +308,6 @@ test("repete consultas e envios após falha do provedor sem iniciar outro login 
     const path = new URL(request.url()).pathname;
     if (path === "/v1/notebooklm/status") statusChecks += 1;
     if (path === "/v1/notebooklm/login") loginAttempts += 1;
-    if (path === "/v1/jobs") {
-      uploadAttempts += 1;
-      await route.fulfill({ status: 503, headers, json: { detail: retryMessage } });
-      return;
-    }
     await route.fulfill({
       status: 200,
       headers,
@@ -391,7 +345,7 @@ test("repete consultas e envios após falha do provedor sem iniciar outro login 
     await connect.focus();
     await connect.press("Enter");
     await expect(connect).toBeEnabled();
-    await expect(page.getByLabel("Arquivos PDF ou PPTX")).toBeDisabled();
+    await expect(page.getByLabel("Arquivos PDF ou PPTX")).toBeEnabled();
     await expect(
       page.getByRole("button", { name: "Gerar flashcards", exact: true }),
     ).toBeDisabled();
@@ -417,7 +371,7 @@ test("repete consultas e envios após falha do provedor sem iniciar outro login 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const rejected = page.waitForResponse(
       (response) =>
-        response.url() === "http://127.0.0.1:8766/v1/jobs" &&
+        new URL(response.url()).pathname === "/api/v1/generate" &&
         response.request().method() === "POST",
     );
     await generate.click();

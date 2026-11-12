@@ -2,7 +2,9 @@ import {
   HttpApiError,
   type DashboardView,
   type FlashcardsApi,
+  type GenerationJob,
   type NotebookLMStatus,
+  type ServerJobStatus,
 } from "../domain/contracts";
 
 type Wait = (milliseconds: number) => Promise<void>;
@@ -11,6 +13,8 @@ const wait: Wait = (milliseconds) =>
   new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 
 const TERMINAL_JOB_STATES = new Set(["completed", "failed", "cancelled"]);
+const SERVER_DONE_STATES = new Set(["done", "completed"]);
+const SERVER_POLL_LIMIT = 120;
 const NOTEBOOK_STATUS_MESSAGES: Readonly<Record<string, string>> = {
   authenticated: "NotebookLM conectado.",
   login_required: "Nenhuma conta do NotebookLM conectada.",
@@ -83,7 +87,7 @@ export class DashboardController {
       );
     } catch (error) {
       this.view.setNotebookMessage(this.message(error), "error");
-      this.view.setGenerationEnabled(false);
+      this.view.setGenerationEnabled(true);
     } finally {
       this.view.setBusy("connect", false);
     }
@@ -93,10 +97,10 @@ export class DashboardController {
     this.view.setBusy("generate", true);
     this.view.setApplicationMessage("Enviando arquivos...");
     try {
-      const job = await this.api.createJob(form);
-      this.activeJobId = job.id;
-      this.view.renderJob(job);
-      await this.pollJob(job.id);
+      const created = await this.api.createServerJob(this.uploadForm(form));
+      this.activeJobId = created.job_id;
+      this.view.renderJob(this.pendingJob(created.job_id));
+      await this.pollServerJob(created.job_id);
     } catch (error) {
       this.view.setBusy("generate", false);
       this.view.setApplicationMessage(this.message(error));
@@ -105,11 +109,63 @@ export class DashboardController {
 
   async downloadArtifact(url: string, name: string): Promise<void> {
     try {
-      this.view.saveArtifact(await this.api.download(url), name);
+      this.view.saveArtifact(await this.api.downloadServer(url), name);
       this.view.setApplicationMessage("Download iniciado.");
     } catch (error) {
       this.view.setApplicationMessage(this.message(error));
     }
+  }
+
+  /// The v1 endpoint takes one PDF per job, so the panel sends the first file
+  /// plus the form options the server ignores today and the LLM path will use.
+  private uploadForm(form: FormData): FormData {
+    const upload = new FormData();
+    for (const [key, value] of form.entries()) {
+      if (key !== "files") {
+        upload.append(key, value);
+      }
+    }
+    const [file] = form.getAll("files").filter((value): value is File => value instanceof File);
+    if (file) {
+      upload.set("file", file);
+    }
+    return upload;
+  }
+
+  private pendingJob(jobId: string): GenerationJob {
+    return {
+      id: jobId,
+      status: "running",
+      message: "Gerando cartões...",
+      filenames: [],
+      discovered_sources: 0,
+      completed_sources: 0,
+      skipped_sources: 0,
+      failed_sources: 0,
+      artifacts: [],
+      error: null,
+    };
+  }
+
+  private serverJob(jobId: string, status: ServerJobStatus): GenerationJob {
+    const done = SERVER_DONE_STATES.has(status.status);
+    const failed = status.status === "failed";
+    return {
+      id: jobId,
+      status: failed ? "failed" : done ? "completed" : "running",
+      message: done
+        ? `${status.cards} cartão(ões) gerado(s).`
+        : failed
+          ? "A geração falhou."
+          : "Gerando cartões...",
+      filenames: [],
+      discovered_sources: 0,
+      completed_sources: 0,
+      skipped_sources: 0,
+      failed_sources: 0,
+      artifacts: done ? [{ name: "flashcards.csv", url: status.download_url }] : [],
+      error: null,
+    };
   }
 
   private async enterDashboard(): Promise<void> {
@@ -117,9 +173,9 @@ export class DashboardController {
     this.view.showDashboard(true);
     this.view.showLogout(true);
     this.view.setApplicationMessage("");
-    this.view.setGenerationEnabled(false);
+    this.view.setGenerationEnabled(true);
     this.view.setNotebookMessage(
-      "Clique em Conectar para verificar sua sessão local do NotebookLM.",
+      "Opcional: conecte o NotebookLM para gerar localmente.",
       "disconnected",
     );
   }
@@ -139,15 +195,19 @@ export class DashboardController {
         ? "error"
         : "disconnected";
     this.view.setNotebookMessage(message, state);
-    this.view.setGenerationEnabled(status.authenticated);
+    this.view.setGenerationEnabled(true);
   }
 
-  private async pollJob(jobId: string): Promise<void> {
-    while (this.activeJobId === jobId) {
-      const job = await this.api.getJob(jobId);
+  private async pollServerJob(jobId: string): Promise<void> {
+    for (let attempt = 0; attempt < SERVER_POLL_LIMIT; attempt += 1) {
       if (this.activeJobId !== jobId) {
         return;
       }
+      const status = await this.api.getServerJob(jobId);
+      if (this.activeJobId !== jobId) {
+        return;
+      }
+      const job = this.serverJob(jobId, status);
       this.view.renderJob(job);
       if (TERMINAL_JOB_STATES.has(job.status)) {
         this.view.setBusy("generate", false);
@@ -158,6 +218,8 @@ export class DashboardController {
       }
       await this.pause(1200);
     }
+    this.view.setBusy("generate", false);
+    this.view.setApplicationMessage("A geração demorou mais que o esperado. Tente novamente.");
   }
 
   private message(error: unknown): string {

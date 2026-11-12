@@ -883,7 +883,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlx",
- "tempfile",
  "tokio",
  "tower",
  "tower-http 0.7.1",

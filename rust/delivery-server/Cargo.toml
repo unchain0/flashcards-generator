@@ -20,7 +20,6 @@ tracing.workspace = true
 tower-http.workspace = true
 
 [dev-dependencies]
-tempfile.workspace = true
 flashcards-integrations-shared = { path = "../integrations-shared" }
 sqlx.workspace = true
 tower.workspace = true

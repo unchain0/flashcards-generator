@@ -14,10 +14,37 @@ use axum::{
 use flashcards_delivery_server::web::{self, WebState};
 use flashcards_integrations_server::{auth_crypto::AuthCrypto, web_database::WebDatabase};
 use sqlx::postgres::PgPoolOptions;
-use std::{path::PathBuf, str::FromStr};
+use std::{
+    path::{Path, PathBuf},
+    str::FromStr,
+    sync::atomic::{AtomicU64, Ordering},
+};
 use tower::ServiceExt;
 
 const PASSWORD: &str = "fixture-password-0123456789";
+static NEXT_TEMP_ID: AtomicU64 = AtomicU64::new(0);
+
+struct TempDir(PathBuf);
+
+impl TempDir {
+    fn new() -> Self {
+        let id = NEXT_TEMP_ID.fetch_add(1, Ordering::Relaxed);
+        let path =
+            std::env::temp_dir().join(format!("flashcards-generate-{}-{id}", std::process::id()));
+        std::fs::create_dir(&path).unwrap();
+        Self(path)
+    }
+
+    fn path(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
 
 fn sample_pdf() -> Vec<u8> {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -29,13 +56,7 @@ fn sample_pdf() -> Vec<u8> {
 
 static DATABASE_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
-async fn router(
-    _name: &str,
-) -> (
-    Router,
-    tempfile::TempDir,
-    tokio::sync::MutexGuard<'static, ()>,
-) {
+async fn router(_name: &str) -> (Router, TempDir, tokio::sync::MutexGuard<'static, ()>) {
     let guard = DATABASE_LOCK.lock().await;
     let url = std::env::var("FLASHCARDS_TEST_DATABASE_URL")
         .unwrap_or_else(|_| panic!("disposable PostgreSQL URL required"));
@@ -73,7 +94,7 @@ async fn router(
     database.create_user(PASSWORD).await.unwrap();
     pool.close().await;
 
-    let static_dir = tempfile::TempDir::new().unwrap();
+    let static_dir = TempDir::new();
     std::fs::write(static_dir.path().join("index.html"), "<!doctype html>").unwrap();
     let app = web::router(
         WebState::new(database, false, 3600),

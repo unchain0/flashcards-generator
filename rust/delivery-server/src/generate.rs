@@ -44,25 +44,48 @@ pub trait TextExtractor: Send + Sync {
 }
 
 /// Extracts text with `pdftotext`, the same tool family the companion ships.
-pub struct PdfToText;
+pub struct PdfToText {
+    program: String,
+}
+
+impl PdfToText {
+    /// Uses a specific executable. Production uses [`Self::default`]; this is
+    /// also useful for testing genuine subprocess failures without a mock.
+    #[must_use]
+    pub fn with_program(program: impl Into<String>) -> Self {
+        Self {
+            program: program.into(),
+        }
+    }
+}
+
+impl Default for PdfToText {
+    fn default() -> Self {
+        Self::with_program("pdftotext")
+    }
+}
 
 impl TextExtractor for PdfToText {
     fn extract(&self, bytes: &[u8]) -> Result<String, ExtractError> {
-        extract_pdf_text("pdftotext", bytes)
+        extract_pdf_text(&self.program, bytes)
     }
 }
 
 fn extract_pdf_text(program: &str, bytes: &[u8]) -> Result<String, ExtractError> {
-    if bytes.is_empty() {
-        return Err(ExtractError::Empty);
-    }
-    let mut child = Command::new(program)
+    let mut command = Command::new(program);
+    command
         .args(["-layout", "-", "-"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|_| ExtractError::Unavailable)?;
+        .stderr(Stdio::null());
+    extract_with_command(&mut command, bytes)
+}
+
+fn extract_with_command(command: &mut Command, bytes: &[u8]) -> Result<String, ExtractError> {
+    if bytes.is_empty() {
+        return Err(ExtractError::Empty);
+    }
+    let mut child = command.spawn().map_err(|_| ExtractError::Unavailable)?;
     let mut stdin = take_stdin(child.stdin.take())?;
     write_input(&mut stdin, bytes)?;
     drop(stdin);

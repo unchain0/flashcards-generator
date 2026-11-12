@@ -3,9 +3,8 @@ import {
   HttpApiError,
   type DashboardView,
   type FlashcardsApi,
-  type GenerationJob,
-  type JobStatus,
   type NotebookLMStatus,
+  type ServerJobStatus,
 } from "../domain/contracts";
 import { DashboardController } from "./dashboard_controller";
 
@@ -17,19 +16,12 @@ function notebookStatus(status: string): NotebookLMStatus {
   };
 }
 
-function job(status: JobStatus, message: string = status): GenerationJob {
-  return {
-    id: "job-123",
-    status,
-    message,
-    filenames: ["lesson.pdf"],
-    discovered_sources: 1,
-    completed_sources: status === "completed" ? 1 : 0,
-    skipped_sources: 0,
-    failed_sources: status === "failed" ? 1 : 0,
-    artifacts: [],
-    error: null,
-  };
+function serverStatus(
+  status: string,
+  cards = 0,
+  downloadUrl = "/api/v1/jobs/job-123/csv",
+): ServerJobStatus {
+  return { status, cards, download_url: downloadUrl };
 }
 
 function harness() {
@@ -43,9 +35,11 @@ function harness() {
     startNotebookLogin: vi
       .fn<FlashcardsApi["startNotebookLogin"]>()
       .mockResolvedValue(notebookStatus("login_started")),
-    createJob: vi.fn<FlashcardsApi["createJob"]>().mockResolvedValue(job("queued")),
-    getJob: vi.fn<FlashcardsApi["getJob"]>().mockResolvedValue(job("completed")),
-    download: vi.fn<FlashcardsApi["download"]>().mockResolvedValue(new Blob(["csv"])),
+    createServerJob: vi
+      .fn<FlashcardsApi["createServerJob"]>()
+      .mockResolvedValue({ job_id: "job-123" }),
+    getServerJob: vi.fn<FlashcardsApi["getServerJob"]>().mockResolvedValue(serverStatus("done", 5)),
+    downloadServer: vi.fn<FlashcardsApi["downloadServer"]>().mockResolvedValue(new Blob(["csv"])),
   } satisfies FlashcardsApi;
   const view: DashboardView = {
     showAuthentication: vi.fn(),
@@ -65,6 +59,12 @@ function harness() {
   return { api, controller, pause, view };
 }
 
+function pdfForm(): FormData {
+  const form = new FormData();
+  form.append("files", new Blob(["pdf"]), "lesson.pdf");
+  return form;
+}
+
 describe("DashboardController", () => {
   it("opens the dashboard without making an unsolicited local network request", async () => {
     const { api, controller, view } = harness();
@@ -77,10 +77,10 @@ describe("DashboardController", () => {
     expect(view.showLogout).toHaveBeenCalledWith(true);
     expect(api.notebookStatus).not.toHaveBeenCalled();
     expect(view.setNotebookMessage).toHaveBeenCalledWith(
-      "Clique em Conectar para verificar sua sessão local do NotebookLM.",
+      "Opcional: conecte o NotebookLM para gerar localmente.",
       "disconnected",
     );
-    expect(view.setGenerationEnabled).toHaveBeenCalledWith(false);
+    expect(view.setGenerationEnabled).toHaveBeenCalledWith(true);
     expect(view.setApplicationMessage).toHaveBeenCalledWith("");
   });
 
@@ -132,16 +132,16 @@ describe("DashboardController", () => {
 
   it("stops rendering an old job after logout changes the active job", async () => {
     const { api, controller, view } = harness();
-    api.getJob.mockImplementationOnce(async () => {
+    api.getServerJob.mockImplementationOnce(async () => {
       await controller.logout();
-      return job("running", "Em andamento");
+      return serverStatus("running");
     });
 
-    await controller.generate(new FormData());
+    await controller.generate(pdfForm());
 
     expect(view.showAuthentication).toHaveBeenLastCalledWith(true);
     expect(view.setBusy).toHaveBeenCalledWith("generate", false);
-    expect(api.getJob).toHaveBeenCalledOnce();
+    expect(api.getServerJob).toHaveBeenCalledOnce();
   });
 
   it("reports companion errors without trying login when status cannot be checked", async () => {
@@ -150,7 +150,7 @@ describe("DashboardController", () => {
     api.notebookStatus.mockRejectedValueOnce(new Error("serviço offline"));
     await controller.connectNotebookLM();
     expect(view.setNotebookMessage).toHaveBeenLastCalledWith("serviço offline", "error");
-    expect(view.setGenerationEnabled).toHaveBeenLastCalledWith(false);
+    expect(view.setGenerationEnabled).toHaveBeenLastCalledWith(true);
     expect(api.startNotebookLogin).not.toHaveBeenCalled();
 
     api.notebookStatus.mockResolvedValueOnce(notebookStatus("login_required"));
@@ -176,12 +176,12 @@ describe("DashboardController", () => {
 
   it("stops polling when the user logs out between status requests", async () => {
     const { api, controller, pause, view } = harness();
-    api.getJob.mockResolvedValue(job("running"));
+    api.getServerJob.mockResolvedValue(serverStatus("running"));
     pause.mockImplementation(() => controller.logout());
 
-    await controller.generate(new FormData());
+    await controller.generate(pdfForm());
 
-    expect(api.getJob).toHaveBeenCalledOnce();
+    expect(api.getServerJob).toHaveBeenCalledOnce();
     expect(pause).toHaveBeenCalledOnce();
     expect(view.showAuthentication).toHaveBeenLastCalledWith(true);
     expect(view.setBusy).toHaveBeenCalledWith("generate", false);
@@ -213,7 +213,7 @@ describe("DashboardController", () => {
       "Não foi possível verificar sua sessão do NotebookLM. Tente conectar novamente.",
       "error",
     );
-    expect(view.setGenerationEnabled).toHaveBeenLastCalledWith(false);
+    expect(view.setGenerationEnabled).toHaveBeenLastCalledWith(true);
     expect(view.setBusy).toHaveBeenLastCalledWith("connect", false);
   });
 
@@ -225,19 +225,19 @@ describe("DashboardController", () => {
 
     expect(api.startNotebookLogin).not.toHaveBeenCalled();
     expect(view.setNotebookMessage).toHaveBeenLastCalledWith("provider_pending", "disconnected");
-    expect(view.setGenerationEnabled).toHaveBeenLastCalledWith(false);
+    expect(view.setGenerationEnabled).toHaveBeenLastCalledWith(true);
   });
 
   it("uses the browser timer while polling a running generation", async () => {
     const { api, view } = harness();
-    api.getJob
-      .mockResolvedValueOnce(job("running", "Em andamento"))
-      .mockResolvedValueOnce(job("completed", "Flashcards gerados."));
+    api.getServerJob
+      .mockResolvedValueOnce(serverStatus("running"))
+      .mockResolvedValueOnce(serverStatus("done", 5));
     const controller = new DashboardController(api, view);
     vi.useFakeTimers();
 
     try {
-      const generation = controller.generate(new FormData());
+      const generation = controller.generate(pdfForm());
       await Promise.resolve();
       await Promise.resolve();
       expect(vi.getTimerCount()).toBe(1);
@@ -247,7 +247,7 @@ describe("DashboardController", () => {
       vi.useRealTimers();
     }
 
-    expect(api.getJob).toHaveBeenCalledTimes(2);
+    expect(api.getServerJob).toHaveBeenCalledTimes(2);
     expect(view.setApplicationMessage).toHaveBeenLastCalledWith("Geração concluída.");
   });
 
@@ -265,56 +265,71 @@ describe("DashboardController", () => {
     api.startNotebookLogin.mockResolvedValueOnce(notebookStatus("provider_pending"));
     await controller.connectNotebookLM();
     expect(view.setNotebookMessage).toHaveBeenLastCalledWith("provider_pending", "disconnected");
-    expect(view.setGenerationEnabled).toHaveBeenLastCalledWith(false);
+    expect(view.setGenerationEnabled).toHaveBeenLastCalledWith(true);
   });
 
-  it("handles a completed generation and a failed job", async () => {
-    const { api, controller, pause, view } = harness();
-    api.getJob
-      .mockResolvedValueOnce(job("running", "Em andamento"))
-      .mockResolvedValueOnce(job("completed", "Flashcards gerados."));
-    await controller.generate(new FormData());
-    expect(api.createJob).toHaveBeenCalledOnce();
-    expect(api.getJob).toHaveBeenCalledTimes(2);
-    expect(pause).toHaveBeenCalledOnce();
+  it("uploads the selected file, counts the cards and exposes the CSV link", async () => {
+    const { api, controller, view } = harness();
+
+    await controller.generate(pdfForm());
+
+    expect(api.createServerJob).toHaveBeenCalledOnce();
+    const upload = api.createServerJob.mock.calls[0]?.[0];
+    expect(upload?.get("file")).toBeInstanceOf(File);
+    expect(upload?.getAll("files")).toEqual([]);
+    expect(view.renderJob).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "running", message: "Gerando cartões..." }),
+    );
+    expect(view.renderJob).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        status: "completed",
+        message: "5 cartão(ões) gerado(s).",
+        artifacts: [{ name: "flashcards.csv", url: "/api/v1/jobs/job-123/csv" }],
+      }),
+    );
     expect(view.setApplicationMessage).toHaveBeenLastCalledWith("Geração concluída.");
     expect(view.setBusy).toHaveBeenLastCalledWith("generate", false);
+  });
 
-    api.createJob.mockResolvedValueOnce(job("queued"));
-    api.getJob.mockResolvedValueOnce(job("failed", "A geração falhou."));
-    await controller.generate(new FormData());
+  it("keeps the form as-is when no file is selected and reports a failed job", async () => {
+    const { api, controller, view } = harness();
+    const empty = new FormData();
+
+    await controller.generate(empty);
+    expect(api.createServerJob).toHaveBeenCalledWith(empty);
+
+    api.getServerJob.mockResolvedValueOnce(serverStatus("failed"));
+    await controller.generate(pdfForm());
     expect(view.setApplicationMessage).toHaveBeenLastCalledWith("A geração falhou.");
   });
 
-  it("reports generation errors and follows long jobs until completion", async () => {
+  it("reports generation errors and gives up on a job that never finishes", async () => {
     const failed = harness();
-    failed.api.createJob.mockRejectedValueOnce(new Error("upload falhou"));
-    await failed.controller.generate(new FormData());
+    failed.api.createServerJob.mockRejectedValueOnce(new Error("upload falhou"));
+    await failed.controller.generate(pdfForm());
     expect(failed.view.setApplicationMessage).toHaveBeenLastCalledWith("upload falhou");
     expect(failed.view.setBusy).toHaveBeenLastCalledWith("generate", false);
 
     const longJob = harness();
-    let polls = 0;
-    longJob.api.getJob.mockImplementation(async () => {
-      polls += 1;
-      return job(polls > 240 ? "completed" : "running");
-    });
-    await longJob.controller.generate(new FormData());
-    expect(longJob.api.getJob).toHaveBeenCalledTimes(241);
-    expect(longJob.pause).toHaveBeenCalledTimes(240);
-    expect(longJob.view.setApplicationMessage).toHaveBeenLastCalledWith("Geração concluída.");
+    longJob.api.getServerJob.mockResolvedValue(serverStatus("running"));
+    await longJob.controller.generate(pdfForm());
+    expect(longJob.api.getServerJob).toHaveBeenCalledTimes(120);
+    expect(longJob.pause).toHaveBeenCalledTimes(120);
+    expect(longJob.view.setApplicationMessage).toHaveBeenLastCalledWith(
+      "A geração demorou mais que o esperado. Tente novamente.",
+    );
   });
 
-  it("downloads artifacts and reports download errors", async () => {
+  it("downloads the CSV from the server and reports download errors", async () => {
     const { api, controller, view } = harness();
 
-    await controller.downloadArtifact("/file.csv", "file.csv");
-    expect(api.download).toHaveBeenCalledWith("/file.csv");
-    expect(view.saveArtifact).toHaveBeenCalledWith(expect.any(Blob), "file.csv");
+    await controller.downloadArtifact("/api/v1/jobs/job-123/csv", "flashcards.csv");
+    expect(api.downloadServer).toHaveBeenCalledWith("/api/v1/jobs/job-123/csv");
+    expect(view.saveArtifact).toHaveBeenCalledWith(expect.any(Blob), "flashcards.csv");
     expect(view.setApplicationMessage).toHaveBeenLastCalledWith("Download iniciado.");
 
-    api.download.mockRejectedValueOnce(new Error("arquivo indisponível"));
-    await controller.downloadArtifact("/file.csv", "file.csv");
+    api.downloadServer.mockRejectedValueOnce(new Error("arquivo indisponível"));
+    await controller.downloadArtifact("/api/v1/jobs/job-123/csv", "flashcards.csv");
     expect(view.setApplicationMessage).toHaveBeenLastCalledWith("arquivo indisponível");
   });
 });

@@ -418,6 +418,12 @@ progress {
   color: var(--accent);
 }
 
+.file-list button {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 @media (max-width: 820px) {
   .shell {
     padding-top: var(--space-shell-top-compact);

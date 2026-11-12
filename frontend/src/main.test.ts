@@ -102,46 +102,20 @@ describe("web entry point", () => {
           message: "NotebookLM conectado.",
         });
       }
-      if (path === "http://127.0.0.1:8766/v1/jobs" && init?.method === "POST") {
+      if (path.endsWith("/api/v1/generate") && init?.method === "POST") {
         if (init.body instanceof FormData) {
           submittedForms.push(init.body);
         }
-        return response(
-          {
-            id: "job-123",
-            status: "queued",
-            message: "Arquivo recebido.",
-            filenames: ["lesson.pdf"],
-            discovered_sources: 0,
-            completed_sources: 0,
-            skipped_sources: 0,
-            failed_sources: 0,
-            artifacts: [],
-            error: null,
-          },
-          202,
-        );
+        return response({ job_id: "job-123" }, 202);
       }
-      if (path.endsWith("/jobs/job-123")) {
+      if (path.endsWith("/api/v1/jobs/job-123")) {
         return response({
-          id: "job-123",
-          status: "completed",
-          message: "Flashcards gerados.",
-          filenames: ["lesson.pdf"],
-          discovered_sources: 1,
-          completed_sources: 1,
-          skipped_sources: 0,
-          failed_sources: 0,
-          artifacts: [
-            {
-              name: "lesson.csv",
-              url: "/v1/jobs/job-123/artifacts/lesson.csv",
-            },
-          ],
-          error: null,
+          status: "done",
+          cards: 1,
+          download_url: "/api/v1/jobs/job-123/csv",
         });
       }
-      if (path.endsWith("/artifacts/lesson.csv")) {
+      if (path.endsWith("/api/v1/jobs/job-123/csv")) {
         return new Response("Front,Back\nterm,definition", {
           headers: { "content-type": "text/csv" },
         });
@@ -149,7 +123,7 @@ describe("web entry point", () => {
       if (path.endsWith("/auth/logout")) {
         return response({ authenticated: false });
       }
-      if (path === "http://127.0.0.1:8766/missing-artifact.csv") {
+      if (path.endsWith("missing-artifact.csv")) {
         return response({ detail: "Arquivo ausente" }, 404);
       }
       return response({ detail: "Não encontrado" }, 404);
@@ -265,6 +239,8 @@ describe("web entry point", () => {
     expect(submittedForms[0]?.get("instructions")).toBe("Use linguagem simples.");
     expect(submittedForms[0]?.has("study_profile")).toBe(false);
     expect(submittedForms[0]?.has("single_cloze")).toBe(false);
+    expect(submittedForms[0]?.get("file")).toBeInstanceOf(File);
+    expect(submittedForms[0]?.getAll("files")).toEqual([]);
 
     studyProfile.value = "english-context";
     studyProfile.dispatchEvent(new Event("change"));
@@ -322,9 +298,9 @@ describe("web entry point", () => {
       expect(document.querySelector("#app-status")?.textContent).toBe("Download iniciado.");
     });
     expect(createObjectURL).toHaveBeenCalledOnce();
-    expect(calls).toContain("http://127.0.0.1:8766/v1/jobs");
-    expect(calls).toContain("http://127.0.0.1:8766/v1/jobs/job-123");
-    expect(calls).toContain("http://127.0.0.1:8766/v1/jobs/job-123/artifacts/lesson.csv");
+    expect(calls).toContain("/api/v1/generate");
+    expect(calls).toContain("/api/v1/jobs/job-123");
+    expect(calls).toContain("/api/v1/jobs/job-123/csv");
 
     document.querySelector<HTMLButtonElement>("#logout-button")?.click();
     await vi.waitFor(() => {

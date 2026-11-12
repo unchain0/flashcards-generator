@@ -48,31 +48,49 @@ pub struct PdfToText;
 
 impl TextExtractor for PdfToText {
     fn extract(&self, bytes: &[u8]) -> Result<String, ExtractError> {
-        if bytes.is_empty() {
-            return Err(ExtractError::Empty);
-        }
-        let mut child = Command::new("pdftotext")
-            .args(["-layout", "-", "-"])
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .map_err(|_| ExtractError::Unavailable)?;
-        let mut stdin = child.stdin.take().ok_or(ExtractError::Unavailable)?;
-        std::io::Write::write_all(&mut stdin, bytes).map_err(|_| ExtractError::Unavailable)?;
-        drop(stdin);
-        let output = child
-            .wait_with_output()
-            .map_err(|_| ExtractError::Unavailable)?;
-        if !output.status.success() {
-            return Err(ExtractError::Unavailable);
-        }
-        let text = String::from_utf8_lossy(&output.stdout).into_owned();
-        if text.trim().is_empty() {
-            return Err(ExtractError::Unavailable);
-        }
-        Ok(text)
+        extract_pdf_text("pdftotext", bytes)
     }
+}
+
+fn extract_pdf_text(program: &str, bytes: &[u8]) -> Result<String, ExtractError> {
+    if bytes.is_empty() {
+        return Err(ExtractError::Empty);
+    }
+    let mut child = Command::new(program)
+        .args(["-layout", "-", "-"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|_| ExtractError::Unavailable)?;
+    let mut stdin = take_stdin(child.stdin.take())?;
+    write_input(&mut stdin, bytes)?;
+    drop(stdin);
+    output_text(child.wait_with_output())
+}
+
+fn take_stdin(
+    stdin: Option<std::process::ChildStdin>,
+) -> Result<std::process::ChildStdin, ExtractError> {
+    stdin.ok_or(ExtractError::Unavailable)
+}
+
+fn write_input(writer: &mut impl std::io::Write, bytes: &[u8]) -> Result<(), ExtractError> {
+    writer
+        .write_all(bytes)
+        .map_err(|_| ExtractError::Unavailable)
+}
+
+fn output_text(output: std::io::Result<std::process::Output>) -> Result<String, ExtractError> {
+    let output = output.map_err(|_| ExtractError::Unavailable)?;
+    if !output.status.success() {
+        return Err(ExtractError::Unavailable);
+    }
+    let text = String::from_utf8_lossy(&output.stdout).into_owned();
+    if text.trim().is_empty() {
+        return Err(ExtractError::Unavailable);
+    }
+    Ok(text)
 }
 
 /// Turns extracted text into cloze cards.
@@ -101,7 +119,11 @@ pub fn source_from_env(has_llm_key: bool) -> Box<dyn CardSource> {
 /// True when an LLM key is configured, so the log line can say what runs.
 #[must_use]
 pub fn llm_configured() -> bool {
-    std::env::var("FLASHCARDS_LLM_API_KEY").is_ok_and(|value| !value.trim().is_empty())
+    key_present(std::env::var("FLASHCARDS_LLM_API_KEY").ok())
+}
+
+fn key_present(value: Option<String>) -> bool {
+    value.is_some_and(|value| !value.trim().is_empty())
 }
 
 /// Splits prose into sentences, keeping abbreviations from breaking words.
@@ -124,9 +146,7 @@ fn sentences(text: &str) -> Vec<String> {
             start = index + character.len_utf8();
         }
     }
-    if !flat[start..].trim().is_empty() {
-        out.push(flat[start..].trim().to_owned());
-    }
+    out.push(flat[start..].trim().to_owned());
     out.into_iter()
         .filter(|sentence| !sentence.is_empty())
         .collect()
@@ -210,9 +230,11 @@ fn looks_like_date(word: &str) -> bool {
     if parts.len() != 3 {
         return false;
     }
-    parts
-        .iter()
-        .all(|part| part.len() <= 4 && !part.is_empty() && part.chars().all(|c| c.is_ascii_digit()))
+    parts.iter().all(|part| is_date_part(part))
+}
+
+fn is_date_part(part: &str) -> bool {
+    part.len() <= 4 && !part.is_empty() && part.chars().all(|c| c.is_ascii_digit())
 }
 
 fn word_spans(sentence: &str) -> Vec<(usize, usize)> {
@@ -272,7 +294,7 @@ fn card_for(sentence: &str) -> Option<Card> {
     } else {
         3
     };
-    if term.chars().count() < shortest || term.chars().count() > 40 {
+    if !term_length_is_valid(term, shortest) {
         return None;
     }
     let mut front = String::with_capacity(sentence.len() + term.len() + 8);
@@ -285,6 +307,11 @@ fn card_for(sentence: &str) -> Option<Card> {
         front: front.trim().to_owned(),
         back: String::new(),
     })
+}
+
+fn term_length_is_valid(term: &str, shortest: usize) -> bool {
+    let length = term.chars().count();
+    length >= shortest && length <= 40
 }
 
 /// Two quoted columns with CRLF, matching the deck exporter the app already
@@ -321,9 +348,10 @@ impl Jobs {
     /// Stores a finished generation and returns its identifier.
     pub fn insert(&self, csv: Vec<u8>, cards: usize) -> String {
         let id = format!("{:016x}", self.next.fetch_add(1, Ordering::Relaxed));
-        if let Ok(mut finished) = self.finished.lock() {
-            finished.insert(id.clone(), Finished { csv, cards });
-        }
+        self.finished
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(id.clone(), Finished { csv, cards });
         id
     }
 
@@ -332,8 +360,9 @@ impl Jobs {
     pub fn get(&self, id: &str) -> Option<(Vec<u8>, usize)> {
         self.finished
             .lock()
-            .ok()
-            .and_then(|finished| finished.get(id).map(|job| (job.csv.clone(), job.cards)))
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(id)
+            .map(|job| (job.csv.clone(), job.cards))
     }
 }
 

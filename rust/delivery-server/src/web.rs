@@ -1,6 +1,8 @@
 use axum::{
     Json, Router,
-    extract::{DefaultBodyLimit, Request, State, rejection::JsonRejection},
+    extract::{
+        DefaultBodyLimit, Multipart, Path as AxumPath, Request, State, rejection::JsonRejection,
+    },
     http::{HeaderMap, HeaderValue, Method, StatusCode, header},
     middleware::{self, Next},
     response::{IntoResponse, Response},
@@ -15,6 +17,7 @@ use tower_http::{cors::CorsLayer, services::ServeDir};
 pub struct WebState {
     database: WebDatabase,
     authentication: WebAuthentication<WebDatabase>,
+    jobs: crate::generate::Jobs,
     production: bool,
     session_ttl_seconds: u32,
 }
@@ -25,6 +28,7 @@ impl WebState {
         Self {
             authentication: WebAuthentication::new(database.clone(), session_ttl_seconds),
             database,
+            jobs: crate::generate::Jobs::default(),
             production,
             session_ttl_seconds,
         }
@@ -113,6 +117,14 @@ pub fn router(
         .route("/api/v1/auth/me", get(me))
         .route("/api/v1/auth/companion/token", post(companion_token))
         .route(
+            "/api/v1/generate",
+            post(generate_document).layer(DefaultBodyLimit::max(
+                crate::generate::MAX_UPLOAD_BYTES + 65_536,
+            )),
+        )
+        .route("/api/v1/jobs/{id}", get(generate_status))
+        .route("/api/v1/jobs/{id}/csv", get(generate_csv))
+        .route(
             "/api/v1/auth/companion/verify",
             post(verify_companion_token),
         )
@@ -124,6 +136,109 @@ pub fn router(
             security_headers,
         ))
         .with_state(state))
+}
+
+#[derive(Serialize)]
+struct JobCreated {
+    job_id: String,
+}
+
+#[derive(Serialize)]
+struct JobStatusRead {
+    status: &'static str,
+    cards: usize,
+    download_url: String,
+}
+
+/// Upload a PDF and generate cloze cards on the server. No provider is called
+/// in v1: the heuristic generator runs unless an LLM source is wired.
+async fn generate_document(
+    State(state): State<Arc<WebState>>,
+    headers: HeaderMap,
+    mut multipart: Multipart,
+) -> Result<(StatusCode, Json<JobCreated>), ApiError> {
+    require_auth(&state, &headers).await?;
+    let mut upload: Option<Vec<u8>> = None;
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|_| ApiError(StatusCode::BAD_REQUEST, "Formulário inválido"))?
+    {
+        if field.name() != Some("file") {
+            continue;
+        }
+        let bytes = field
+            .bytes()
+            .await
+            .map_err(|_| ApiError(StatusCode::BAD_REQUEST, "Arquivo inválido"))?;
+        upload = Some(bytes.to_vec());
+        break;
+    }
+    let bytes = upload.ok_or(ApiError(StatusCode::BAD_REQUEST, "Envie um arquivo PDF"))?;
+    if bytes.is_empty() {
+        return Err(ApiError(StatusCode::BAD_REQUEST, "Arquivo vazio"));
+    }
+    let text = tokio::task::spawn_blocking(move || {
+        crate::generate::TextExtractor::extract(&crate::generate::PdfToText, &bytes)
+    })
+    .await
+    .map_err(|_| ApiError(StatusCode::INTERNAL_SERVER_ERROR, "Falha ao ler o PDF"))?
+    .map_err(|_| {
+        ApiError(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Não foi possível extrair texto do arquivo",
+        )
+    })?;
+    let cards = crate::generate::source_from_env(crate::generate::llm_configured()).cards(&text);
+    if cards.is_empty() {
+        return Err(ApiError(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Nenhum cartão pôde ser gerado deste arquivo",
+        ));
+    }
+    let csv = crate::generate::render_csv(&cards);
+    let id = state.jobs.insert(csv, cards.len());
+    Ok((StatusCode::ACCEPTED, Json(JobCreated { job_id: id })))
+}
+
+async fn generate_status(
+    State(state): State<Arc<WebState>>,
+    headers: HeaderMap,
+    AxumPath(id): AxumPath<String>,
+) -> Result<Json<JobStatusRead>, ApiError> {
+    require_auth(&state, &headers).await?;
+    let (_, cards) = state
+        .jobs
+        .get(&id)
+        .ok_or(ApiError(StatusCode::NOT_FOUND, "Geração não encontrada"))?;
+    Ok(Json(JobStatusRead {
+        status: "done",
+        cards,
+        download_url: format!("/api/v1/jobs/{id}/csv"),
+    }))
+}
+
+async fn generate_csv(
+    State(state): State<Arc<WebState>>,
+    headers: HeaderMap,
+    AxumPath(id): AxumPath<String>,
+) -> Result<Response, ApiError> {
+    require_auth(&state, &headers).await?;
+    let (csv, _) = state
+        .jobs
+        .get(&id)
+        .ok_or(ApiError(StatusCode::NOT_FOUND, "Geração não encontrada"))?;
+    Ok((
+        [
+            (header::CONTENT_TYPE, "text/csv; charset=utf-8"),
+            (
+                header::CONTENT_DISPOSITION,
+                "attachment; filename=\"flashcards.csv\"",
+            ),
+        ],
+        csv,
+    )
+        .into_response())
 }
 
 async fn live() -> Json<HealthRead> {

@@ -1,3 +1,0 @@
-$ uv run pip check
-No broken requirements found.
-[exit=0]

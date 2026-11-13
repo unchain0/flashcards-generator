@@ -1,3 +1,0 @@
-$ uv run mypy src/flashcards_generator
-Success: no issues found in 30 source files
-[exit=0]

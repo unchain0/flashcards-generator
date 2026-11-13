@@ -2,11 +2,24 @@
 
 **Objective:** Generate Anki Cloze Deletion flashcards from PDFs and PPTX using Google NotebookLM.
 
-**Status:** Active
+**Status:** Active, CLI only on the local machine
 
-**Public URL:** https://flashcards.unchain0.com
+**Public URL:** retired on 2026-11-13 — `flashcards.unchain0.com` has no route.
+The hosted panel, the companion and the VPS units are no longer used; the
+project runs as the local `flashcards` CLI.
 
 Gera flashcards Anki em formato Cloze Deletion a partir de PDFs e PPTX usando o NotebookLM do Google.
+
+## Uso local (CLI)
+
+```sh
+cargo build -p flashcards-cli
+./target/debug/flashcards generate --input-dir ./documentos --storage-file ~/.config/flashcards/notebooklm.json
+./target/debug/flashcards merge --folder ./output --deduplicate
+```
+
+`merge` works offline. `generate` and `notebook` need a local NotebookLM
+storage-state file; nothing is served over HTTP and no database is involved.
 
 ## Standards
 

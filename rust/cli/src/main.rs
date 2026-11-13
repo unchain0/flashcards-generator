@@ -1,7 +1,9 @@
 use clap::{Args, Parser, Subcommand};
+use flashcards_domain::identity::UserId;
 use flashcards_integrations::{
     csv_merge::LocalCsvMerger, deck_exporter::CsvDeckExporter,
     document_preparation::LocalDocumentPreparer, notebooklm::NotebookLMClient,
+    notebooklm_browser::NotebookLMBrowserLogin, notebooklm_profiles::LocalNotebookLMProfiles,
 };
 use flashcards_services::{
     csv_merge::{CsvMerger, MergeCsvRequest},
@@ -34,11 +36,35 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     /// Generate CSV flashcards from PDF and PPTX files using local `NotebookLM` credentials.
-    Generate(GenerateArgs),
+    Generate(Box<GenerateArgs>),
     /// Combine generated CSV files.
     Merge(MergeArgs),
     /// Inspect or delete `NotebookLM` notebooks using local credentials.
     Notebook(NotebookArgs),
+    /// Manage the local `NotebookLM` session.
+    Auth(AuthArgs),
+}
+
+#[derive(Args)]
+struct AuthArgs {
+    #[command(subcommand)]
+    command: AuthCommand,
+}
+
+#[derive(Subcommand)]
+enum AuthCommand {
+    /// Open a browser to sign in and save the local `NotebookLM` session.
+    Login(LoginArgs),
+}
+
+#[derive(Args)]
+struct LoginArgs {
+    /// Local session directory. Defaults to the platform data directory.
+    #[arg(long, env = "FLASHCARDS_DATA_DIR")]
+    data_dir: Option<PathBuf>,
+    /// Chrome or Chromium executable used for the sign-in window.
+    #[arg(long, env = "FLASHCARDS_BROWSER")]
+    browser: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -83,7 +109,10 @@ struct GenerateArgs {
     files: Option<String>,
     /// `NotebookLM` Playwright storage-state file. Defaults to `FLASHCARDS_NOTEBOOKLM_STORAGE_FILE`.
     #[arg(long, env = "FLASHCARDS_NOTEBOOKLM_STORAGE_FILE")]
-    storage_file: PathBuf,
+    storage_file: Option<PathBuf>,
+    /// Session directory written by `auth login`. Defaults to the platform data directory.
+    #[arg(long, env = "FLASHCARDS_DATA_DIR")]
+    data_dir: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -106,7 +135,10 @@ enum NotebookCommand {
 struct StorageArgs {
     /// `NotebookLM` Playwright storage-state file. Defaults to `FLASHCARDS_NOTEBOOKLM_STORAGE_FILE`.
     #[arg(long, env = "FLASHCARDS_NOTEBOOKLM_STORAGE_FILE")]
-    storage_file: PathBuf,
+    storage_file: Option<PathBuf>,
+    /// Session directory written by `auth login`. Defaults to the platform data directory.
+    #[arg(long, env = "FLASHCARDS_DATA_DIR")]
+    data_dir: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -139,8 +171,9 @@ async fn run(cli: Cli) -> Result<CommandResult, CliError> {
     let json_output = cli.json;
     let value = match cli.command {
         Command::Merge(args) => merge(args)?,
-        Command::Generate(args) => generate(args).await?,
+        Command::Generate(args) => generate(*args).await?,
         Command::Notebook(args) => notebook(args).await?,
+        Command::Auth(args) => auth(args).await?,
     };
     Ok(CommandResult(json_output, value))
 }
@@ -184,9 +217,7 @@ async fn generate(mut args: GenerateArgs) -> Result<Value, CliError> {
         .collect::<Option<Vec<_>>>()
         .ok_or_else(|| CliError::usage("source names must be valid UTF-8"))?;
     let filenames = safe_filenames(&names).map_err(|error| CliError::usage(error.to_string()))?;
-    let client = NotebookLMClient::from_storage_file(&args.storage_file)
-        .await
-        .map_err(|error| CliError::failure(error.to_string()))?;
+    let client = notebooklm_client(args.storage_file.as_deref(), args.data_dir.as_deref()).await?;
     let preparer = LocalDocumentPreparer::default();
     let exporter = CsvDeckExporter;
     let mut documents = Vec::new();
@@ -324,16 +355,14 @@ fn document_value<P: Error, G: Error, X: Error>(result: &DocumentExportResult<P,
 
 async fn notebook(args: NotebookArgs) -> Result<Value, CliError> {
     match args.command {
-        NotebookCommand::Status(args) => list_notebooks(args.storage_file, "status").await,
-        NotebookCommand::List(args) => list_notebooks(args.storage_file, "list").await,
+        NotebookCommand::Status(args) => list_notebooks(&args, "status").await,
+        NotebookCommand::List(args) => list_notebooks(&args, "list").await,
         NotebookCommand::Cleanup(args) => cleanup(args).await,
     }
 }
 
-async fn list_notebooks(storage_file: PathBuf, command: &str) -> Result<Value, CliError> {
-    let client = NotebookLMClient::from_storage_file(&storage_file)
-        .await
-        .map_err(|error| CliError::failure(error.to_string()))?;
+async fn list_notebooks(args: &StorageArgs, command: &str) -> Result<Value, CliError> {
+    let client = notebooklm_client(args.storage_file.as_deref(), args.data_dir.as_deref()).await?;
     let notebooks = client
         .list_notebooks()
         .await
@@ -347,9 +376,11 @@ async fn cleanup(args: CleanupArgs) -> Result<Value, CliError> {
     if !args.all {
         return Err(CliError::usage("cleanup requires --all; it never prompts"));
     }
-    let client = NotebookLMClient::from_storage_file(&args.storage.storage_file)
-        .await
-        .map_err(|error| CliError::failure(error.to_string()))?;
+    let client = notebooklm_client(
+        args.storage.storage_file.as_deref(),
+        args.storage.data_dir.as_deref(),
+    )
+    .await?;
     let notebooks = client
         .list_notebooks()
         .await
@@ -363,6 +394,71 @@ async fn cleanup(args: CleanupArgs) -> Result<Value, CliError> {
         deleted += 1;
     }
     Ok(json!({"command": "cleanup", "deleted": deleted}))
+}
+
+async fn auth(args: AuthArgs) -> Result<Value, CliError> {
+    match args.command {
+        AuthCommand::Login(args) => login(args).await,
+    }
+}
+
+/// The CLI serves one `NotebookLM` account per machine, so its local profile has a stable identity.
+const LOCAL_USER: &str = "00000000000000000000000000000000";
+
+fn local_user() -> Result<UserId, CliError> {
+    UserId::try_from(LOCAL_USER.to_owned()).map_err(|error| CliError::failure(error.to_string()))
+}
+
+async fn login(args: LoginArgs) -> Result<Value, CliError> {
+    let profiles = LocalNotebookLMProfiles::new(session_dir(args.data_dir.as_deref())?)
+        .map_err(|error| CliError::failure(error.to_string()))?;
+    NotebookLMBrowserLogin::new(args.browser)
+        .login(&profiles, &local_user()?)
+        .await
+        .map_err(|error| CliError::failure(error.to_string()))?;
+    Ok(json!({"command": "login", "authenticated": true}))
+}
+
+async fn notebooklm_client(
+    storage_file: Option<&Path>,
+    data_dir: Option<&Path>,
+) -> Result<NotebookLMClient, CliError> {
+    let client = if let Some(path) = storage_file {
+        NotebookLMClient::from_storage_file(path).await
+    } else {
+        let profiles = LocalNotebookLMProfiles::new(session_dir(data_dir)?)
+            .map_err(|error| CliError::failure(error.to_string()))?;
+        NotebookLMClient::for_user(&profiles, &local_user()?).await
+    };
+    client.map_err(|error| CliError::failure(error.to_string()))
+}
+
+fn session_dir(data_dir: Option<&Path>) -> Result<PathBuf, CliError> {
+    data_dir.map_or_else(default_data_dir, |path| Ok(path.to_owned()))
+}
+
+fn default_data_dir() -> Result<PathBuf, CliError> {
+    #[cfg(target_os = "windows")]
+    let base = PathBuf::from(
+        std::env::var_os("LOCALAPPDATA")
+            .ok_or_else(|| CliError::failure("LOCALAPPDATA is not set"))?,
+    );
+    #[cfg(target_os = "macos")]
+    let base = PathBuf::from(
+        std::env::var_os("HOME").ok_or_else(|| CliError::failure("HOME is not set"))?,
+    )
+    .join("Library/Application Support");
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    let base = match std::env::var_os("XDG_DATA_HOME")
+        .filter(|value| PathBuf::from(value).is_absolute())
+    {
+        Some(path) => PathBuf::from(path),
+        None => PathBuf::from(
+            std::env::var_os("HOME").ok_or_else(|| CliError::failure("HOME is not set"))?,
+        )
+        .join(".local/share"),
+    };
+    Ok(base.join("flashcards-generator/session"))
 }
 
 fn print_result(json_output: bool, result: &Value) {
@@ -444,7 +540,8 @@ mod tests {
             include: None,
             exclude: None,
             files: None,
-            storage_file: PathBuf::new(),
+            storage_file: None,
+            data_dir: None,
         };
         assert_eq!(
             source_paths(&args).unwrap(),
@@ -468,7 +565,8 @@ mod tests {
             include: Some("[invalid".into()),
             exclude: None,
             files: None,
-            storage_file: PathBuf::new(),
+            storage_file: None,
+            data_dir: None,
         };
         let err = source_paths(&args).unwrap_err();
         assert_eq!(err.code, EXIT_USAGE);
@@ -491,7 +589,8 @@ mod tests {
             include: None,
             exclude: Some("[invalid".into()),
             files: None,
-            storage_file: PathBuf::new(),
+            storage_file: None,
+            data_dir: None,
         };
         let err = source_paths(&args).unwrap_err();
         assert_eq!(err.code, EXIT_USAGE);

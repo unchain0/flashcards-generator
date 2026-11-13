@@ -25,3 +25,6 @@ input/
 /target/
 *.profraw
 !rust/integrations/tests/fixtures/chapters.pdf
+
+# Agent process artifacts
+.omo/

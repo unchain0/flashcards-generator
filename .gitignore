@@ -1,21 +1,4 @@
-# Python-generated files
-__pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
-.coverage
-
-# Virtual environments
-.venv
-node_modules/
-frontend/coverage/
-frontend/playwright-report/
-frontend/test-results/
-
 # Output and temporary files
-.coverage.*
 *.csv
 *.pdf
 *_raw.json
@@ -30,7 +13,7 @@ pdfs/
 inputs/
 input/
 
-# Local app data, including browser authentication profiles
+# Local sessions and app data
 /data/
 /flashcards.db
 /.env

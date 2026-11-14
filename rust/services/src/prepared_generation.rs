@@ -46,6 +46,7 @@ pub struct PreparedGenerationResult<E> {
     pub deck: Deck,
     pub cleanup_errors: Vec<E>,
     pub quality_stats: Option<flashcards_engines::quality::QualityStats>,
+    pub rejected: flashcards_engines::cloze::RejectStats,
 }
 
 /// # Errors
@@ -150,6 +151,7 @@ pub async fn generate_prepared_document_with_progress<
     deck.deduplicate_standard();
     let quality_stats =
         (total > 1).then(|| flashcards_engines::quality::filter(&mut deck.flashcards));
+    let rejected = flashcards_engines::cloze::filter_invalid(&mut deck.flashcards);
     if deck.flashcards.is_empty() {
         return Err(PreparedGenerationError::NoCards { cleanup_errors });
     }
@@ -157,6 +159,7 @@ pub async fn generate_prepared_document_with_progress<
         deck,
         cleanup_errors,
         quality_stats,
+        rejected,
     })
 }
 

@@ -322,3 +322,5 @@ fn keyword_cloze(word: &str, count: &mut usize) -> String {
 
 #[cfg(test)]
 mod tests;
+mod validate;
+pub use validate::{RejectReason, RejectStats, filter as filter_invalid, validate};

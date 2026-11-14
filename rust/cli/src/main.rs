@@ -349,6 +349,8 @@ fn document_value<P: Error, G: Error, X: Error>(result: &DocumentExportResult<P,
             flashcards_services::local_jobs::SourceOutcome::Skipped => "skipped",
         },
         "artifacts": result.artifacts,
+        "rejected": result.rejected.iter().collect::<Vec<_>>(),
+        "rejected_total": result.rejected.total(),
         "issues": result.issues.iter().map(ToString::to_string).collect::<Vec<_>>(),
     })
 }

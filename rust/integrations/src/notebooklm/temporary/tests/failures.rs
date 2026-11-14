@@ -75,7 +75,7 @@ async fn failed_processing_stops_later_requests_and_cleans_only_the_owned_notebo
 struct SinglePreparedSource(Vec<std::path::PathBuf>);
 
 #[tokio::test]
-async fn empty_final_decks_report_every_cleanup_failure_and_preserve_partial_csvs() {
+async fn empty_final_decks_report_every_cleanup_failure_and_remove_partial_csvs() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let origin = format!("http://{}", listener.local_addr().unwrap());
     let state = fixture::state(&origin);
@@ -101,7 +101,6 @@ async fn empty_final_decks_report_every_cleanup_failure_and_preserve_partial_csv
                 filenames: &names,
                 options: &GenerationOptions::default(),
             },
-            mode,
             before,
         )
         .await;
@@ -115,7 +114,6 @@ async fn check_empty_final_deck_case(
     client: &NotebookLMClient,
     state: &fixture::FixtureState,
     batch: DocumentBatch<'_>,
-    mode: usize,
     before: usize,
 ) {
     let output = batch.output_dir;
@@ -145,7 +143,7 @@ async fn check_empty_final_deck_case(
                 .contains(&format!("owned-{index}"))
         );
     }
-    check_empty_final_deck_report(&reports[0], output, mode);
+    check_empty_final_deck_report(&reports[0], output);
 }
 
 #[tokio::test]
@@ -202,7 +200,6 @@ fn check_empty_final_deck_report(
         std::io::Error,
     >,
     output: &Path,
-    mode: usize,
 ) {
     assert_eq!(result.outcome, SourceOutcome::Failed);
     assert_eq!(result.issues.len(), 4);
@@ -224,28 +221,16 @@ fn check_empty_final_deck_report(
         ));
         assert_eq!(issue.to_string(), "Temporary notebook cleanup failed");
     }
-    let expected: Vec<_> = if mode == 17 {
-        (1..=3)
-            .map(|index| format!("01-study_chunk{index}.csv"))
-            .collect()
-    } else {
-        Vec::new()
-    };
-    assert_eq!(result.artifacts, expected);
-    for name in &expected {
-        assert_eq!(
-            std::fs::read(output.join(name)).unwrap(),
-            "\"A {{c1::mitocôndria}} produz ATP celular.\",\"Energia\"\r\n".as_bytes()
-        );
+    // A failed document must not leave CSVs that look like a finished export.
+    assert_eq!(result.artifacts, Vec::<String>::new());
+    for index in 1..=3 {
+        assert!(!output.join(format!("01-study_chunk{index}.csv")).exists());
     }
     assert_eq!(
         std::fs::read(output.join("01-study.csv")).unwrap(),
         b"preserve existing final CSV"
     );
-    assert_eq!(
-        std::fs::read_dir(output).unwrap().count(),
-        1 + expected.len()
-    );
+    assert_eq!(std::fs::read_dir(output).unwrap().count(), 1);
 }
 
 #[tokio::test]
@@ -360,7 +345,7 @@ impl flashcards_services::deck_exporter::DeckExporter for PartialExporter<'_> {
 }
 
 #[tokio::test]
-async fn later_chunk_failure_keeps_exported_cards_and_prior_cleanup_errors() {
+async fn later_chunk_failure_removes_partial_csvs_and_keeps_cleanup_errors() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let origin = format!("http://{}", listener.local_addr().unwrap());
     let state = fixture::state(&origin);
@@ -422,7 +407,7 @@ async fn check_partial_chunk_failure(
     assert_eq!(reports.len(), 1);
     let result = &reports[0];
     assert_eq!(result.outcome, SourceOutcome::Failed);
-    assert_eq!(result.artifacts, ["01-study_chunk1.csv"]);
+    assert_eq!(result.artifacts, Vec::<String>::new());
     assert_eq!(result.issues.len(), 1 + usize::from(mode == 2));
     assert!(matches!(
         &result.issues[0],
@@ -443,11 +428,8 @@ async fn check_partial_chunk_failure(
             .count(),
         usize::from(mode == 2)
     );
-    assert_ne!(
-        std::fs::read(output.join(&result.artifacts[0])).unwrap(),
-        [] as [u8; 0]
-    );
-    assert_eq!(std::fs::read_dir(output).unwrap().count(), 1);
+    assert!(!output.join("01-study_chunk1.csv").exists());
+    assert_eq!(std::fs::read_dir(output).unwrap().count(), 0);
     assert_eq!(state.sequence.load(Ordering::SeqCst), before + 2);
     assert!(client.finish_cleanup().await);
     for index in before..before + 2 {

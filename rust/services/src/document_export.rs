@@ -43,10 +43,12 @@ pub struct DocumentExportResult<P, G, X> {
     pub outcome: SourceOutcome,
     pub artifacts: Vec<String>,
     pub issues: Vec<ExportIssue<P, G, X>>,
+    pub rejected: flashcards_engines::cloze::RejectStats,
 }
 
 impl<P, G, X> DocumentExportResult<P, G, X> {
     fn record_warnings(&mut self, generated: &mut PreparedGenerationResult<G>) {
+        self.rejected = generated.rejected.clone();
         if generated
             .quality_stats
             .as_ref()
@@ -56,6 +58,13 @@ impl<P, G, X> DocumentExportResult<P, G, X> {
         }
         self.issues
             .extend(generated.cleanup_errors.drain(..).map(ExportIssue::Cleanup));
+    }
+
+    /// Removes the CSVs written so far: a failed document must not look complete.
+    fn discard_artifacts(&mut self, output_dir: &Path) {
+        for artifact in self.artifacts.drain(..) {
+            let _ = std::fs::remove_file(output_dir.join(&artifact));
+        }
     }
 
     fn record_failure(&mut self, error: PreparedGenerationError<P, G>) {
@@ -190,6 +199,7 @@ pub async fn generate_source_csv<
         outcome: SourceOutcome::Completed,
         artifacts: Vec::new(),
         issues: Vec::new(),
+        rejected: flashcards_engines::cloze::RejectStats::default(),
     };
     let generation = generate_prepared_document_with_progress(
         preparer,
@@ -203,7 +213,7 @@ pub async fn generate_source_csv<
                     exporter,
                     output_dir,
                     format!("{stem}_chunk{index}.csv"),
-                    deck,
+                    &without_invalid_cards(deck),
                     &mut result,
                 );
             }
@@ -227,7 +237,17 @@ pub async fn generate_source_csv<
         }
         Err(error) => result.record_failure(error),
     }
+    if result.outcome == SourceOutcome::Failed {
+        result.discard_artifacts(output_dir);
+    }
     result
+}
+
+/// Chunk CSVs follow the same rule as the final deck: invalid cards never reach the file.
+fn without_invalid_cards(deck: &flashcards_domain::Deck) -> flashcards_domain::Deck {
+    let mut clean = deck.clone();
+    let _ = flashcards_engines::cloze::filter_invalid(&mut clean.flashcards);
+    clean
 }
 
 fn export_deck<P, G, X: DeckExporter>(

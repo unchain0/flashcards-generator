@@ -122,6 +122,37 @@ fn assert_private_profile(profiles: &LocalNotebookLMProfiles, first_home: &Path,
 }
 
 #[test]
+fn repeated_access_keeps_the_same_profile_path_without_extra_nesting() {
+    let directory = tempfile::tempdir().unwrap();
+    let data_dir = directory.path().join("companion");
+    let identity = user("c");
+
+    let first = LocalNotebookLMProfiles::new(data_dir.clone()).unwrap();
+    let first_home = first.home(&identity).unwrap();
+    first.save(&identity, STORAGE).unwrap();
+    assert_eq!(first.load(&identity).unwrap().as_deref(), Some(STORAGE));
+    let first_storage = first.storage_path(&identity).unwrap();
+
+    let second = LocalNotebookLMProfiles::new(data_dir.clone()).unwrap();
+    let second_home = second.home(&identity).unwrap();
+    let second_storage = second.storage_path(&identity).unwrap();
+
+    assert_eq!(first_home, second_home);
+    assert_eq!(first_storage, second_storage);
+    assert_eq!(
+        second_home,
+        data_dir.join("profiles").join(identity.as_str())
+    );
+    assert_eq!(
+        second_storage,
+        second_home.join("profiles/default/storage_state.json")
+    );
+    let rendered = second_storage.to_string_lossy();
+    assert_eq!(rendered.matches("profiles").count(), 2, "{rendered}");
+    assert!(!rendered.contains("profiles/default/profiles"));
+}
+
+#[test]
 fn rejects_unsafe_profile_names_and_invalid_credentials_without_overwriting_originals() {
     let directory = tempfile::tempdir().unwrap();
     assert!(LocalNotebookLMProfiles::new(PathBuf::from("relative")).is_err());
